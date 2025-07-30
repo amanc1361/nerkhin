@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    env_file:
+      - ./backend/.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    container_name: nerkhin-backend
+    build:
+      context: ./backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - server-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+
+  frontend:
+    container_name: nerkhin-frontend
+    build:
+      context: ./frontend
+    expose:
+      - "3000"
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: nerkhin-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/var/www/certbot
+      - certbot-etc:/etc/letsencrypt
+    depends_on:
+      - frontend
+      - backend
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./nginx/ssl:/var/www/certbot
+      - certbot-etc:/etc/letsencrypt
+    command: certonly --webroot --webroot-path=/var/www/certbot --email kamran.mohammadzardi.com --agree-tos --no-eff-email -d nerkhin.com -d www.nerkhin.com -d nerkhin.ir -d www.nerkhin.ir
+
+volumes:
+  postgres-data:
+  server-data:
+  certbot-etc:

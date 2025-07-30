@@ -1,0 +1,1 @@
+CREATE DATABASE nerkhin ENCODING = 'UTF8';

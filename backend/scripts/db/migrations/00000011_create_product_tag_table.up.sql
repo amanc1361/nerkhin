@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS product_tag (
+	id 				BIGSERIAL 		NOT NULL PRIMARY KEY, 
+	product_id 		BIGINT 			NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+	tag 			VARCHAR(50) 	NOT NULL
+);

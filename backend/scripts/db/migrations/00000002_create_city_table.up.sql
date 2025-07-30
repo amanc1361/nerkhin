@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS city (
+  id      BIGSERIAL     NOT NULL PRIMARY KEY,
+  name    VARCHAR(100)  NOT NULL,
+  type_c  SMALLINT      NOT NULL
+);
