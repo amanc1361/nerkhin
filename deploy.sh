@@ -1,30 +1,30 @@
 #!/bin/bash
+
 set -e
 
-IMAGE_TAG=$1
+SHA_TAG=$1
+echo "🔖 Deploying version: $SHA_TAG"
 
-if [ -z "$IMAGE_TAG" ]; then
-  echo "❌ IMAGE_TAG is missing!"
-  exit 1
-fi
+# مسیر فایل‌ها را مشخص کن
+BACKEND_IMAGE="backend-${SHA_TAG}.tar"
+FRONTEND_IMAGE="frontend-${SHA_TAG}.tar"
+BACKEND_ENV="backend.env"
+FRONTEND_ENV="frontend.env"
+
+# آماده‌سازی دایرکتوری اجرا
+cd ~/nerkhin/deploy_package
 
 echo "📦 Loading Docker images..."
-docker load -i backend-${IMAGE_TAG}.tar
-docker load -i frontend-${IMAGE_TAG}.tar
+docker load -i $BACKEND_IMAGE
+docker load -i $FRONTEND_IMAGE
 
-echo "🧹 Cleaning previous containers..."
-docker compose down --remove-orphans || true
+# کپی فایل‌های env به یک مسیر بالاتر برای docker-compose
+cp $BACKEND_ENV ../.env.backend
+cp $FRONTEND_ENV ../.env.frontend
 
-echo "📁 Placing environment files..."
-mkdir -p backend frontend
-mv backend.env backend/.env
-mv frontend.env frontend/.env 2>/dev/null || true
+# رفتن به پوشه اصلی پروژه
+cd ..
 
-echo "⚙️ Generating docker-compose.yml..."
-export IMAGE_TAG=$IMAGE_TAG
-envsubst < docker-compose.template.yml > docker-compose.yml
-
-echo "🚀 Starting containers..."
-docker compose up -d
-
-echo "✅ Deployment complete"
+# اجرای compose
+echo "🚀 Running Docker Compose..."
+SHA_TAG=$SHA_TAG docker compose -f deploy_package/docker-compose.template.yml up -d --remove-orphans --build
