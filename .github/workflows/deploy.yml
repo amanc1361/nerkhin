@@ -51,7 +51,7 @@ jobs:
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
         source: "deploy_package/*"
-        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
+        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
 
     - name: 🖥 Deploy on VPS
       uses: appleboy/ssh-action@v0.1.2
@@ -60,6 +60,6 @@ jobs:
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
         script: |
-          cd ~/nerkhin
+          cd ~/nerkhin/deploy_package
           chmod +x deploy.sh
           ./deploy.sh ${{ env.SHA_TAG }}
