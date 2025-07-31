@@ -9,24 +9,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🧾 Checkout code
+    - name: 🧾 Checkout Code
       uses: actions/checkout@v2
 
-    - name: 🔐 Decode SSH Private Key
+    - name: 🔐 Prepare SSH Key File
       run: |
         echo "${{ secrets.REMOTE_SSH_KEY_B64 }}" | base64 -d > id_rsa
         chmod 600 id_rsa
 
-    - name: 🚚 Copy files to VPS via SCP
+    - name: 🕵️‍♂️ Debug SSH Key
+      run: |
+        ls -la
+        file id_rsa
+        head -n 2 id_rsa
+
+    - name: 🚚 Copy Files to VPS
       uses: appleboy/scp-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
-        key_path: "id_rsa"  # 🟢 مسیر به کلید درست مشخص شده
+        key_path: "id_rsa"
         source: "./"
         target: "/home/${{ secrets.REMOTE_USER }}/myapp"
 
-    - name: ⚙ SSH and deploy
+    - name: ⚙ Deploy on VPS
       uses: appleboy/ssh-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
