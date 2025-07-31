@@ -2,7 +2,8 @@ name: Build and Deploy to VPS
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -11,33 +12,31 @@ jobs:
 
     steps:
     - name: 📥 Checkout Repository
-      uses: actions/checkout@v3
-
-    - name: 🔐 Setup SSH Key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.REMOTE_SSH_KEY }}" | base64 -d > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
+      uses: actions/checkout@v2
 
     - name: 🚚 Copy project files to VPS via SCP
       uses: appleboy/scp-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
-        key_path: ~/.ssh/id_rsa
+        key: ${{ secrets.REMOTE_SSH_KEY }}
         source: "./"
-        target: "/home/${{ secrets.REMOTE_USER }}/myapp"
+        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
 
-    - name: 🚀 SSH into VPS and Deploy
+    - name: 🖥 SSH into VPS and Deploy
       uses: appleboy/ssh-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
-        key_path: ~/.ssh/id_rsa
+        key: ${{ secrets.REMOTE_SSH_KEY }}
         script: |
-          cd ~/myapp
+          echo "🔁 Switching to project directory"
+          cd ~/nerkhin
+
           echo "🧹 Stopping existing containers (if any)..."
           docker compose down --remove-orphans
+
           echo "🚀 Building and starting new containers..."
           docker compose up --build -d
+
           echo "✅ Deployment complete!"
