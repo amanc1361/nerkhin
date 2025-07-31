@@ -1,21 +1,25 @@
 # ------------------------------------
 # Stage 1: Build the Go binary
 # ------------------------------------
-FROM golang:1.23.1-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Install git (for go get if needed)
-RUN apk add --no-cache git
+# نصب ابزارهای مورد نیاز برای CGO + webp
+RUN apk add --no-cache \
+    git \
+    gcc \
+    musl-dev \
+    libwebp-dev
 
-# Copy go modules and download dependencies early
+# نصب وابستگی‌ها
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source
+# کپی سورس‌کد
 COPY . .
 
-# Build statically linked Go binary
+# بیلد با پشتیبانی از CGO (WebP)
 RUN CGO_ENABLED=1 GOOS=linux go build -o /nerkhin-app ./cmd/nerkhin/main.go
 
 # ------------------------------------
@@ -25,17 +29,18 @@ FROM alpine:3.19
 
 WORKDIR /
 
-# Copy only what we need: binary and migrations
+# فقط libwebp و ca-certificates برای اجرا نیاز داریم
+RUN apk add --no-cache \
+    libwebp \
+    ca-certificates
+
+# فایل‌های لازم
 COPY --from=builder /nerkhin-app /nerkhin-app
 COPY --from=builder /app/scripts/db/migrations /migrations
 
-# Optionally add ca-certificates (for https calls)
-RUN apk add --no-cache ca-certificates
-
-# Use non-root user (for security)
+# ایجاد یوزر امن
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
 EXPOSE 8080
 CMD ["/nerkhin-app"]
-    
