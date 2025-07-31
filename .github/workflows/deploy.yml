@@ -1,68 +1,66 @@
-name: Build and Deploy to VPS (Images via SCP with Tag)
+name: Build and Deploy to VPS (Images via SCP with DEPLOY_TAG)
 
 on:
   push:
     branches:
       - main
 
-env:
-  DEPLOY_TAG: deploy-${{ github.ref_name }}-run-${{ github.run_number }}
-
 jobs:
   deploy:
     name: Build Images and Deploy to VPS
     runs-on: ubuntu-latest
 
+    env:
+      DEPLOY_TAG: deploy-${{ github.ref_name }}-run-${{ github.run_number }}
+
     steps:
-    - name: 📥 Checkout Code
-      uses: actions/checkout@v2
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v2
 
-    - name: 🐳 Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: 🐳 Build and Save Backend Image
-      run: |
-        docker build -t backend:${DEPLOY_TAG} ./backend
-        docker save -o backend-${DEPLOY_TAG}.tar backend:${DEPLOY_TAG}
+      - name: 🐳 Build and Save Backend Image
+        run: |
+          docker build -t backend:${DEPLOY_TAG} ./backend
+          docker save -o backend-${DEPLOY_TAG}.tar backend:${DEPLOY_TAG}
 
-    - name: 🐳 Build and Save Frontend Image
-      run: |
-        docker build -t frontend:${DEPLOY_TAG} ./frontend
-        docker save -o frontend-${DEPLOY_TAG}.tar frontend:${DEPLOY_TAG}
+      - name: 🐳 Build and Save Frontend Image
+        run: |
+          docker build -t frontend:${DEPLOY_TAG} ./frontend
+          docker save -o frontend-${DEPLOY_TAG}.tar frontend:${DEPLOY_TAG}
 
-    - name: ✍️ Generate .env files from secrets
-      run: |
-        echo "${{ secrets.BACKEND_ENV_CONTENT }}" > backend/.env
-        echo "${{ secrets.FRONTEND_ENV_CONTENT }}" > frontend/.env
+      - name: ✍️ Generate .env files from secrets
+        run: |
+          echo "${{ secrets.BACKEND_ENV_CONTENT }}" > backend/.env
+          echo "${{ secrets.FRONTEND_ENV_CONTENT }}" > frontend/.env
 
-    - name: 📂 Create deploy package
-      run: |
-        mkdir -p deploy_package
-        cp backend-${DEPLOY_TAG}.tar deploy_package/
-        cp frontend-${DEPLOY_TAG}.tar deploy_package/
-        cp docker-compose.template.yml deploy_package/
-        cp deploy.sh deploy_package/
-        cp backend/.env deploy_package/backend.env
-        cp frontend/.env deploy_package/frontend.env
-        echo "📦 Contents of deploy_package:"
-        ls -lh deploy_package
+      - name: 📂 Create deploy package
+        run: |
+          rm -rf deploy_package
+          mkdir deploy_package
+          mv backend-${DEPLOY_TAG}.tar frontend-${DEPLOY_TAG}.tar deploy_package/
+          cp docker-compose.template.yml deploy_package/
+          cp deploy.sh deploy_package/
+          cp backend/.env deploy_package/backend.env
+          cp frontend/.env deploy_package/frontend.env || true
 
-    - name: 🚚 Upload deploy package to VPS
-      uses: appleboy/scp-action@v0.1.2
-      with:
-        host: ${{ secrets.REMOTE_HOST }}
-        username: ${{ secrets.REMOTE_USER }}
-        key: ${{ secrets.REMOTE_SSH_KEY }}
-        source: "deploy_package/*"
-        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
+      - name: 🚚 Upload deploy package to VPS
+        uses: appleboy/scp-action@v0.1.2
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.REMOTE_SSH_KEY }}
+          source: "deploy_package/*"
+          target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
 
-    - name: 🖥 Deploy on VPS
-      uses: appleboy/ssh-action@v0.1.2
-      with:
-        host: ${{ secrets.REMOTE_HOST }}
-        username: ${{ secrets.REMOTE_USER }}
-        key: ${{ secrets.REMOTE_SSH_KEY }}
-        script: |
-          cd ~/nerkhin/deploy_package
-          chmod +x deploy.sh
-          ./deploy.sh ${DEPLOY_TAG}
+      - name: 🖥 Deploy on VPS
+        uses: appleboy/ssh-action@v0.1.2
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.REMOTE_SSH_KEY }}
+          script: |
+            cd ~/nerkhin/deploy_package
+            chmod +x deploy.sh
+            ./deploy.sh ${{ env.DEPLOY_TAG }}
