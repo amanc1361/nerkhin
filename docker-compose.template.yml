@@ -1,5 +1,7 @@
 version: "3.9"
 
+env_file: ../.env.backend
+
 services:
   postgres:
     container_name: postgres
@@ -11,8 +13,6 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    env_file:
-      - ../.env.backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -39,11 +39,11 @@ services:
     image: frontend:${DEPLOY_TAG}
     expose:
       - "3000"
-    restart: unless-stopped
     depends_on:
       - backend
     env_file:
       - ../.env.frontend
+    restart: unless-stopped
 
   nginx:
     image: nginx:alpine
