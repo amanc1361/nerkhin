@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      SHA_TAG: sha-${{ github.sha }}
+      SHA_TAG: deploy-${{ github.ref_name }}-run-${{ github.run_number }}
 
     steps:
     - name: 📥 Checkout Code
