@@ -1,42 +1,19 @@
-name: Build and Deploy to VPS
+name: 🔌 Direct SSH Test With Secret Key
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Deploy to Remote Server
+  ssh-test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📥 Checkout Repository
-      uses: actions/checkout@v2
-
-    - name: 🚚 Copy project files to VPS via SCP
-      uses: appleboy/scp-action@v0.1.2
-      with:
-        host: ${{ secrets.REMOTE_HOST }}
-        username: ${{ secrets.REMOTE_USER }}
-        key: ${{ secrets.REMOTE_SSH_KEY }}
-        source: "./"
-        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
-
-    - name: 🖥 SSH into VPS and Deploy
+    - name: 🚀 Test SSH Connection to Remote Server
       uses: appleboy/ssh-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
+        port: 22
         script: |
-          echo "🔁 Switching to project directory"
-          cd ~/nerkhin
-
-          echo "🧹 Stopping existing containers (if any)..."
-          docker compose down --remove-orphans
-
-          echo "🚀 Building and starting new containers..."
-          docker compose up --build -d
-
-          echo "✅ Deployment complete!"
+          echo "✅ SSH connection successful from GitHub Actions!"
