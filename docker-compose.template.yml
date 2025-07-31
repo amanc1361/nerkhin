@@ -22,7 +22,7 @@ services:
 
   backend:
     container_name: nerkhin-backend
-    image: backend:${SHA_TAG}
+    image: backend:${DEPLOY_TAG}
     ports:
       - "8080:8080"
     volumes:
@@ -36,7 +36,7 @@ services:
 
   frontend:
     container_name: nerkhin-frontend
-    image: frontend:${SHA_TAG}
+    image: frontend:${DEPLOY_TAG}
     expose:
       - "3000"
     restart: unless-stopped

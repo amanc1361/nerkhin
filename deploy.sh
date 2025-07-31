@@ -1,25 +1,27 @@
 #!/bin/bash
+
 set -e
 
-SHA_TAG=$1
-echo "🔖 Deploying version: $SHA_TAG"
+DEPLOY_TAG=$1
+echo "🔖 Deploying version: $DEPLOY_TAG"
 
-cd ~/nerkhin/deploy_package
-
-# تعیین نام فایل‌ها
-BACKEND_IMAGE="backend-${SHA_TAG}.tar"
-FRONTEND_IMAGE="frontend-${SHA_TAG}.tar"
+# مسیر فایل‌ها را مشخص کن
+BACKEND_IMAGE="backend-${DEPLOY_TAG}.tar"
+FRONTEND_IMAGE="frontend-${DEPLOY_TAG}.tar"
 BACKEND_ENV="backend.env"
 FRONTEND_ENV="frontend.env"
 
-echo "📦 Loading Docker images..."
-docker load -i $BACKEND_IMAGE
-docker load -i $FRONTEND_IMAGE
+cd ~/nerkhin/deploy_package
 
-echo "📝 Copy env files..."
-cp $BACKEND_ENV ../.env.backend
-cp $FRONTEND_ENV ../.env.frontend
+echo "📦 Loading Docker images..."
+docker load -i "$BACKEND_IMAGE"
+docker load -i "$FRONTEND_IMAGE"
+
+# کپی فایل‌های env به ریشه پروژه
+cp "$BACKEND_ENV" ../.env.backend
+cp "$FRONTEND_ENV" ../.env.frontend
+
+cd ..
 
 echo "🚀 Running Docker Compose..."
-cd ..
-SHA_TAG=$SHA_TAG docker compose -f deploy_package/docker-compose.template.yml up -d --remove-orphans --build
+DEPLOY_TAG="$DEPLOY_TAG" docker compose -f deploy_package/docker-compose.template.yml up -d --remove-orphans --build
