@@ -25,6 +25,9 @@ cp $FRONTEND_ENV ../.env.frontend
 # رفتن به پوشه اصلی پروژه
 cd ..
 
+# 🔧 تعریف متغیر محیطی برای docker-compose
+export SHA_TAG=$SHA_TAG
+
 # اجرای compose
 echo "🚀 Running Docker Compose..."
-SHA_TAG=$SHA_TAG docker compose -f deploy_package/docker-compose.template.yml up -d --remove-orphans --build
+docker compose -f deploy_package/docker-compose.template.yml up -d --remove-orphans --build
