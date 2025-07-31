@@ -1,33 +1,15 @@
-// /** @type {import('next').NextConfig} */
-// const nextConfig = {
-//    reactStrictMode: true, 
 
-
-//   images: {
-//     remotePatterns: [
-//       {
-//         protocol: 'https',
-//         hostname: 'nerrkhin.com', 
-//         port: '', 
-//         pathname: '/images/**', 
-//       },
-     
-//     ],
-//   },
-// };
-
-// module.exports = nextConfig;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-
+  output: 'standalone',
   async rewrites() {
     if (process.env.NODE_ENV === 'development') {
       return [
         {
             source: '/api/go/:path*',
-          destination: 'http://localhost:8084/v1/:path*',
+            destination: 'http://localhost:8084/v1/:path*',
         },
       ];
     }
