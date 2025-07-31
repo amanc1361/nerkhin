@@ -1,56 +1,56 @@
-name: Build and Deploy to VPS (Images via SCP with SHA)
+name: 🚀 Build and Deploy to VPS (Images via SCP with Tag)
 
 on:
   push:
     branches:
-      - main
+      - main  # یا هر شاخه‌ای که می‌خواهی مستقر شود
 
 jobs:
   deploy:
-    name: Build Images and Deploy to VPS
+    name: Build and Deploy to VPS
     runs-on: ubuntu-latest
 
     env:
-      SHA_TAG: deploy-${{ github.ref_name }}-run-${{ github.run_number }}
+      DEPLOY_TAG: deploy-${{ github.ref_name }}-run-${{ github.run_number }}
 
     steps:
     - name: 📥 Checkout Code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: 🐳 Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
     - name: 🐳 Build and Save Backend Image
       run: |
-        docker build -t backend:${SHA_TAG} ./backend
-        docker save -o backend-${SHA_TAG}.tar backend:${SHA_TAG}
+        docker build -t backend:${DEPLOY_TAG} ./backend
+        docker save -o backend-${DEPLOY_TAG}.tar backend:${DEPLOY_TAG}
 
     - name: 🐳 Build and Save Frontend Image
       run: |
-        docker build -t frontend:${SHA_TAG} ./frontend
-        docker save -o frontend-${SHA_TAG}.tar frontend:${SHA_TAG}
+        docker build -t frontend:${DEPLOY_TAG} ./frontend
+        docker save -o frontend-${DEPLOY_TAG}.tar frontend:${DEPLOY_TAG}
 
     - name: ✍️ Generate .env files from secrets
       run: |
         echo "${{ secrets.BACKEND_ENV_CONTENT }}" > backend/.env
         echo "${{ secrets.FRONTEND_ENV_CONTENT }}" > frontend/.env
 
-    - name: 📂 Create deploy package
+    - name: 📦 Create Deploy Package
       run: |
-        mkdir deploy_package
-        mv backend-${SHA_TAG}.tar frontend-${SHA_TAG}.tar deploy_package/
-        cp docker-compose.template.yml deploy_package/
-        cp deploy.sh deploy_package/
-        cp backend/.env deploy_package/backend.env
-        cp frontend/.env deploy_package/frontend.env || true
+        mkdir /tmp/deploy_package
+        mv backend-${DEPLOY_TAG}.tar frontend-${DEPLOY_TAG}.tar /tmp/deploy_package/
+        cp docker-compose.template.yml /tmp/deploy_package/
+        cp deploy.sh /tmp/deploy_package/
+        cp backend/.env /tmp/deploy_package/backend.env
+        cp frontend/.env /tmp/deploy_package/frontend.env
 
-    - name: 🚚 Upload deploy package to VPS
+    - name: 🚚 Upload Deploy Package to VPS
       uses: appleboy/scp-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
-        source: "deploy_package/*"
+        source: "/tmp/deploy_package/*"
         target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
 
     - name: 🖥 Deploy on VPS
@@ -62,4 +62,4 @@ jobs:
         script: |
           cd ~/nerkhin/deploy_package
           chmod +x deploy.sh
-          ./deploy.sh ${{ env.SHA_TAG }}
+          ./deploy.sh deploy-${{ github.ref_name }}-run-${{ github.run_number }}
