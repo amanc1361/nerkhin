@@ -7,8 +7,8 @@ import { modelPageMessages as messages } from '@/app/constants/modelmessage';
 import { Edit, PlusCircle, Trash2 } from 'lucide-react';
 import ReusableModal from '@/app/components/shared/generalModal';
 import ConfirmationDialog from '@/app/components/shared/ConfirmationDialog';
-import { Brand } from '@/app/types/types';
-import { Model } from '@/app/types/model/model';
+import { Brand, Model } from '@/app/types/types';
+
 import { ModelForm } from '@/app/panel/model/forms/ModelForm';
 
 
