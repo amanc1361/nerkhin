@@ -39,10 +39,9 @@ services:
     container_name: nerkhin-frontend
     build:
       context: ./frontend
+      dockerfile: Dockerfile
     expose:
       - "3000"
-    env_file:
-      - ./backend/.env
     restart: unless-stopped
 
   nginx:
