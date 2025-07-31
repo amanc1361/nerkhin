@@ -1,21 +1,42 @@
-name: 🔌 Test SSH Connection
+name: Build and Deploy to VPS
 
 on:
   push:
     branches:
-      - main  # یا هر برنچی که روش push می‌کنی
+      - main
 
 jobs:
-  ssh-test:
+  deploy:
+    name: Deploy to Remote Server
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🚀 Try SSH Connection
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: 🚚 Copy project files to VPS via SCP
+      uses: appleboy/scp-action@v0.1.2
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ${{ secrets.REMOTE_USER }}
+        key: ${{ secrets.REMOTE_SSH_KEY }}
+        source: "./"
+        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
+
+    - name: 🖥 SSH into VPS and Deploy
       uses: appleboy/ssh-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
-        port: 22
         script: |
-          echo "✅ SSH connection successful"
+          echo "🔁 Switching to project directory"
+          cd ~/nerkhin
+
+          echo "🧹 Stopping existing containers (if any)..."
+          docker compose down --remove-orphans
+
+          echo "🚀 Building and starting new containers..."
+          docker compose up --build -d
+
+          echo "✅ Deployment complete!"
