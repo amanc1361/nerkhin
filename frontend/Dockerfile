@@ -6,7 +6,8 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+# فقط فایل‌های ضروری برای نصب
+COPY frontend/package.json frontend/yarn.lock* frontend/package-lock.json* frontend/pnpm-lock.yaml* ./
 
 RUN \
   if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
@@ -23,7 +24,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend ./
 
 RUN \
   if [ -f yarn.lock ]; then yarn build; \
@@ -42,18 +43,13 @@ ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-# Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -u 1001 -S nextjs -G nodejs
 
-# Copy only necessary files from builder
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/.next/standalone ./
 
-# Change ownership to non-root user
 RUN chown -R nextjs:nodejs /app
-
 USER nextjs
 
-# Start Next.js standalone server
 CMD ["node", "server.js"]
