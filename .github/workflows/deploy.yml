@@ -62,4 +62,4 @@ jobs:
           script: |
             cd ~/nerkhin/deploy_package
             chmod +x deploy.sh
-            ./deploy.sh ${DEPLOY_TAG}
+            ./deploy.sh ${{ env.DEPLOY_TAG }}
