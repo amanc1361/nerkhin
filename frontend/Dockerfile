@@ -6,8 +6,7 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 
-# فقط فایل‌های ضروری برای نصب
-COPY frontend/package.json frontend/yarn.lock* frontend/package-lock.json* frontend/pnpm-lock.yaml* ./
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 
 RUN \
   if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
@@ -24,7 +23,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY frontend ./
+COPY . .
 
 RUN \
   if [ -f yarn.lock ]; then yarn build; \
