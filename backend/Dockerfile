@@ -38,3 +38,4 @@ USER appuser
 
 EXPOSE 8080
 CMD ["/nerkhin-app"]
+    
