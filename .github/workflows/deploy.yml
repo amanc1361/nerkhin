@@ -30,6 +30,11 @@ jobs:
         docker build -t frontend:${SHA_TAG} ./frontend
         docker save -o frontend-${SHA_TAG}.tar frontend:${SHA_TAG}
 
+    - name: ✍️ Generate .env files from secrets
+      run: |
+        echo "${{ secrets.BACKEND_ENV_CONTENT }}" > backend/.env
+        echo "${{ secrets.FRONTEND_ENV_CONTENT }}" > frontend/.env
+
     - name: 📂 Create deploy package
       run: |
         mkdir deploy_package
