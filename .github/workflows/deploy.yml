@@ -30,11 +30,8 @@ jobs:
         key: ${{ secrets.REMOTE_SSH_KEY }}
         script: |
           cd ~/myapp
-
           echo "🧹 Stopping existing containers (if any)..."
           docker compose down --remove-orphans
-
           echo "🚀 Building and starting new containers..."
           docker compose up --build -d
-
           echo "✅ Deployment complete!"
