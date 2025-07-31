@@ -1,17 +1,17 @@
-name: Build and Deploy to VPS (Images via SCP with TAG)
+name: Build and Deploy to VPS (Images via SCP with Tag)
 
 on:
   push:
     branches:
       - main
 
+env:
+  DEPLOY_TAG: deploy-${{ github.ref_name }}-run-${{ github.run_number }}
+
 jobs:
   deploy:
     name: Build Images and Deploy to VPS
     runs-on: ubuntu-latest
-
-    env:
-      DEPLOY_TAG: deploy-${{ github.ref_name }}-run-${{ github.run_number }}
 
     steps:
     - name: 📥 Checkout Code
@@ -37,15 +37,15 @@ jobs:
 
     - name: 📂 Create deploy package
       run: |
-        mkdir /tmp/deploy_package
-        mv backend-${DEPLOY_TAG}.tar frontend-${DEPLOY_TAG}.tar /tmp/deploy_package/
-        cp docker-compose.template.yml /tmp/deploy_package/
-        cp deploy.sh /tmp/deploy_package/
-        cp backend/.env /tmp/deploy_package/backend.env
-        cp frontend/.env /tmp/deploy_package/frontend.env
-
-        echo "✅ Deploy package contents:"
-        ls -lah /tmp/deploy_package
+        mkdir -p deploy_package
+        cp backend-${DEPLOY_TAG}.tar deploy_package/
+        cp frontend-${DEPLOY_TAG}.tar deploy_package/
+        cp docker-compose.template.yml deploy_package/
+        cp deploy.sh deploy_package/
+        cp backend/.env deploy_package/backend.env
+        cp frontend/.env deploy_package/frontend.env
+        echo "📦 Contents of deploy_package:"
+        ls -lh deploy_package
 
     - name: 🚚 Upload deploy package to VPS
       uses: appleboy/scp-action@v0.1.2
@@ -53,7 +53,7 @@ jobs:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
-        source: "/tmp/deploy_package/*"
+        source: "deploy_package/*"
         target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
 
     - name: 🖥 Deploy on VPS
