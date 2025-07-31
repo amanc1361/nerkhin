@@ -12,17 +12,17 @@ jobs:
     - name: 🧾 Checkout code
       uses: actions/checkout@v2
 
-    - name: 🔐 Decode SSH private key
+    - name: 🔐 Decode SSH Private Key
       run: |
-        echo "${{ secrets.REMOTE_SSH_KEY_B64 }}" | base64 -d > id_rsa
-        chmod 600 id_rsa
+        echo "${{ secrets.REMOTE_SSH_KEY_B64 }}" | base64 -d > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
 
-    - name: 🚚 Copy files to VPS
+    - name: 🚚 Copy files to VPS via SCP
       uses: appleboy/scp-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
-        key_path: ./id_rsa
+        key_path: ~/.ssh/id_rsa
         source: "./"
         target: "/home/${{ secrets.REMOTE_USER }}/myapp"
 
@@ -31,11 +31,9 @@ jobs:
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
-        key_path: ./id_rsa
+        key_path: ~/.ssh/id_rsa
         script: |
           cd ~/myapp
-          echo "🧹 Stopping previous containers"
           docker compose down --remove-orphans
-          echo "🧱 Building and starting new containers"
           docker compose up --build -d
           echo "✅ Deployment done!"
