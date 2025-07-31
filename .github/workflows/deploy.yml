@@ -1,4 +1,4 @@
-name: Build and Deploy to VPS
+name: Build and Deploy to VPS (Images via SCP with SHA)
 
 on:
   push:
@@ -7,37 +7,54 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Remote Server
+    name: Build Images and Deploy to VPS
     runs-on: ubuntu-latest
 
+    env:
+      SHA_TAG: sha-${{ github.sha }}
+
     steps:
-    - name: 📥 Checkout Repository
+    - name: 📥 Checkout Code
       uses: actions/checkout@v2
 
-    - name: 🚚 Copy project files to VPS via SCP
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🐳 Build and Save Backend Image
+      run: |
+        docker build -t backend:${SHA_TAG} ./backend
+        docker save -o backend-${SHA_TAG}.tar backend:${SHA_TAG}
+
+    - name: 🐳 Build and Save Frontend Image
+      run: |
+        docker build -t frontend:${SHA_TAG} ./frontend
+        docker save -o frontend-${SHA_TAG}.tar frontend:${SHA_TAG}
+
+    - name: 📂 Create deploy package
+      run: |
+        mkdir deploy_package
+        mv backend-${SHA_TAG}.tar frontend-${SHA_TAG}.tar deploy_package/
+        cp docker-compose.template.yml deploy_package/
+        cp deploy.sh deploy_package/
+        cp backend/.env deploy_package/backend.env
+        cp frontend/.env deploy_package/frontend.env || true
+
+    - name: 🚚 Upload deploy package to VPS
       uses: appleboy/scp-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
-        source: "./"
+        source: "deploy_package/*"
         target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
 
-    - name: 🖥 SSH into VPS and Deploy
+    - name: 🖥 Deploy on VPS
       uses: appleboy/ssh-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
         script: |
-          echo "🔁 Switching to project directory"
           cd ~/nerkhin
-
-          echo "🧹 Stopping existing containers (if any)..."
-          docker compose down --remove-orphans
-
-          echo "🚀 Building and starting new containers..."
-          docker compose up --build -d
-
-          echo "✅ Deployment complete!"
-  
+          chmod +x deploy.sh
+          ./deploy.sh ${{ env.SHA_TAG }}
