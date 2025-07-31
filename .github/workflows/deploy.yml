@@ -14,6 +14,7 @@ jobs:
 
     - name: 🔐 Decode SSH Private Key
       run: |
+        mkdir -p ~/.ssh
         echo "${{ secrets.REMOTE_SSH_KEY_B64 }}" | base64 -d > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
 
@@ -34,6 +35,8 @@ jobs:
         key_path: ~/.ssh/id_rsa
         script: |
           cd ~/myapp
+          echo "🧹 Stopping running containers..."
           docker compose down --remove-orphans
+          echo "🔄 Building and starting containers..."
           docker compose up --build -d
           echo "✅ Deployment done!"
