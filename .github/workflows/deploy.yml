@@ -1,14 +1,16 @@
-name: 🔌 Direct SSH Test With Secret Key
+name: 🔌 Test SSH Connection
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main  # یا هر برنچی که روش push می‌کنی
 
 jobs:
   ssh-test:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 🚀 Test SSH Connection to Remote Server
+    - name: 🚀 Try SSH Connection
       uses: appleboy/ssh-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
@@ -16,4 +18,4 @@ jobs:
         key: ${{ secrets.REMOTE_SSH_KEY }}
         port: 22
         script: |
-          echo "✅ SSH connection successful from GitHub Actions!"
+          echo "✅ SSH connection successful"
