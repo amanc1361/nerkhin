@@ -1,7 +1,5 @@
 version: "3.9"
 
-env_file: ../.env.backend
-
 services:
   postgres:
     container_name: postgres
@@ -10,6 +8,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    env_file:
+      - ./deploy_package/.env.backend
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -31,7 +31,7 @@ services:
       postgres:
         condition: service_healthy
     env_file:
-      - ../.env.backend
+      - ./deploy_package/.env.backend
     restart: unless-stopped
 
   frontend:
@@ -39,11 +39,11 @@ services:
     image: frontend:${DEPLOY_TAG}
     expose:
       - "3000"
+    restart: unless-stopped
     depends_on:
       - backend
     env_file:
-      - ../.env.frontend
-    restart: unless-stopped
+      - ./deploy_package/.env.frontend
 
   nginx:
     image: nginx:alpine

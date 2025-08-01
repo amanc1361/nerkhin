@@ -10,18 +10,16 @@ FRONTEND_IMAGE="frontend-${DEPLOY_TAG}.tar"
 BACKEND_ENV="backend.env"
 FRONTEND_ENV="frontend.env"
 
-# رفتن به پوشه بستهٔ استقرار
-cd ~/nerkhin/deploy_package
+# رفتن به پوشه‌ای که فایل‌ها در آن قرار دارند
+cd "$(dirname "$0")"
 
 echo "📦 Loading Docker images..."
 docker load -i "$BACKEND_IMAGE"
 docker load -i "$FRONTEND_IMAGE"
 
-# انتقال env به ریشه پروژه برای docker-compose
-cp "$BACKEND_ENV" ../.env.backend
-cp "$FRONTEND_ENV" ../.env.frontend
+# کپی فایل‌های env در همین مسیر (برای استفاده در compose)
+cp "$BACKEND_ENV" .env
+cp "$FRONTEND_ENV" .env.frontend
 
-# اجرای compose در پوشه اصلی پروژه
-cd ..
 echo "🚀 Running Docker Compose..."
-DEPLOY_TAG=$DEPLOY_TAG docker compose -f deploy_package/docker-compose.template.yml up -d --remove-orphans --build
+DEPLOY_TAG=$DEPLOY_TAG docker compose -f docker-compose.template.yml up -d --remove-orphans --build
