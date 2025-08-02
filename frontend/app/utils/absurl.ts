@@ -1,5 +1,5 @@
 export function absApiUrl(path = ''): string {
-  const base = (process.env.NEXTAUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '')
+  const base = (process.env.NEXTAUTH_URL ?? 'https://nerkhin.com')
   const rel  = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '/api/go').replace(/\/$/, '')
 
   // اگر path کامل است
