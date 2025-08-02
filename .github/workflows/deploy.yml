@@ -61,5 +61,9 @@ jobs:
           key: ${{ secrets.REMOTE_SSH_KEY }}
           script: |
             cd ~/nerkhin/deploy_package
+            if [ -d "nginx/nginx.conf" ]; then
+              echo "⚠️ nginx.conf is a directory. Removing it to fix Docker mount issue."
+              rm -rf nginx/nginx.conf
+            fi
             chmod +x deploy.sh
             ./deploy.sh ${{ env.DEPLOY_TAG }}
