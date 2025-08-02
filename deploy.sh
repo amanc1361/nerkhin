@@ -23,8 +23,6 @@ export DEPLOY_TAG=$DEPLOY_TAG
 
 echo "🚀 Running Docker Compose..."
 
-if command -v docker compose &> /dev/null; then
+
   docker compose -f docker-compose.template.yml up -d --remove-orphans --build
-else
-  docker-compose -f docker-compose.template.yml up -d --remove-orphans --build
-fi
+
