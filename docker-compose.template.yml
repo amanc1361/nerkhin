@@ -37,8 +37,8 @@ services:
   frontend:
     container_name: nerkhin-frontend
     image: frontend:${DEPLOY_TAG}
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"  # ✅ این خط اضافه شده
     restart: unless-stopped
     depends_on:
       - backend
