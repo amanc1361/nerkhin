@@ -58,7 +58,7 @@ jobs:
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
         source: "deploy_package"
-        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
+        target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
         strip_components: 1              # ⬅ کلید رفع مشکل nested folder
 
     - name: 🖥 Deploy on VPS
