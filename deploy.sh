@@ -12,4 +12,4 @@ docker load -i "$FRONTEND_IMAGE"
 cp "$BACKEND_ENV" .env
 cp "$FRONTEND_ENV" .env.frontend
 echo "🚀 Running Docker Compose..."
-DEPLOY_TAG=$DEPLOY_TAG docker compose -f docker-compose.template.yml up -d --remove-orphans --build
+DEPLOY_TAG=$DEPLOY_TAG docker-compose -f docker-compose.template.yml up -d --remove-orphans --build
