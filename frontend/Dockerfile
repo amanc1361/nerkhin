@@ -51,4 +51,5 @@ COPY --from=builder /app/.next/standalone ./
 RUN chown -R nextjs:nodejs /app
 USER nextjs
 
-CMD ["node", "server.js"]
+CMD ["node", "server.js", "--hostname", "0.0.0.0"]
+
