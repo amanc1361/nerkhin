@@ -1,4 +1,4 @@
-name: Build and Deploy to VPS (Images via SCP with DEPLOY_TAG)
+name: Build and Deploy to VPS (no nested folders ✅)
 
 on:
   push:
@@ -48,19 +48,16 @@ jobs:
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
         script: |
-          DEPLOY_DIR=~/nerkhin/deploy_package
-          echo "🔁 Cleaning $DEPLOY_DIR ..."
-          rm -rf "$DEPLOY_DIR"
-          mkdir -p "$DEPLOY_DIR"
-          echo "✅ Cleaned and recreated $DEPLOY_DIR"
+          rm -rf ~/nerkhin/deploy_package
+          mkdir -p ~/nerkhin/deploy_package
 
-    - name: 🚚 Upload deploy package to VPS
+    - name: 🚚 Upload deploy package to VPS (fixed ✅)
       uses: appleboy/scp-action@v0.1.2
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
-        source: "deploy_package/*"
+        source: "./deploy_package/*"       # ✅ کلید موفقیت اینجاست
         target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
 
     - name: 🖥 Deploy on VPS
