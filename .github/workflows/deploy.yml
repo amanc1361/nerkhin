@@ -1,4 +1,4 @@
-name: Build and Deploy to VPS (no nested deploy_package ✅)
+name: Build and Deploy to VPS (Final + No Nested Folders ✅)
 
 on:
   push:
@@ -51,15 +51,15 @@ jobs:
           rm -rf ~/nerkhin/deploy_package
           mkdir -p ~/nerkhin/deploy_package
 
-    - name: 🚚 Upload deploy package to VPS (fixed ✅ no nested)
-      uses: appleboy/scp-action@v0.1.2
+    - name: 🚚 Upload deploy package to VPS (🔥 final fix)
+      uses: appleboy/scp-action@master  # ⬅ نسخه مهم!
       with:
         host: ${{ secrets.REMOTE_HOST }}
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
         source: "deploy_package"
         target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
-        strip_components: 1   # ✅ راز حذف تو در تو شدن
+        strip_components: 1              # ⬅ کلید رفع مشکل nested folder
 
     - name: 🖥 Deploy on VPS
       uses: appleboy/ssh-action@v0.1.2
