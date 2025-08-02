@@ -18,11 +18,13 @@ docker load -i "$FRONTEND_IMAGE"
 cp "$BACKEND_ENV" .env
 cp "$FRONTEND_ENV" .env.frontend
 
+# ✅ Export DEPLOY_TAG so docker-compose template can access it
+export DEPLOY_TAG=$DEPLOY_TAG
+
 echo "🚀 Running Docker Compose..."
 
-# استفاده از docker compose جدید اگر موجود بود
 if command -v docker compose &> /dev/null; then
-  DEPLOY_TAG=$DEPLOY_TAG docker compose -f docker-compose.template.yml up -d --remove-orphans --build
+  docker compose -f docker-compose.template.yml up -d --remove-orphans --build
 else
-  DEPLOY_TAG=$DEPLOY_TAG docker-compose -f docker-compose.template.yml up -d --remove-orphans --build
+  docker-compose -f docker-compose.template.yml up -d --remove-orphans --build
 fi

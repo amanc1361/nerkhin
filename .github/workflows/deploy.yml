@@ -41,6 +41,19 @@ jobs:
         mv backend-${DEPLOY_TAG}.tar frontend-${DEPLOY_TAG}.tar deploy_package/
         cp docker-compose.template.yml deploy.sh backend.env frontend.env deploy_package/
 
+    - name: 🧹 Clean remote deploy directory
+      uses: appleboy/ssh-action@v0.1.2
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ${{ secrets.REMOTE_USER }}
+        key: ${{ secrets.REMOTE_SSH_KEY }}
+        script: |
+          DEPLOY_DIR=~/nerkhin/deploy_package
+          echo "🔁 Cleaning $DEPLOY_DIR ..."
+          rm -rf "$DEPLOY_DIR"
+          mkdir -p "$DEPLOY_DIR"
+          echo "✅ Cleaned and recreated $DEPLOY_DIR"
+
     - name: 🚚 Upload deploy package to VPS
       uses: appleboy/scp-action@v0.1.2
       with:
