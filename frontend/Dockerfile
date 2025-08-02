@@ -25,6 +25,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# 🟡 اضافه‌شده: ست کردن env برای build مرحله
+COPY .env.frontend .env
+
 RUN \
   if [ -f yarn.lock ]; then yarn build; \
   elif [ -f package-lock.json ]; then npm run build; \
@@ -47,7 +50,8 @@ RUN addgroup -g 1001 -S nodejs && adduser -u 1001 -S nextjs -G nodejs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/.next/standalone ./
+
 RUN chown -R nextjs:nodejs /app
 USER nextjs
-CMD ["node", "server.js", "--hostname", "0.0.0.0"]
 
+CMD ["node", "server.js", "--hostname", "0.0.0.0"]
