@@ -33,6 +33,10 @@ export DEPLOY_TAG=$DEPLOY_TAG
 echo "📝 Generating docker-compose.yml from template..."
 sed "s/\${DEPLOY_TAG}/$DEPLOY_TAG/g" docker-compose.template.yml > docker-compose.yml
 
+# Remove existing containers to prevent name conflict
+echo "🧹 Removing old containers..."
+docker-compose down --remove-orphans || true
+
 # Run Docker Compose
 echo "🚀 Running Docker Compose..."
-docker-compose up -d --remove-orphans --build
+docker-compose up -d --build
