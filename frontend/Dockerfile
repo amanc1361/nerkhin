@@ -25,8 +25,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 🟡 اضافه‌شده: ست کردن env برای build مرحله
-COPY .env.frontend .env
 
 RUN \
   if [ -f yarn.lock ]; then yarn build; \

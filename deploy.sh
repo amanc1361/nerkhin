@@ -61,4 +61,4 @@ docker-compose down --remove-orphans || true
 # 🚀 Start new containers
 # -----------------------------
 echo "🚀 Running Docker Compose..."
-docker-compose up -d --build
+docker-compose up -d 
