@@ -20,12 +20,12 @@ jobs:
       - name: 🛣️ Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🛣️ Build and Save Backend Image
+      - name: 🛠️ Build and Save Backend Image
         run: |
           docker build -t backend:${DEPLOY_TAG} ./backend
           docker save -o backend-${DEPLOY_TAG}.tar backend:${DEPLOY_TAG}
 
-      - name: 🛣️ Build and Save Frontend Image
+      - name: 🛠️ Build and Save Frontend Image
         run: |
           docker build -t frontend:${DEPLOY_TAG} ./frontend
           docker save -o frontend-${DEPLOY_TAG}.tar frontend:${DEPLOY_TAG}
@@ -44,14 +44,14 @@ jobs:
           cp backend/.env deploy_package/backend.env
           cp frontend/.env deploy_package/frontend.env || true
 
-      - name: 🚚 Upload deploy package to VPS (no nested folder)
+      - name: 🚚 Upload deploy package to VPS (flat copy)
         uses: appleboy/scp-action@v0.1.2
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.REMOTE_SSH_KEY }}
-          source: "deploy_package"
-          target: "/home/${{ secrets.REMOTE_USER }}/nerkhin"
+          source: "deploy_package/*"
+          target: "/home/${{ secrets.REMOTE_USER }}/nerkhin/deploy_package"
 
       - name: 🖥 Deploy on VPS
         uses: appleboy/ssh-action@v0.1.2
