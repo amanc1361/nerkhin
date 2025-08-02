@@ -47,9 +47,7 @@ RUN addgroup -g 1001 -S nodejs && adduser -u 1001 -S nextjs -G nodejs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/.next/standalone ./
-
 RUN chown -R nextjs:nodejs /app
 USER nextjs
-
 CMD ["node", "server.js", "--hostname", "0.0.0.0"]
 
