@@ -26,7 +26,7 @@ services:
     container_name: nerkhin-backend
     image: backend:${DEPLOY_TAG}
     ports:
-      - "8080:8080"
+      - "8084:8084"
     volumes:
       - server-data:/data
     depends_on:
