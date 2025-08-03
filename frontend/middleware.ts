@@ -78,11 +78,9 @@ export const config = {
     '/bazaar/:path*',
     '/profile/:path*',
 
-    // صفحات احراز هویت (برای هدایت کاربران لاگین کرده)
     '/auth/login',
     '/auth/sign-up',
     
-    // هر مسیر دیگری که می‌خواهید Middleware روی آن اجرا شود
   ],
 };
 
