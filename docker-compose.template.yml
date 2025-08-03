@@ -19,6 +19,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - nerkhin-net
 
   backend:
     container_name: nerkhin-backend
@@ -33,19 +35,26 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    networks:
+      - nerkhin-net
 
   frontend:
     container_name: nerkhin-frontend
     image: frontend:${DEPLOY_TAG}
     ports:
-      - "3000:3000"  # ✅ این خط اضافه شده
+      - "3000:3000"
     restart: unless-stopped
     depends_on:
       - backend
     env_file:
       - .env.frontend
-      
+    networks:
+      - nerkhin-net
 
 volumes:
   postgres-data:
   server-data:
+
+networks:
+  nerkhin-net:
+    driver: bridge
