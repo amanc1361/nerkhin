@@ -63,7 +63,7 @@ export const useSignUpForm = (): UseSignUpFormReturn => {
       if (response.success) {
         toast.success(signUpFormMessages.signUpSuccess);
         // کاربر را به صفحه تایید کد با شماره تلفن خودش هدایت می‌کنیم
-        router.push(`/auth/verify-code?phone=${newUser.phone}`); 
+        router.push(`/auth/confirm?phone=${newUser.phone}`); 
       } else {
         toast.error(response.message || signUpFormMessages.genericSignUpError);
       }
