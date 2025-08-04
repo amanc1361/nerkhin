@@ -11,7 +11,7 @@ export interface SignInInitiateResponse {
 export interface SignUpResponse {
   success: boolean;
   message?: string;
-  userId?: string | number; // اگر کاربر ایجاد می‌شود اما نیاز به تایید دارد
+  userId?:  number; // اگر کاربر ایجاد می‌شود اما نیاز به تایید دارد
 }
 
 // اطلاعات کاربر که پس از تایید کد و لاگین موفق برگردانده می‌شود

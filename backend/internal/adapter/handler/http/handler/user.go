@@ -36,9 +36,9 @@ type registerUserRequest struct {
 }
 
 type registerUserResponse struct {
-	Success bool
-	Message string
-	UserId  int64
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	UserId  int64  `json:"userId"`
 }
 
 func (uh *UserHandler) Register(ctx *gin.Context) {
