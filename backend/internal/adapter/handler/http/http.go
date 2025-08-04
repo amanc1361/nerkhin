@@ -1,4 +1,3 @@
-
 package http // یا نام پکیج شما
 
 import (
@@ -81,23 +80,23 @@ func NewRouter(
 	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 
 	router.Use(cors.New(corsConfig))
-	v1 := router.Group("/v1")
-	product.AddRoutes(v1, productHandler)
-	productmodel.AddRoutes(v1, productModelHandler)
-	productcategory.AddRoutes(v1, productCategoryHandler)
-	productbrand.AddRoutes(v1, productBrandHandler)
-	city.AddRoutes(v1, cityHandler)
-	productrequest.AddRoutes(v1, productRequestHandler)
-	userproduct.AddRoutes(v1, userProduct)
-	subscription.AddRoutes(v1, subscriptionHandler)
-	report.AddRoutes(v1, reportHandler)
-	user.AddRoutes(v1, userHandler)
-	auth.AddRoutes(v1, authHandler, userHandler)
-	productfilter.AddRoutes(v1, productFilterHandler)
-	favoriteproduct.AddRoutes(v1, favoriteProductHandler)
-	favoriteaccount.AddRoutes(v1, favoriteAccountHandler)
-	usersubscription.AddRoutes(v1, userSubscriptionHandler)
-	landing.AddRoutes(v1, landingHandler)
+	api := router.Group("/api")
+	product.AddRoutes(api, productHandler)
+	productmodel.AddRoutes(api, productModelHandler)
+	productcategory.AddRoutes(api, productCategoryHandler)
+	productbrand.AddRoutes(api, productBrandHandler)
+	city.AddRoutes(api, cityHandler)
+	productrequest.AddRoutes(api, productRequestHandler)
+	userproduct.AddRoutes(api, userProduct)
+	subscription.AddRoutes(api, subscriptionHandler)
+	report.AddRoutes(api, reportHandler)
+	user.AddRoutes(api, userHandler)
+	auth.AddRoutes(api, authHandler, userHandler)
+	productfilter.AddRoutes(api, productFilterHandler)
+	favoriteproduct.AddRoutes(api, favoriteProductHandler)
+	favoriteaccount.AddRoutes(api, favoriteAccountHandler)
+	usersubscription.AddRoutes(api, userSubscriptionHandler)
+	landing.AddRoutes(api, landingHandler)
 
 	return &Router{
 		Engine: router, // برگرداندن Router که gin.Engine را در خود دارد
