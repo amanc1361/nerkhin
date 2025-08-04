@@ -9,6 +9,7 @@ import LoadingSpinner from '@/app/components/Loading/Loading';
 import Image from 'next/image';
 import VerifyCodeForm from '../verify-code-form';
 import { loginFormMessages } from '@/app/constants/string';
+import Link from 'next/link';
 
 const LoginForm: React.FC = () => {
   const router = useRouter();
@@ -62,6 +63,15 @@ const LoginForm: React.FC = () => {
           {loginFormMessages.sendVerificationCode}
         </button>
       </form>
+      <p className="text-sm text-gray-600 dark:text-gray-300 text-center pt-2">
+  حساب کاربری ندارید؟{' '}
+  <Link
+    href="/auth/signup"
+    className="text-blue-700 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-200 font-semibold"
+  >
+    ثبت‌نام
+  </Link>
+</p>
     </div>
   );
 };

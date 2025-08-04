@@ -35,7 +35,11 @@ type registerUserRequest struct {
 	FullName string `json:"fullName"`
 }
 
-type registerUserResponse struct{}
+type registerUserResponse struct {
+	Success bool
+	Message string
+	UserId  int64
+}
 
 func (uh *UserHandler) Register(ctx *gin.Context) {
 	var req registerUserRequest
@@ -52,13 +56,17 @@ func (uh *UserHandler) Register(ctx *gin.Context) {
 		State:    domain.NewUser,
 	}
 
-	_, err := uh.service.RegisterUser(ctx, &user)
+	id, err := uh.service.RegisterUser(ctx, &user)
 	if err != nil {
 		HandleError(ctx, err, uh.AppConfig.Lang)
 		return
 	}
 
-	rsp := &registerUserResponse{}
+	rsp := &registerUserResponse{
+		Success: true,
+		Message: "کاربر با موففیت ثبت شد",
+		UserId:  id,
+	}
 
 	handleSuccess(ctx, rsp)
 }
@@ -97,6 +105,7 @@ func (uh *UserHandler) Update(ctx *gin.Context) {
 	}
 
 	rsp := &updateUserResponse{
+
 		UserId: id,
 	}
 
@@ -157,8 +166,8 @@ type fetchUsersByFilterRequest struct {
 	State      int16  `json:"state"`
 	SearchText string `json:"searchText"`
 	CityID     int64  `json:"cityId"`
-	Page       int             `json:"page"`  
-	Limit      int             `json:"limit"` 
+	Page       int    `json:"page"`
+	Limit      int    `json:"limit"`
 }
 type fetchUsersByFilterResponse struct {
 	Users      []*domain.UserViewModel `json:"users"`
@@ -192,6 +201,7 @@ type changeUserStateRequest struct {
 	UserID      int64            `json:"userId"`
 	TargetState domain.UserState `json:"targetState"`
 }
+
 func (uh *UserHandler) FetchUsersByFilter(c *gin.Context) {
 	var req fetchUsersByFilterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -228,7 +238,7 @@ func (uh *UserHandler) FetchUsersByFilter(c *gin.Context) {
 		TotalCount: totalCount,
 	}
 
-	handleSuccess(c,  responsePayload)
+	handleSuccess(c, responsePayload)
 }
 
 func (uh *UserHandler) ChangeState(c *gin.Context) {

@@ -28,9 +28,7 @@ function LoginQueryHandler() {
   return <LoginForm />;
 }
 
-/**
- * صفحهٔ لاگین – از نوع Client Component و دارای مرز Suspense برای CSR Bailout.
- */
+
 export default function AuthLoginPage() {
   return (
     <div className="w-full flex flex-col gap-4 items-center pt-10 sm:pt-12 VazirFont">
