@@ -71,7 +71,7 @@ func NewRouter(
 		corsConfig.AllowOrigins = strings.Split(httpConfig.AllowedOrigins, ",")
 	} else {
 		slog.Warn("CORS AllowedOrigins not set in config, defaulting to localhost:3000 for development.")
-		corsConfig.AllowOrigins = []string{"http://localhost:3000", "https://nerrkhin.com"}
+		corsConfig.AllowOrigins = []string{"http://localhost:3000", "https://nerkhin.com", "https://nerrkhin.com"}
 	}
 
 	corsConfig.AllowCredentials = true
