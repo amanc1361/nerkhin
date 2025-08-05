@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, FormEvent } from 'react';
@@ -32,27 +31,36 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
       toast.error(verifyCodeMessages.emptyCodeError);
       return;
     }
+
     setIsLoading(true);
 
     try {
-    
-      const result = await signIn('credentials', {
-        phone: phone,
-        code: code,
-        redirect: false, 
+      const result = await signIn("credentials", {
+        phone,
+        code,
+        redirect: false,
       });
 
-      if (result?.ok) {
-        toast.success(verifyCodeMessages.success);
-        
-        const callbackUrl = searchParams.get('redirect') || '/bazaar'; 
-        router.replace(callbackUrl); 
-      } else {
-        toast.error(result?.error || verifyCodeMessages.invalidCodeError);
+      if (!result || !result.ok) {
+        throw new Error(result?.error || "ورود ناموفق");
       }
-    } catch (error) {
-      console.error("Sign-in process failed:", error);
-      toast.error(verifyCodeMessages.invalidCodeError);
+
+      toast.success(verifyCodeMessages.success);
+
+      // نقش را از session بخوان
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+      const role = session?.user?.role;
+
+      console.log("✅ Logged in, role =", role);
+
+      if (role === 1 || role === 2 || role === "admin") {
+        router.replace("/panel");
+      } else {
+        router.replace("/bazaar");
+      }
+    } catch (error: any) {
+      toast.error(error.message || verifyCodeMessages.invalidCodeError);
     } finally {
       setIsLoading(false);
     }
@@ -62,10 +70,9 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !isLoading) {
         e.preventDefault();
-        
         const form = e.target instanceof Element ? e.target.closest('form') : null;
         if (form) {
-            form.requestSubmit();
+          form.requestSubmit();
         }
       }
     };
@@ -75,9 +82,7 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
     };
   }, [isLoading]);
 
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
+  if (isLoading) return <LoadingSpinner />;
 
   return (
     <form
@@ -111,7 +116,7 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
         <button
           type="submit"
           disabled={isLoading || code.length < 4}
-          className="w-full font-medium rounded-xl px-8 sm:px-16 py-3 sm:py-4 bg-primary-main text-white hover:bg-primary-dark transition disabled:opacity-60"
+          className="w-full font-medium rounded-xl px-8 sm:px-16 py-3 sm:py-4 bg-primary-main text-blue-dark hover:bg-primary-dark transition disabled:opacity-60"
         >
           {verifyCodeMessages.submitButton}
         </button>

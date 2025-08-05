@@ -1,4 +1,5 @@
 // مسیر: lib/authOptions.ts
+
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCodeAPI, refreshAccessTokenAPI } from "@/app/services/authapi";
@@ -32,17 +33,23 @@ export const authOptions: NextAuthOptions = {
         const resp = await verifyCodeAPI(credentials.phone, credentials.code);
 
         if (resp?.user && resp.accessToken && resp.user.role !== undefined) {
-          const user: User = {
+          const user: User & {
+            accessToken: string;
+            refreshToken: string;
+            accessTokenExpires: number;
+            role: string | number;
+          } = {
             id:   String(resp.user.id),
             name: resp.user.fullName,
             role: resp.user.role,
 
             accessToken:        resp.accessToken,
             refreshToken:       resp.refreshToken,
-            accessTokenExpires: resp.accessTokenExpiresAt * 1000,
+            accessTokenExpires: resp.accessTokenExpiresAt * 1000, // به ms تبدیل می‌کنیم
           };
           return user;
         }
+
         return null;
       },
     }),
@@ -56,11 +63,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       /* ورود اول */
       if (user) {
-        token.id                = user.id;
-        token.role              = user.role;
-        token.accessToken       = user.accessToken;
-        token.refreshToken      = user.refreshToken;
-        token.accessTokenExpires= user.accessTokenExpires;
+        token.id                 = user.id;
+        token.role               = user.role;
+        token.accessToken        = user.accessToken;
+        token.refreshToken       = user.refreshToken;
+        token.accessTokenExpires = user.accessTokenExpires;
         return token;
       }
 
@@ -72,9 +79,9 @@ export const authOptions: NextAuthOptions = {
         const r = await refreshAccessTokenAPI(token.refreshToken as string);
         return {
           ...token,
-          accessToken:       r.accessToken,
-          accessTokenExpires:r.accessTokenExpiresAt * 1000,
-          refreshToken:      token.refreshToken,
+          accessToken:        r.accessToken,
+          accessTokenExpires: r.accessTokenExpiresAt * 1000,
+          refreshToken:       token.refreshToken,
         };
       } catch {
         return { ...token, error: "RefreshAccessTokenError" };
@@ -82,9 +89,9 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      session.user.id    = token.id  as string;
-      session.user.role  = token.role;
-      session.accessToken= token.accessToken as string;
+      session.user.id     = token.id as string;
+      session.user.role   = token.role;
+      session.accessToken = token.accessToken as string;
       return session;
     },
   },
