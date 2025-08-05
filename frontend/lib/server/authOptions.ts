@@ -21,18 +21,25 @@ export function decodeJwtPayload(token: string): { exp?: number } | null {
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
+       id: "credentials",
       name: "Credentials",
       credentials: {
         phone: { label: "Phone", type: "text" },
         code:  { label: "Code",  type: "text" },
       },
+      
       async authorize(credentials) {
+        console.log("get data from server.....................");
         if (!credentials?.phone || !credentials?.code)
           throw new Error("Phone & code required");
-
+          console.log("🔐 AUTHORIZATION started");
+        console.log("📱 Phone:", credentials?.phone);
+        console.log("🔢 Code:", credentials?.code);
         const resp = await verifyCodeAPI(credentials.phone, credentials.code);
-
+         console.log("✅ API Response:", resp);
         if (resp?.user && resp.accessToken && resp.user.role !== undefined) {
+                    console.log("🟢 Login success:", resp.user.fullName, "| role:", resp.user.role);
+
           const user: User & {
             accessToken: string;
             refreshToken: string;
@@ -48,8 +55,9 @@ export const authOptions: NextAuthOptions = {
             accessTokenExpires: resp.accessTokenExpiresAt * 1000, // به ms تبدیل می‌کنیم
           };
           return user;
+        } else {
+                 console.log("🔴 Login failed, response incomplete");
         }
-
         return null;
       },
     }),
