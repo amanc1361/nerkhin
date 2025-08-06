@@ -6,7 +6,7 @@ export const API_BASE_URL =
 
 /** آدرس داخلی برای SSR / authorize */
 export const INTERNAL_GO_API_URL =
-  process.env.INTERNAL_GO_API_URL?.replace(/\/$/, "") || "http://localhost:8084/api";
+  process.env.INTERNAL_GO_API_URL?.replace(/\/$/, "") || "http://nerkhin-backend:8084/api";
 
 /** ساخت URL کامل متناسب با محیط (در absApiUrl) */
 export { absApiUrl };
