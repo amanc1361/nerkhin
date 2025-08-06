@@ -31,10 +31,10 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.phone || !credentials?.code)
           throw new Error("Phone & code required");
-
+         try {
         const resp = await verifyCodeAPI(credentials.phone, credentials.code);
-
-        if (resp?.user && resp.accessToken && resp.user.role !== undefined) {
+        console.log("✅ verifyCodeAPI →", resp);
+        if (resp?.user && resp.accessToken && resp.user.role !== undefined) { 
           const ttlSec = resp.accessTokenExpiresAt;        // ← عددى که سرور برمى‌گرداند (ثانیه)
           const absExp = Date.now() + ttlSec * 1000;       // ← تبدیل به timestamp مطلق
 
@@ -53,6 +53,9 @@ export const authOptions: NextAuthOptions = {
           };
 
           return user;
+        }  }
+        catch (err) {
+            console.error("🔴 verifyCodeAPI FETCH FAILED:", err);
         }
         return null;
       },
