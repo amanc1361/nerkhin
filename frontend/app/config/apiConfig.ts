@@ -1,10 +1,15 @@
-// export const API_BASE_URL: string = "https://nerrkhin.com/api"; 
-
 import { absApiUrl } from "@/app/utils/absurl";
 
-// export const API_BASE_URL =
-//   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || '/api/go';
+/** مسیر نسبیِ ثابت برای تمام fetch‌های کلاینت */
+//export const API_BASE_URL = "/api";
 
+/** آدرس کامل برای SSR/Node؛ در absApiUrl استفاده می‌شود */
+export const API_BASE_URL = "https://nerkhin.com/api"; 
+export const INTERNAL_GO_API_URL =
+  process.env.INTERNAL_GO_API_URL || "https://nerkhin.com/api";
 
-export const API_BASE_URL = absApiUrl('');
-export const REFRESH_TOKEN_API_PATH: string = "/auth/refresh-token"; 
+/** ساخت URL کامل (کلاینت یا سرور) */
+export { absApiUrl };
+
+/** مسیر ثابت رفرش توکن (بدون تغییر) */
+export const REFRESH_TOKEN_API_PATH = "/auth/refresh-token";

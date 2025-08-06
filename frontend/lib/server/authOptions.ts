@@ -1,44 +1,42 @@
-// مسیر: lib/authOptions.ts
-
+// مسیر: lib/server/authOptions.ts
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCodeAPI, refreshAccessTokenAPI } from "@/app/services/authapi";
 import type { User } from "next-auth";
 
-// (دلخواه) تابع کمکی اگر جای دیگر لازم شد
+// کمکى کوچک براى JWT-های Paseto یا …
 export function decodeJwtPayload(token: string): { exp?: number } | null {
   try {
-    const base64Url = token.split(".")[1];
-    if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = Buffer.from(base64, "base64").toString();
-    return JSON.parse(jsonPayload);
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64").toString()
+    );
+    return payload ?? null;
   } catch {
     return null;
   }
 }
 
 export const authOptions: NextAuthOptions = {
+  debug: process.env.NODE_ENV === "development",
+
   providers: [
     CredentialsProvider({
-       id: "credentials",
+      id: "credentials",
       name: "Credentials",
       credentials: {
         phone: { label: "Phone", type: "text" },
         code:  { label: "Code",  type: "text" },
       },
-      
+
       async authorize(credentials) {
-        console.log("get data from server.....................");
         if (!credentials?.phone || !credentials?.code)
           throw new Error("Phone & code required");
-          console.log("🔐 AUTHORIZATION started");
-        console.log("📱 Phone:", credentials?.phone);
-        console.log("🔢 Code:", credentials?.code);
+
         const resp = await verifyCodeAPI(credentials.phone, credentials.code);
-         console.log("✅ API Response:", resp);
+
         if (resp?.user && resp.accessToken && resp.user.role !== undefined) {
-                    console.log("🟢 Login success:", resp.user.fullName, "| role:", resp.user.role);
+          const ttlSec = resp.accessTokenExpiresAt;        // ← عددى که سرور برمى‌گرداند (ثانیه)
+          const absExp = Date.now() + ttlSec * 1000;       // ← تبدیل به timestamp مطلق
 
           const user: User & {
             accessToken: string;
@@ -49,14 +47,12 @@ export const authOptions: NextAuthOptions = {
             id:   String(resp.user.id),
             name: resp.user.fullName,
             role: resp.user.role,
-
             accessToken:        resp.accessToken,
             refreshToken:       resp.refreshToken,
-            accessTokenExpires: resp.accessTokenExpiresAt * 1000, // به ms تبدیل می‌کنیم
+            accessTokenExpires: absExp,
           };
+
           return user;
-        } else {
-                 console.log("🔴 Login failed, response incomplete");
         }
         return null;
       },
@@ -68,8 +64,9 @@ export const authOptions: NextAuthOptions = {
   secret:  process.env.NEXTAUTH_SECRET,
 
   callbacks: {
+    /** هر بار که توکن ساخته یا خوانده می‌شود */
     async jwt({ token, user }) {
-      /* ورود اول */
+      /* ورود اولیه */
       if (user) {
         token.id                 = user.id;
         token.role               = user.role;
@@ -79,27 +76,36 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      /* هنوز معتبر است؟ */
-      if (Date.now() < (token.accessTokenExpires as number)) return token;
+      /* اگر هنوز ≥۵ دقیقه تا انقضا مانده، همان را برگردان */
+      if (
+        typeof token.accessTokenExpires === "number" &&
+        Date.now() < token.accessTokenExpires - 5 * 60_000
+      ) {
+        return token;
+      }
 
-      /* نیاز به رفرش */
+      /* رفرش توکن */
       try {
         const r = await refreshAccessTokenAPI(token.refreshToken as string);
+        const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
+
         return {
           ...token,
           accessToken:        r.accessToken,
-          accessTokenExpires: r.accessTokenExpiresAt * 1000,
-          refreshToken:       token.refreshToken,
+          accessTokenExpires: absExp,
+          refreshToken:       token.refreshToken, // ممکن است سرور refreshToken جدید ندهد
         };
-      } catch {
+      } catch (err) {
         return { ...token, error: "RefreshAccessTokenError" };
       }
     },
 
+    /** دادهٔ سشن که به کلاینت می‌رود */
     async session({ session, token }) {
       session.user.id     = token.id as string;
       session.user.role   = token.role;
       session.accessToken = token.accessToken as string;
+      session.error       = (token as any).error ?? undefined;
       return session;
     },
   },

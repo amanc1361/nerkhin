@@ -1,5 +1,13 @@
-import { API_BASE_URL } from "@/app/config/apiConfig";
-import { RefreshTokenApiResponse, SignUpResponse, VerifyCodeApiResponse } from "@/app/types/auth/authtypes";
+// مسیر: app/services/authapi.ts
+import {
+  API_BASE_URL,
+  INTERNAL_GO_API_URL,
+} from "@/app/config/apiConfig";
+import {
+  RefreshTokenApiResponse,
+  SignUpResponse,
+  VerifyCodeApiResponse,
+} from "@/app/types/auth/authtypes";
 
 export interface SignUpFormData {
   phone: string;
@@ -8,83 +16,55 @@ export interface SignUpFormData {
   fullName: string;
 }
 
+/* ─────────── Helper مشترک برای همهٔ درخواست‌ها ─────────── */
+const baseURL =
+  typeof window === "undefined" ? INTERNAL_GO_API_URL : API_BASE_URL;
 
-export async function initiateSignInAPI(phone: string): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone }),
+async function postJson<T>(
+  path: string,
+  body: unknown
+): Promise<T> {
+  const res = await fetch(`${baseURL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to initiate sign in');
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Request failed (${res.status})`);
   }
-  
-  return response.json();
+  return res.json();
 }
 
-/**
- * [برای NextAuth.js] - ارسال درخواست ثبت نام کاربر جدید به سرور Go.
- * @param data داده‌های فرم ثبت نام.
- */
-export async function userSignUpAPI(data: SignUpFormData): Promise<SignUpResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/register`, { // استفاده از endpoint صحیح /register
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-   
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to sign up user');
-  }
-  
-  return response.json();
+/* ─────────── توابع اصلی بدون تغییر در امضا ─────────── */
+
+export function initiateSignInAPI(phone: string) {
+  return postJson<{ success: boolean; message: string }>(
+    "/auth/login",
+    { phone }
+  );
 }
 
-/**
- * [برای NextAuth.js] - ارسال کد تایید به سرور Go برای دریافت توکن‌ها.
- * این تابع از داخل تابع authorize در NextAuth.js فراخوانی می‌شود.
- * @param phone شماره تلفن.
- * @param code کد تایید.
- */
-export async function verifyCodeAPI(
+export function userSignUpAPI(data: SignUpFormData) {
+  return postJson<SignUpResponse>("/auth/register", data);
+}
+
+export function verifyCodeAPI(
   phone: string,
   code: string
-): Promise<VerifyCodeApiResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/verify-code`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone, code }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({})); // سعی در خواندن پیام خطای سرور Go
-    throw new Error(errorData.message || 'Verification failed');
-  }
-
-  // پاسخ موفقیت‌آمیز را که شامل accessToken, refreshToken, و user است، برمی‌گرداند.
-  return response.json();
+) {
+  return postJson<VerifyCodeApiResponse>(
+    "/auth/verify-code",
+    { phone, code }
+  );
 }
 
-export async function refreshAccessTokenAPI(refreshToken: string): Promise<RefreshTokenApiResponse> {
- 
-  
-  const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to refresh access token');
-  }
-
-
-  return response.json();
+export function refreshAccessTokenAPI(
+  refreshToken: string
+) {
+  return postJson<RefreshTokenApiResponse>(
+    "/auth/refresh-token",
+    { refreshToken }
+  );
 }
-
-
-
