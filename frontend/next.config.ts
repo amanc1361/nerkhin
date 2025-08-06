@@ -5,29 +5,13 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   async rewrites() {
-    // if (process.env.NODE_ENV === 'development') {
-    //   return [
-    //     {
-    //         source: '/api/go/:path*',
-    //         destination: 'http://localhost:8084/v1/:path*',
-    //     },
-    //   ];
-    // }
-    //  if (process.env.NODE_ENV === 'development') {
-    // return [
-    //   {               // هرچه با /api/go شروع شود
-    //     source: '/api/go/:path*',
-    //     destination: 'https://nerkhin.com/api/:path*',
-    //   },
-    // ];
-  //}
-    return [];
+      return [];
   },
 
   images: {
     remotePatterns: [
       // پروDUCTION
-      { protocol: 'https', hostname: 'nerrkhin.com', pathname: '/images/**' },
+      { protocol: 'https', hostname: 'nerkhin.com', pathname: '/images/**' },
       // DEV (اگر تصاویر را از بک‌اند لوکال می‌گیرید)
       { protocol: 'http', hostname: 'localhost', port: '8080', pathname: '/images/**' },
     ],
