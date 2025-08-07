@@ -67,7 +67,8 @@ async function authenticatedFetch<T = any>(
     : joinUrl(process.env.INTERNAL_GO_API_URL || '', API_BASE_URL);
 
   const fullUrl = path.startsWith('http') ? path : joinUrl(rootBase, path);
-
+  console.log("********************url*****************");
+  console.log(fullUrl); 
   const res = await fetch(fullUrl, { ...options, headers, cache: 'no-store' });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -79,6 +80,7 @@ async function authenticatedFetch<T = any>(
     };
     throw apiErr;
   }
+  
   return res.status === 204 ? (null as any) : res.json();
 }
 
@@ -89,6 +91,7 @@ export async function getCitiesForFiltering(): Promise<City[]> {
 }
 
 export async function getPaginatedUsers(
+  
   filters: Record<string, any>
 ): Promise<PaginatedUsersResponse> {
   return authenticatedFetch('/user/fetch-users', {
