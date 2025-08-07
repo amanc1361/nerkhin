@@ -6,8 +6,7 @@ export interface Report {
   state: number;
   userId:number;
   targetUserId:number;
-   createdAt: string; 
-  updatedAt: string;
+
 }
 
 

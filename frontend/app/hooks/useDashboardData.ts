@@ -9,10 +9,11 @@ import { getProductRequestsAPI } from '@/app/services/products';
 import { dashboardMessages } from '@/app/constants/string'; // مسیر صحیح
 import { ApiError } from '@/app/services/apiService'; // مسیر صحیح
 import { User,Report,ProductRequest } from '@/app/types/types';
+import { ReportViewModel } from '../types/report/reportManagement';
 
 
 interface DashboardData {
-  reports: Report[];
+  reports: ReportViewModel[];
   newUsers: User[];
   productRequests: ProductRequest[];
   isLoading: boolean;
@@ -21,7 +22,7 @@ interface DashboardData {
 }
 
 export const useDashboardData = (): DashboardData => {
-  const [reports, setReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<ReportViewModel[]>([]);
   const [newUsers, setNewUsers] = useState<User[]>([]);
   const [productRequests, setProductRequests] = useState<ProductRequest[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // شروع با true برای بارگذاری اولیه
@@ -39,7 +40,7 @@ export const useDashboardData = (): DashboardData => {
       ]);
 
       if (results[0].status === 'fulfilled') {
-        setReports(results[0].value as Report[]);
+        setReports(results[0].value as ReportViewModel[]);
       } else {
         console.error("Error fetching reports:", results[0].reason);
         // می‌توانید خطای خاص هر بخش را نیز در state ذخیره کنید اگر لازم است

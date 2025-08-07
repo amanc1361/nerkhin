@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { useAuthenticatedApi } from '@/app/hooks/useAuthenticatedApi';
-import { Report } from '@/app/types/report/reportManagement';
+import { Report, ReportViewModel } from '@/app/types/report/reportManagement';
 import { reportApi } from '@/app/services/reportApi';
 import { reportMessages as messages } from '@/app/constants/reportMessages';
 import LoadingSpinner from '@/app/components/Loading/Loading';
@@ -28,7 +28,7 @@ const DetailRow: React.FC<{ label: string, value?: string | number }> = ({ label
 
 export const ReportDetailsModalContent: React.FC<ReportDetailsModalContentProps> = ({ reportId, onConfirm, onCancel, isConfirming, isReviewed }) => {
   const { api } = useAuthenticatedApi();
-  const [details, setDetails] = useState<Report | null>(null);
+  const [details, setDetails] = useState<ReportViewModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export const ReportDetailsModalContent: React.FC<ReportDetailsModalContentProps>
       if (!api) return;
       setIsLoading(true);
       try {
-        const data = await api.get<Report>(reportApi.getById(reportId));
+        const data = await api.get<ReportViewModel>(reportApi.getById(reportId));
         setDetails(data);
       } catch (error) {
         toast.error(messages.fetchDetailsError);
