@@ -1,7 +1,7 @@
 // فایل: lib/server/api.ts (اصلاح شده)
 import 'server-only';
 import { serverApiService } from './serverApiService'; // <--- ایمپورت کلاینت API جدید
-import type { Report, User, ProductRequest } from '@/app/types/types'; // مسیر به تایپ‌های شما
+import type { Report, User, ProductRequest, UserViewModel, FetchUsersByFilterResponse } from '@/app/types/types'; // مسیر به تایپ‌های شما
 import { FetchReportsByFilterResponse, ReportViewModel } from '@/app/types/report/reportManagement';
 
 // --- توابع دریافت داده برای داشبورد (با استفاده از serverApiService) ---
@@ -11,11 +11,24 @@ import { FetchReportsByFilterResponse, ReportViewModel } from '@/app/types/repor
 //   return serverApiService.post<Report[]>('/report/fetch-reports', { state: 1 });
 // }
 
-export async function getNewUsers(): Promise<User[]> {
-  // state: 1 برای کاربران جدید
-  return serverApiService.post<User[]>('/user/fetch-users', { state: 1 });
-}
+export async function getNewUsers(
+  limit = 4
+): Promise<UserViewModel[]> {
+  const body = {
+    state: 1,       // فقط کاربران جدید
+    searchText: '', // جستجو نمی‌خواهیم
+    page: 1,
+    limit,
+  };
 
+  const { users } =
+    await serverApiService.post<FetchUsersByFilterResponse>(
+      '/user/fetch-users',
+      body
+    );
+
+  return users;
+}
 export async function getNewReports(
   limit = 4
 ): Promise<ReportViewModel[]> {

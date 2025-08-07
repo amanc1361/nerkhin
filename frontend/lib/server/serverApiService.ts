@@ -1,52 +1,131 @@
 // lib/server/serverApiService.ts
 import "server-only";
+
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { INTERNAL_GO_API_URL } from "@/app/config/apiConfig";
 import { authOptions } from "./authOptions";
 
-async function serverFetch(url: string, options: RequestInit = {}) {
-  const session = await getServerSession(authOptions);
-  const token   = session?.accessToken;
+type Json = Record<string, unknown> | unknown[];
 
-  /* ---------- هدرها ---------- */
-  const headers = new Headers(options.headers || {});
-  headers.set("Accept", "application/json");
-  headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  /* ---------- ساخت URL کامل ---------- */
-  if (url.startsWith("http")) {
-    // کاربر خودش URL کامل داده
-    url = url.replace(/\/{2,}/g, "/");       // // را به / تبدیل کن (ایمنی)
-  } else {
-    const base = INTERNAL_GO_API_URL.replace(/\/$/, ""); // حذف اسلش انتهایی
-    const path = url.startsWith("/") ? url : `/${url}`;  // اطمینان از اسلش ابتدایی
-    url = `${base}${path}`;
-  }
-
-  /* ---------- فراخوانی ---------- */
-  const response = await fetch(url, { ...options, headers });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    console.error("Server-side API Error ➜", { url, status: response.status, body });
-    throw new Error(`API request failed: ${response.status}`);
-  }
-
-  // 204 یا بدنه‌ی خالی
-  if (response.status === 204 || +response.headers.get("content-length")! === 0) {
-    return null;
-  }
-  return response.json();
+interface ExtraInit extends RequestInit {
+  /** ←‌ اگر درخواست عمومی است و نباید Authorization ست شود */
+  needAuth?: boolean;
 }
 
-/* ---------- اکسپورت ↓ ---------- */
+async function serverFetch<T = any>(
+  path: string,
+  { needAuth = true, ...init }: ExtraInit = {}
+): Promise<T> {
+  /* ---------- سشن / توکن ---------- */
+  let token: string | undefined;
+  if (needAuth) {
+    const session = await getServerSession(authOptions);
+    token = (session as any)?.accessToken;
+  }
+
+  /* ---------- هدرها ---------- */
+  const hdr = new Headers(init.headers);
+
+  // فقط اگر بدنه JSON معمولی است
+  if (
+    init.body &&
+    !(init.body instanceof FormData) &&
+    !(init.body instanceof Blob) &&
+    !(init.body instanceof ReadableStream)
+  ) {
+    hdr.set("Content-Type", "application/json");
+  }
+
+  hdr.set("Accept", "application/json");
+  if (token) hdr.set("Authorization", `Bearer ${token}`);
+
+  // کوکی‌های جاری (برای هر نوع احراز هویت که روی کوکی سوار است)
+  const cookieStr = (await cookies())
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join("; ");
+
+  if (cookieStr) hdr.set("Cookie", cookieStr);
+
+  /* ---------- URL کامل ---------- */
+  const base = INTERNAL_GO_API_URL.replace(/\/$/, "");
+  const fullUrl =
+    path.startsWith("http")
+      ? path
+      : `${base}${path.startsWith("/") ? path : `/${path}`}`.replace(
+          /([^:]\/)\/+/g,
+          "$1"
+        ); // // → /
+
+  /* ---------- فراخوانی ---------- */
+  const res = await fetch(fullUrl, {
+    cache: "no-store",
+    ...init,
+    headers: hdr,
+  });
+
+  /* ---------- مدیریت خطا ---------- */
+  if (!res.ok) {
+    let body: unknown = await safeParseBody(res);
+    console.error("Server-side API Error ➜", {
+      url: fullUrl,
+      status: res.status,
+      body,
+    });
+    throw new Error(
+      `API request failed: ${res.status} ${
+        (body as any)?.message || res.statusText
+      }`
+    );
+  }
+
+  // 204 یا بدنه خالی
+  if (res.status === 204 || !(await res.clone().text())) return null as any;
+
+  return (await safeParseBody(res)) as T;
+}
+
+/* ---------- کمک‌تابع ---------- */
+async function safeParseBody(res: Response): Promise<unknown> {
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return res.json().catch(() => ({}));
+  return res.text().catch(() => "");
+}
+
+/* ---------- اکسپورت ---------- */
 export const serverApiService = {
-  get : <T = any>(url: string, opts: RequestInit = {}) =>
-    serverFetch(url, { ...opts, method: "GET" }) as Promise<T>,
-  post: <T = any>(url: string, body: Record<string, any>, opts: RequestInit = {}) =>
-    serverFetch(url, { ...opts, method: "POST", body: JSON.stringify(body) }) as Promise<T>,
-  // اگر لازم بود:
-  // put : ...
-  // delete: ...
+  get: <T = any>(url: string, opts: ExtraInit = {}) =>
+    serverFetch<T>(url, { ...opts, method: "GET" }),
+
+  post: <T = any>(
+    url: string,
+    body: Json | FormData,
+    opts: ExtraInit = {}
+  ) =>
+    serverFetch<T>(url, {
+      ...opts,
+      method: "POST",
+      body:
+        body instanceof FormData || body instanceof Blob
+          ? (body as BodyInit)
+          : JSON.stringify(body),
+    }),
+
+  put: <T = any>(
+    url: string,
+    body: Json | FormData,
+    opts: ExtraInit = {}
+  ) =>
+    serverFetch<T>(url, {
+      ...opts,
+      method: "PUT",
+      body:
+        body instanceof FormData || body instanceof Blob
+          ? (body as BodyInit)
+          : JSON.stringify(body),
+    }),
+
+  delete: <T = any>(url: string, opts: ExtraInit = {}) =>
+    serverFetch<T>(url, { ...opts, method: "DELETE" }),
 };

@@ -275,3 +275,12 @@ export interface NewUserFormData {
   role: number | null;
   cityId: number | null;
 }
+export interface UserViewModel extends User {
+  cityName: string;
+  subscriptionDaysLeft: number;
+}
+
+export interface FetchUsersByFilterResponse {
+  users: UserViewModel[];
+  totalCount: number;
+}

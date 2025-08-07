@@ -174,28 +174,6 @@ type fetchUsersByFilterResponse struct {
 	TotalCount int64                   `json:"totalCount"`
 }
 
-// func (uh *UserHandler) FetchUsersByFilter(c *gin.Context) {
-// 	var req fetchUsersByFilterRequest
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		validationError(c, err, uh.AppConfig.Lang)
-// 		return
-// 	}
-
-// 	ctx := c.Request.Context()
-
-// 	users, err := uh.service.GetUsersByFilter(ctx, domain.UserFilter{
-// 		Role:       domain.UserRole(req.Role),
-// 		State:      domain.UserState(req.State),
-// 		SearchText: req.SearchText,
-// 		CityID:     req.CityID,
-// 	})
-// 	if err != nil {
-// 		HandleError(c, err, uh.AppConfig.Lang)
-// 		return
-// 	}
-
-// 	handleSuccess(c, users)
-// }
 
 type changeUserStateRequest struct {
 	UserID      int64            `json:"userId"`
