@@ -1,11 +1,9 @@
 'use server';
 
 import { getServerSession } from 'next-auth';
-
 import type {
   City,
   User,
-  Report,
   ProductRequest,
   PaginatedUsersResponse,
   Brand,
@@ -14,125 +12,77 @@ import type {
 
 import { API_BASE_URL } from '@/app/config/apiConfig';
 import { ApiError } from '@/app/services/apiService';
-import { PaginatedAdminsResponse } from '@/app/types/admin/adminManagement';
-import { Subscription } from '@/app/types/subscription/subscriptionManagement';
-import { PaginatedReportsResponse } from '@/app/types/report/reportManagement';
 import {
-  Category,
-  NewBrandFormData,
-} from '@/app/types/category/categoryManagement';
+  PaginatedAdminsResponse,
+} from '@/app/types/admin/adminManagement';
+import { Subscription } from '@/app/types/subscription/subscriptionManagement';
+import {
+  PaginatedReportsResponse,
+} from '@/app/types/report/reportManagement';
+import { Category } from '@/app/types/category/categoryManagement';
 import { brandApi, modelApi } from '@/app/services/brandapi';
 import { ProductFilterData } from '@/app/types/model/model';
 import { authOptions } from './authOptions';
 
-/* --------------------------------------------------
-   Helper: build a valid absolute URL
----------------------------------------------------*/
-function joinUrl(base: string, path: string): string {
+/* ---------- helper ---------- */
+function joinUrl(base: string, path: string) {
   const cleanBase = base.replace(/\/$/, '');
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  // collapse duplicate slashes except after protocol
   return `${cleanBase}${cleanPath}`.replace(/([^:]\/)\/+/g, '$1');
 }
 
-/* --------------------------------------------------
-   PUBLIC FETCH
----------------------------------------------------*/
+/* ---------- public fetch ---------- */
 async function publicFetch<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
   const envBase = process.env.INTERNAL_GO_API_URL || '';
-  if (!envBase.startsWith('http')) {
-    throw new Error(
-      'INTERNAL_GO_API_URL باید یک URL کامل (با http/https) باشد.'
-    );
-  }
-
   const fullUrl = joinUrl(envBase, path);
 
-  try {
-    const response = await fetch(fullUrl, { ...options, cache: 'no-store' });
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
-      throw new ApiError(
-        errorBody.message || 'Public API request failed',
-        response.status,
-        errorBody
-      );
-    }
-    return response.status === 204 ? (null as any) : response.json();
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    throw new Error(
-      (error as Error).message || `Public fetch to ${fullUrl} failed.`
-    );
+  const res = await fetch(fullUrl, { ...options, cache: 'no-store' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(body.message || 'Public API request failed', res.status, body);
   }
+  return res.status === 204 ? (null as any) : res.json();
 }
 
-/* --------------------------------------------------
-   AUTHENTICATED FETCH
----------------------------------------------------*/
+/* ---------- authenticated fetch ---------- */
 async function authenticatedFetch<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
   const session = await getServerSession(authOptions);
   const token = (session as any)?.accessToken;
-
-  if (!token) {
-    throw new Error(
-      'User is not authenticated for a server-side API request.'
-    );
-  }
+  if (!token) throw new Error('Not authenticated');
 
   const headers = new Headers(options.headers);
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+  if (!headers.has('Content-Type') && !(options.body instanceof FormData))
     headers.set('Content-Type', 'application/json');
-  }
   headers.set('Authorization', `Bearer ${token}`);
 
-  if (!API_BASE_URL.startsWith('http')) {
-    throw new Error('API_BASE_URL باید یک URL کامل باشد.');
+  /*  🟢 NEW: Resolve ROOT_BASE whether API_BASE_URL is absolute or relative  */
+  const rootBase = API_BASE_URL.startsWith('http')
+    ? API_BASE_URL
+    : joinUrl(process.env.INTERNAL_GO_API_URL || '', API_BASE_URL);
+
+  const fullUrl = path.startsWith('http') ? path : joinUrl(rootBase, path);
+
+  const res = await fetch(fullUrl, { ...options, headers, cache: 'no-store' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const apiErr: ApiError = {
+      name: 'ApiError',
+      message: body.message || 'API request failed',
+      status: res.status,
+      data: body,
+    };
+    throw apiErr;
   }
-  const fullUrl = path.startsWith('http')
-    ? path
-    : joinUrl(API_BASE_URL, path);
-
-  try {
-    const response = await fetch(fullUrl, {
-      ...options,
-      headers,
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      const errorData = await response
-        .json()
-        .catch(() => ({ message: 'Failed to parse API error response' }));
-      const apiError: ApiError = {
-        name: 'ApiError',
-        message: errorData.message || 'API request failed',
-        status: response.status,
-        data: errorData,
-      };
-      throw apiError;
-    }
-
-    return response.status === 204 ? (null as any) : response.json();
-  } catch (error) {
-    if ((error as ApiError).name === 'ApiError') throw error;
-    console.error(
-      `Network or unexpected error in server-side fetch for url ${fullUrl}:`,
-      error
-    );
-    throw new Error('An unexpected server-side network error occurred.');
-  }
+  return res.status === 204 ? (null as any) : res.json();
 }
 
-/* --------------------------------------------------
-   SPECIFIC DATA FETCHING FUNCTIONS
----------------------------------------------------*/
+/* ---------- specific calls (unchanged) ---------- */
 
 export async function getCitiesForFiltering(): Promise<City[]> {
   return publicFetch('/city/fetch-all', { method: 'GET' });
@@ -154,16 +104,12 @@ export async function getNewUsersForDashboard(): Promise<User[]> {
   });
 }
 
-export async function getProductRequestsForDashboard(): Promise<
-  ProductRequest[]
-> {
-  const allRequests = await authenticatedFetch<ProductRequest[]>(
+export async function getProductRequestsForDashboard(): Promise<ProductRequest[]> {
+  const list = await authenticatedFetch<ProductRequest[]>(
     '/product-request/fetch-all',
     { method: 'GET' }
   );
-  return Array.isArray(allRequests)
-    ? allRequests.filter((p) => p.state === 0)
-    : [];
+  return Array.isArray(list) ? list.filter(p => p.state === 0) : [];
 }
 
 export async function getPaginatedAdmins(
@@ -201,24 +147,15 @@ export async function getBrandDetails(id: string | number): Promise<Brand> {
 export async function getModelsByBrand(
   brandId: string | number
 ): Promise<Model[]> {
-  return authenticatedFetch(modelApi.getByBrand(brandId).url, {
-    method: 'GET',
-  });
+  return authenticatedFetch(modelApi.getByBrand(brandId).url, { method: 'GET' });
 }
 
 export async function getFiltersByCategory(
   categoryId: string | number
 ): Promise<ProductFilterData[]> {
-  const response = await authenticatedFetch<{
-    productFilters?: ProductFilterData[];
-  }>(`/product-filter/fetch-all/${categoryId}`, { method: 'GET' });
-
-  if (response && Array.isArray(response.productFilters)) {
-    return response.productFilters;
-  }
-  console.warn(
-    'API response for filters did not have the expected structure.',
-    response
+  const res = await authenticatedFetch<{ productFilters?: ProductFilterData[] }>(
+    `/product-filter/fetch-all/${categoryId}`,
+    { method: 'GET' }
   );
-  return [];
+  return Array.isArray(res.productFilters) ? res.productFilters : [];
 }
