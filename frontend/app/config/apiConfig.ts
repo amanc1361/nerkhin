@@ -1,14 +1,14 @@
 import { absApiUrl } from "@/app/utils/absurl";
 
-
-
-  // app/config/apiConfig.ts
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "/api/go";
 
 export const INTERNAL_GO_API_URL =
   process.env.INTERNAL_GO_API_URL?.replace(/\/$/, "") ||
-  "http://nerkhin-backend:8084/api";     // ← همان env بالا
+  "http://nerkhin-backend:8084/api/go";
+
+
+
 
 /** ساخت URL کامل متناسب با محیط (در absApiUrl) */
 export { absApiUrl };

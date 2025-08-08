@@ -80,7 +80,7 @@ func NewRouter(
 	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 
 	router.Use(cors.New(corsConfig))
-	api := router.Group("/api")
+	api := router.Group("/api/go")
 	product.AddRoutes(api, productHandler)
 	productmodel.AddRoutes(api, productModelHandler)
 	productcategory.AddRoutes(api, productCategoryHandler)
