@@ -44,7 +44,7 @@ jobs:
       run: |
         mkdir -p deploy_package
         mv backend-${DEPLOY_TAG}.tar frontend-${DEPLOY_TAG}.tar deploy_package/
-        cp docker-compose.template.yml deploy.sh backend.env frontend.env deploy_package/
+        cp docker-compose.template.yml deploy.sh backend.env frontend.env nginx.conf deploy_package/
 
     # ✅ 5. Clean remote directory
     - name: 🧹 Clean remote deploy directory
