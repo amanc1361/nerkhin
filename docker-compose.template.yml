@@ -1,59 +1,125 @@
+# version: "3.9"
+
+# services:
+#   postgres:
+#     container_name: postgres
+#     image: postgres:16-alpine
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres-data:/var/lib/postgresql/data
+#     env_file:
+#       - .env
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+#       start_period: 10s
+#     networks:
+#       - nerkhin-net
+
+#   backend:
+#     container_name: nerkhin-backend
+#     image: backend:${DEPLOY_TAG}
+#     ports:
+#       - "8084:8084"
+#     volumes:
+#       - server-data:/data
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#     env_file:
+#       - .env
+#     restart: unless-stopped
+#     networks:
+#       - nerkhin-net
+
+#   frontend:
+#     container_name: nerkhin-frontend
+#     image: frontend:${DEPLOY_TAG}
+#     ports:
+#       - "3000:3000"
+#     restart: unless-stopped
+#     depends_on:
+#       - backend
+#     env_file:
+#       - .env.frontend
+#     networks:
+#       - nerkhin-net
+
+# volumes:
+#   postgres-data:
+#   server-data:
+
+# networks:
+#   nerkhin-net:
+#     driver: bridge
+
 version: "3.9"
 
 services:
   postgres:
-    container_name: postgres
     image: postgres:16-alpine
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    env_file:
-      - .env
+    container_name: postgres
+    env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    networks:
-      - nerkhin-net
+    networks: [nerkhin-net]
 
   backend:
+    image: backend-${DEPLOY_TAG}        # 👈 از فایل backend-${TAG}.tar لود می‌شود
     container_name: nerkhin-backend
-    image: backend:${DEPLOY_TAG}
-    ports:
-      - "8084:8084"
+    env_file: .env
+    expose: ["8084"]                    # درون شبکه
     volumes:
       - server-data:/data
+      - uploads:/uploads                # تصاویر/آپلودها
     depends_on:
       postgres:
         condition: service_healthy
-    env_file:
-      - .env
     restart: unless-stopped
-    networks:
-      - nerkhin-net
+    networks: [nerkhin-net]
 
   frontend:
+    image: frontend-${DEPLOY_TAG}       # 👈 از فایل frontend-${TAG}.tar لود می‌شود
     container_name: nerkhin-frontend
-    image: frontend:${DEPLOY_TAG}
-    ports:
-      - "3000:3000"
+    env_file: .env.frontend             # شامل NEXT_PUBLIC_API_BASE_URL و INTERNAL_GO_API_URL
+    expose: ["3000"]
+    depends_on: [backend]
     restart: unless-stopped
+    networks: [nerkhin-net]
+
+  nginx:
+    image: nginx:alpine
+    container_name: nerkhin-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro   # همین فایلِ زیر
+      - ./certs:/etc/nginx/certs:ro                      # گواهی‌های SSL (Let’s Encrypt)
+      - uploads:/uploads:ro                              # سرو تصاویر
     depends_on:
+      - frontend
       - backend
-    env_file:
-      - .env.frontend
-    networks:
-      - nerkhin-net
+    networks: [nerkhin-net]
 
 volumes:
   postgres-data:
   server-data:
+  uploads:        # تصاویر دائمی
 
 networks:
   nerkhin-net:
