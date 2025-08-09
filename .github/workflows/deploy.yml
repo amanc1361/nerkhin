@@ -76,6 +76,10 @@ jobs:
         username: ${{ secrets.REMOTE_USER }}
         key: ${{ secrets.REMOTE_SSH_KEY }}
         script: |
-          cd ~/nerkhin/deploy_package
-          chmod +x deploy.sh
-          ./deploy.sh ${{ env.DEPLOY_TAG }}
+           sudo systemctl stop nginx || true
+           sudo systemctl disable nginx || true
+           sudo fuser -k 80/tcp  || true
+           sudo fuser -k 443/tcp || true
+           cd ~/nerkhin/deploy_package
+           chmod +x deploy.sh
+           ./deploy.sh ${{ env.DEPLOY_TAG }}
