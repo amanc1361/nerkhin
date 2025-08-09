@@ -1,60 +1,55 @@
-// مسیر: middleware.ts
+// middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const SECRET = process.env.NEXTAUTH_SECRET!;          // مطمئن شوید در dev نیز ست شده
-const LOGIN_PAGE_URL        = "/auth/login";
-const SIGNUP_PAGE_URL       = "/auth/sign-up";
-const ADMIN_DASHBOARD_URL   = "/panel";
-const USER_DASHBOARD_URL    = "/bazaar";
-const PUBLIC_HOME_PAGE_URL  = "/";
+const SECRET = process.env.NEXTAUTH_SECRET!;
+const LOGIN = "/auth/login";
+const SIGNUP = "/auth/sign-up";
+const PANEL = "/panel";
+const BAZAAR = "/bazaar";
+const HOME = "/";
 
-const ADMIN_ROLES = [1, 2, "1", "2", "admin", "superadmin"];
-const USER_ROLES  = [3, 4, "3", "4", "user", "wholesaler", "retailer"];
-const PROTECTED   = [ADMIN_DASHBOARD_URL, USER_DASHBOARD_URL, "/profile"];
+const ADMIN = [1, 2, "1", "2", "admin", "superadmin"];
+const PROTECTED = [PANEL, BAZAAR, "/profile"];
 
 export async function middleware(req: NextRequest) {
-  const session = await getToken({ req, secret: SECRET });
   const { pathname } = req.nextUrl;
 
-  const isAuth         = !!session;
-  const userRole       = session?.role;
-  const onAuthPage     = pathname.startsWith(LOGIN_PAGE_URL) || pathname.startsWith(SIGNUP_PAGE_URL);
-  const onHomePage     = pathname === PUBLIC_HOME_PAGE_URL;
-  const onProtected    = PROTECTED.some((p) => pathname.startsWith(p));
+  // به NextAuth و دیگر APIها دست نزن
+  if (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/images/") ||
+    pathname === "/favicon.ico"
+  ) return NextResponse.next();
 
-  /* ۱) کاربر لاگین و در صفحهٔ لاگین یا خانه است → ری‌دایرکت به داشبورد */
-  if (isAuth && (onAuthPage || onHomePage)) {
-    const target = ADMIN_ROLES.includes(userRole as any)
-      ? ADMIN_DASHBOARD_URL
-      : USER_DASHBOARD_URL;
-    return NextResponse.redirect(new URL(target, req.url));
+  // هیچ POSTـی رو دستکاری نکن
+  if (req.method !== "GET") return NextResponse.next();
+
+  const session = await getToken({ req, secret: SECRET });
+  const isAuth = !!session;
+  const role = session?.role;
+  const onAuth = pathname.startsWith(LOGIN) || pathname.startsWith(SIGNUP);
+  const onHome = pathname === HOME;
+  const onProtected = PROTECTED.some(p => pathname.startsWith(p));
+
+  if (isAuth && (onAuth || onHome)) {
+    return NextResponse.redirect(new URL(ADMIN.includes(role as any) ? PANEL : BAZAAR, req.url));
   }
 
-  /* ۲) کاربر لاگین نیست و مسیر محافظت‌شده می‌خواهد */
   if (!isAuth && onProtected) {
-    const url = new URL(LOGIN_PAGE_URL, req.url);
+    const url = new URL(LOGIN, req.url);
     url.searchParams.set("redirect", pathname + req.nextUrl.search);
     return NextResponse.redirect(url);
   }
 
-  /* ۳) کاربر لاگین است ولی نقش نامجاز براى پنل ادمین */
-  if (isAuth && onProtected && pathname.startsWith(ADMIN_DASHBOARD_URL)) {
-    if (!ADMIN_ROLES.includes(userRole as any)) {
-      return NextResponse.redirect(new URL(USER_DASHBOARD_URL, req.url));
-    }
+  if (isAuth && pathname.startsWith(PANEL) && !ADMIN.includes(role as any)) {
+    return NextResponse.redirect(new URL(BAZAAR, req.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/",
-    "/panel/:path*",
-    "/bazaar/:path*",
-    "/profile/:path*",
-    "/auth/login",
-    "/auth/sign-up",
-  ],
+  matcher: ["/", "/panel/:path*", "/bazaar/:path*", "/profile/:path*", "/auth/login", "/auth/sign-up"],
 };

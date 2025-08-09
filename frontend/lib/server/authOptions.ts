@@ -17,6 +17,7 @@ export function decodeJwtPayload(token: string): { exp?: number } | null {
 }
 
 export const authOptions: NextAuthOptions = {
+  
   debug: process.env.NODE_ENV === "development",
 
   providers: [
