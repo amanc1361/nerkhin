@@ -79,7 +79,7 @@ services:
     networks: [nerkhin-net]
 
   backend:
-    image: backend-${DEPLOY_TAG}        # 👈 از فایل backend-${TAG}.tar لود می‌شود
+    image: backend:${DEPLOY_TAG}        # 👈 از فایل backend-${TAG}.tar لود می‌شود
     container_name: nerkhin-backend
     env_file: .env
     expose: ["8084"]                    # درون شبکه
@@ -93,7 +93,7 @@ services:
     networks: [nerkhin-net]
 
   frontend:
-    image: frontend-${DEPLOY_TAG}       # 👈 از فایل frontend-${TAG}.tar لود می‌شود
+    image: frontend:${DEPLOY_TAG}       # 👈 از فایل frontend-${TAG}.tar لود می‌شود
     container_name: nerkhin-frontend
     env_file: .env.frontend             # شامل NEXT_PUBLIC_API_BASE_URL و INTERNAL_GO_API_URL
     expose: ["3000"]
