@@ -24,11 +24,29 @@ import { brandApi, modelApi } from '@/app/services/brandapi';
 import { ProductFilterData } from '@/app/types/model/model';
 import { authOptions } from './authOptions';
 
-/* ---------- helper ---------- */
+/* ---------- helpers ---------- */
 function joinUrl(base: string, path: string) {
-  const cleanBase = base.replace(/\/$/, '');
+  const cleanBase = (base || '').replace(/\/$/, '');
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${cleanBase}${cleanPath}`.replace(/([^:]\/)\/+/g, '$1');
+}
+
+const clean = (s: string) => (s || '').replace(/\/+$/, '');
+const isAbs = (s: string) => /^https?:\/\//i.test(s);
+const withLeadingSlash = (s: string) => (s.startsWith('/') ? s : `/${s}`);
+
+/** ریشهٔ درست را می‌سازد؛ چه INTERNAL تهش /api/go داشته باشد چه نداشته باشد */
+function resolveRootBase(publicBase: string, internalBase: string) {
+  const pb = clean(publicBase || '/api/go');         // مثلا "/api/go"
+  const ib = clean(internalBase || '');              // مثلا "http://nerkhin-backend:8084" یا ".../api/go"
+
+  if (isAbs(pb)) return pb;                          // اگر public مطلق بود، همان
+  if (!ib) return withLeadingSlash(pb);              // internal نداریم → نسبی
+
+  const tail = withLeadingSlash(pb);                 // "/api/go"
+  if (ib.endsWith(tail)) return ib;                  // اگر internal خودش با tail تمام شود، دوباره نچسبان
+
+  return ib + tail;                                  // در غیر اینصورت بچسبان
 }
 
 /* ---------- public fetch ---------- */
@@ -36,8 +54,8 @@ async function publicFetch<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const envBase = process.env.INTERNAL_GO_API_URL || '';
-  const fullUrl = joinUrl(envBase, path);
+  const base = resolveRootBase(API_BASE_URL, process.env.INTERNAL_GO_API_URL || '');
+  const fullUrl = joinUrl(base, path);
 
   const res = await fetch(fullUrl, { ...options, cache: 'no-store' });
   if (!res.ok) {
@@ -61,14 +79,12 @@ async function authenticatedFetch<T = any>(
     headers.set('Content-Type', 'application/json');
   headers.set('Authorization', `Bearer ${token}`);
 
-  /*  🟢 NEW: Resolve ROOT_BASE whether API_BASE_URL is absolute or relative  */
-  const rootBase = API_BASE_URL.startsWith('http')
-    ? API_BASE_URL
-    : joinUrl(process.env.INTERNAL_GO_API_URL || '', API_BASE_URL);
+  const base = resolveRootBase(API_BASE_URL, process.env.INTERNAL_GO_API_URL || '');
+  const fullUrl = path.startsWith('http') ? path : joinUrl(base, path);
 
-  const fullUrl = path.startsWith('http') ? path : joinUrl(rootBase, path);
-  console.log("********************url*****************");
-  console.log(fullUrl); 
+  console.log('********************url*****************');
+  console.log(fullUrl);
+
   const res = await fetch(fullUrl, { ...options, headers, cache: 'no-store' });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -80,7 +96,7 @@ async function authenticatedFetch<T = any>(
     };
     throw apiErr;
   }
-  
+
   return res.status === 204 ? (null as any) : res.json();
 }
 
@@ -91,7 +107,6 @@ export async function getCitiesForFiltering(): Promise<City[]> {
 }
 
 export async function getPaginatedUsers(
-  
   filters: Record<string, any>
 ): Promise<PaginatedUsersResponse> {
   return authenticatedFetch('/user/fetch-users', {
