@@ -83,7 +83,7 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({ category, level, onA
     }
   };
   
-  const imageUrl = category.imageUrl ? `${IMAGE_HOST}/images/${category.imageUrl}` : "/icons/imageicon/default-placeholder.png";
+  const imageUrl = category.imageUrl ? `${IMAGE_HOST}/uploads/${category.imageUrl}` : "/icons/imageicon/default-placeholder.png";
 
   return (
     <>
