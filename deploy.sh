@@ -62,3 +62,10 @@ docker-compose down --remove-orphans || true
 # -----------------------------
 echo "🚀 Running Docker Compose..."
 docker-compose up -d 
+echo "🔧 Setting permissions for /uploads in backend..."
+docker exec -u root nerkhin-backend sh -lc '
+  mkdir -p /uploads &&
+  chown -R 100:101 /uploads &&
+  chmod -R 775 /uploads
+'
+echo "✅ Permissions fixed for /uploads"
