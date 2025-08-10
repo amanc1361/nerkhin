@@ -15,7 +15,6 @@ const PROTECTED = [PANEL, BAZAAR, "/profile"];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // به NextAuth و دیگر APIها دست نزن
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
@@ -23,12 +22,18 @@ export async function middleware(req: NextRequest) {
     pathname === "/favicon.ico"
   ) return NextResponse.next();
 
-  // هیچ POSTـی رو دستکاری نکن
   if (req.method !== "GET") return NextResponse.next();
 
   const session = await getToken({ req, secret: SECRET });
-  const isAuth = !!session;
-  const role = session?.role;
+
+  // 🔧 جدید: انقضا را هم بسنج (با 30s مارجین)
+  const exp = typeof (session as any)?.accessTokenExpires === "number" ? (session as any).accessTokenExpires : 0;
+  const isExpired = exp > 0 && Date.now() >= (exp - 30_000);
+
+  // 🔧 جدید: فقط وقتی لاگین حسابش کن که منقضی نباشه
+  const isAuth = !!session && !isExpired;
+
+  const role = (session as any)?.role;
   const onAuth = pathname.startsWith(LOGIN) || pathname.startsWith(SIGNUP);
   const onHome = pathname === HOME;
   const onProtected = PROTECTED.some(p => pathname.startsWith(p));

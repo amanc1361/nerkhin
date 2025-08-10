@@ -6,12 +6,11 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { INTERNAL_GO_API_URL } from "@/app/config/apiConfig";
 import { authOptions } from "./authOptions";
-import { refreshAccessTokenAPI } from "@/app/services/authapi"; // ← استفاده از سرویس خودت
+import { refreshAccessTokenAPI } from "@/app/services/authapi";
 
 type Json = Record<string, unknown> | unknown[];
 
 interface ExtraInit extends RequestInit {
-  /** اگر false باشد، Authorization ست نمی‌کنیم */
   needAuth?: boolean;
 }
 
@@ -22,19 +21,32 @@ async function getAccessTokenFromSession(): Promise<string | undefined> {
   return (session as any)?.accessToken as string | undefined;
 }
 
+/* 🔧 جدید: single-flight برای refresh تا همزمان چندبار صدا نشود */
+const refreshInFlight = new Map<string, Promise<string | null>>();
+
 async function tryRefreshViaCookie(): Promise<string | null> {
   if (!REFRESH_COOKIE_NAME) return null;
   const rt = (await cookies()).get(REFRESH_COOKIE_NAME)?.value;
   if (!rt) return null;
 
-  try {
-    const r = await refreshAccessTokenAPI(rt);
-    // فرض بر اینکه پاسخ -> { accessToken, accessTokenExpiresAt, refreshToken? }
-    return r?.accessToken || null;
-  } catch (e) {
-    // رفرش ناموفق
-    return null;
+  if (refreshInFlight.has(rt)) {
+    return await refreshInFlight.get(rt)!;
   }
+
+  const p = (async () => {
+    try {
+      const r = await refreshAccessTokenAPI(rt);
+      return r?.accessToken || null;
+    } catch {
+      return null;
+    } finally {
+      // بعد از کوتاه‌زمان، اجازه‌ی تلاش مجدد
+      setTimeout(() => refreshInFlight.delete(rt), 1500);
+    }
+  })();
+
+  refreshInFlight.set(rt, p);
+  return await p;
 }
 
 async function fetchWithAuthRetry(
@@ -42,32 +54,34 @@ async function fetchWithAuthRetry(
   init: RequestInit,
   needAuth: boolean
 ): Promise<Response> {
-  // مرحله 1: تلاش با توکن سشن
   const hdr = new Headers(init.headers);
+
   if (needAuth) {
     const access = await getAccessTokenFromSession();
     if (access && !hdr.has("Authorization")) {
       hdr.set("Authorization", `Bearer ${access}`);
     }
-
-    // کوکی‌های جاری را هم پاس بده (برای هر وابستگی بک‌اند به کوکی)
     const jar = (await cookies()).getAll().map(c => `${c.name}=${c.value}`).join("; ");
     if (jar && !hdr.has("Cookie")) hdr.set("Cookie", jar);
   }
 
   let res = await fetch(fullUrl, { ...init, headers: hdr, cache: "no-store" });
 
-  // مرحله 2: اگر 401 → یک بار رفرش و retry
   if (needAuth && res.status === 401) {
     const newAccess = await tryRefreshViaCookie();
-    if (newAccess) {
-      const retryHeaders = new Headers(hdr);
-      retryHeaders.set("Authorization", `Bearer ${newAccess}`);
-      res = await fetch(fullUrl, { ...init, headers: retryHeaders, cache: "no-store" });
+
+    // 🔧 اگر رفرش نبود/ناموفق بود → مستقیم لاگین، نه تلاش‌های بیشتر
+    if (!newAccess) {
+      redirect("/auth/login");
     }
+
+    // retry یک‌باره
+    const retryHeaders = new Headers(hdr);
+    retryHeaders.set("Authorization", `Bearer ${newAccess!}`);
+    res = await fetch(fullUrl, { ...init, headers: retryHeaders, cache: "no-store" });
   }
 
-  // مرحله 3: اگر هنوز 401 → به صفحه‌ی لاگین
+  // اگر باز هم 401 → لاگین
   if (needAuth && res.status === 401) {
     redirect("/auth/login");
   }
@@ -79,7 +93,6 @@ async function serverFetch<T = any>(
   path: string,
   { needAuth = true, ...init }: ExtraInit = {}
 ): Promise<T> {
-  // فقط اگر بدنه JSON معمولی است
   const hdr = new Headers(init.headers);
   if (
     init.body &&
@@ -91,7 +104,6 @@ async function serverFetch<T = any>(
   }
   hdr.set("Accept", "application/json");
 
-  // URL کامل (بدون تغییر در /api/go یا هرچی که خودت ست کردی)
   const base = INTERNAL_GO_API_URL.replace(/\/$/, "");
   const fullUrl =
     path.startsWith("http")
@@ -112,44 +124,31 @@ async function serverFetch<T = any>(
     );
   }
 
-  // 204 یا بدنه خالی
   if (res.status === 204 || !(await res.clone().text())) return null as any;
-
   return (await safeParseBody(res)) as T;
 }
 
-/* ---------- کمک‌تابع ---------- */
 async function safeParseBody(res: Response): Promise<unknown> {
   const ct = res.headers.get("content-type") || "";
   if (ct.includes("application/json")) return res.json().catch(() => ({}));
   return res.text().catch(() => "");
 }
 
-/* ---------- اکسپورت ---------- */
 export const serverApiService = {
   get: <T = any>(url: string, opts: ExtraInit = {}) =>
     serverFetch<T>(url, { ...opts, method: "GET" }),
-
   post: <T = any>(url: string, body: Json | FormData, opts: ExtraInit = {}) =>
     serverFetch<T>(url, {
       ...opts,
       method: "POST",
-      body:
-        body instanceof FormData || body instanceof Blob
-          ? (body as BodyInit)
-          : JSON.stringify(body),
+      body: body instanceof FormData || body instanceof Blob ? (body as BodyInit) : JSON.stringify(body),
     }),
-
   put: <T = any>(url: string, body: Json | FormData, opts: ExtraInit = {}) =>
     serverFetch<T>(url, {
       ...opts,
       method: "PUT",
-      body:
-        body instanceof FormData || body instanceof Blob
-          ? (body as BodyInit)
-          : JSON.stringify(body),
+      body: body instanceof FormData || body instanceof Blob ? (body as BodyInit) : JSON.stringify(body),
     }),
-
   delete: <T = any>(url: string, opts: ExtraInit = {}) =>
     serverFetch<T>(url, { ...opts, method: "DELETE" }),
 };
