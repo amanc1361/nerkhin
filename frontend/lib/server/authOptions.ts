@@ -34,8 +34,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Phone & code required");
          try {
         const resp = await verifyCodeAPI(credentials.phone, credentials.code);
-        console.log("✅ verifyCodeAPI →", resp);
-        if (resp?.user && resp.accessToken && resp.user.role !== undefined) { 
+           if (resp?.user && resp.accessToken && resp.user.role !== undefined) { 
           const ttlSec = resp.accessTokenExpiresAt;        // ← عددى که سرور برمى‌گرداند (ثانیه)
           const absExp = Date.now() + ttlSec * 1000;       // ← تبدیل به timestamp مطلق
 

@@ -82,8 +82,7 @@ async function authenticatedFetch<T = any>(
   const base = resolveRootBase(API_BASE_URL, process.env.INTERNAL_GO_API_URL || '');
   const fullUrl = path.startsWith('http') ? path : joinUrl(base, path);
 
-  console.log('********************url*****************');
-  console.log(fullUrl);
+ 
 
   const res = await fetch(fullUrl, { ...options, headers, cache: 'no-store' });
   if (!res.ok) {
