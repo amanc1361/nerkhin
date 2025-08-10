@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -59,8 +58,7 @@ func (pch *ProductCategoryHandler) Create(c *gin.Context) {
 	imageFileNames, err := saveAndGetImageFileNames(c, "images",
 		pch.AppConfig.ImageBasePath, CATEGORY_IMAGES_LIMIT)
 	if err != nil {
-		fmt.Println("--------------------------------------")
-		fmt.Println(err)
+
 		HandleError(c, err, pch.AppConfig.Lang)
 		return
 	}
@@ -204,9 +202,8 @@ func (pch *ProductCategoryHandler) Delete(c *gin.Context) {
 
 	// 4. ارسال پاسخ موفقیت‌آمیز
 	// برای DELETE معمولاً پاسخ 200 OK یا 204 No Content مناسب است
-	handleSuccess(c,id)
+	handleSuccess(c, id)
 }
-
 
 func (pch *ProductCategoryHandler) FetchMainCategories(c *gin.Context) {
 	ctx := c.Request.Context()
