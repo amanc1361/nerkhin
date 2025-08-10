@@ -1,4 +1,3 @@
-// middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
@@ -11,57 +10,74 @@ const HOME = "/";
 
 const ADMIN = [1, 2, "1", "2", "admin", "superadmin"];
 const PROTECTED = [PANEL, BAZAAR, "/profile"];
-const AUTH_INVALID_FLAG = "auth_invalid";
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const url = req.nextUrl;
+  const { pathname } = url;
 
+  // اجازه بده لاگین با reauth=1 همیشه باز شود (برای قطع لوپ‌ها)
+  const forceReauth =
+    pathname.startsWith("/auth/login") &&
+    url.searchParams.get("reauth") === "1";
+  if (forceReauth) {
+    return NextResponse.next();
+  }
+
+  // به NextAuth و استاتیک‌ها دست نزن
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/images/") ||
     pathname === "/favicon.ico"
-  ) return NextResponse.next();
+  )
+    return NextResponse.next();
 
+  // هیچ POSTـی رو دستکاری نکن
   if (req.method !== "GET") return NextResponse.next();
 
-  const token = await getToken({ req, secret: SECRET }) as any;
+  const session = await getToken({ req, secret: SECRET });
 
-  // ✳️ اگر روی صفحات احراز هویت هستیم، یک هدر به درخواست تزریق کن
-  const requestHeaders = new Headers(req.headers);
+  // چک انقضا (با 30s مارجین)
+  const exp =
+    typeof (session as any)?.accessTokenExpires === "number"
+      ? ((session as any).accessTokenExpires as number)
+      : 0;
+  const isExpired = exp > 0 && Date.now() >= exp - 30_000;
+
+  // فقط اگر سشن هست و منقضی نیست، احراز را true بگیر
+  const isAuth = !!session && !isExpired;
+
+  const role = (session as any)?.role;
   const onAuth = pathname.startsWith(LOGIN) || pathname.startsWith(SIGNUP);
-  if (onAuth) {
-    requestHeaders.set("x-auth-page", "1");
-  }
-
   const onHome = pathname === HOME;
-  const onProtected = PROTECTED.some(p => pathname.startsWith(p));
+  const onProtected = PROTECTED.some((p) => pathname.startsWith(p));
 
-  const exp = typeof token?.accessTokenExpires === "number" ? token.accessTokenExpires : 0;
-  const isExpired = exp > 0 && Date.now() >= (exp - 30_000);
-  const hadRefreshError = token?.error === "RefreshAccessTokenError";
-  const flaggedInvalid = req.cookies.get(AUTH_INVALID_FLAG)?.value === "1";
-
-  const isAuth = !!token?.accessToken && !isExpired && !hadRefreshError && !flaggedInvalid;
-
-  // اجازهٔ رندر لاگین/ثبت‌نام
-  if (onAuth) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
-  }
-
-  if (isAuth && onHome) {
-    return NextResponse.redirect(new URL(ADMIN.includes(token?.role as any) ? PANEL : BAZAAR, req.url));
+  if (isAuth && (onAuth || onHome)) {
+    return NextResponse.redirect(
+      new URL(ADMIN.includes(role as any) ? PANEL : BAZAAR, req.url)
+    );
   }
 
   if (!isAuth && onProtected) {
-    const url = new URL(LOGIN, req.url);
-    url.searchParams.set("redirect", pathname + req.nextUrl.search);
-    return NextResponse.redirect(url);
+    const to = new URL(LOGIN, req.url);
+    to.searchParams.set("redirect", pathname + url.search);
+    return NextResponse.redirect(to);
   }
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  if (isAuth && pathname.startsWith(PANEL) && !ADMIN.includes(role as any)) {
+    return NextResponse.redirect(new URL(BAZAAR, req.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/panel/:path*", "/bazaar/:path*", "/profile/:path*", "/auth/login", "/auth/sign-up"],
+  matcher: [
+    "/",
+    "/panel/:path*",
+    "/bazaar/:path*",
+    "/profile/:path*",
+    "/auth/login",
+    "/auth/sign-up",
+  ],
 };
