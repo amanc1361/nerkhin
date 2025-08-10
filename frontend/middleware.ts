@@ -11,6 +11,7 @@ const HOME = "/";
 
 const ADMIN = [1, 2, "1", "2", "admin", "superadmin"];
 const PROTECTED = [PANEL, BAZAAR, "/profile"];
+const AUTH_INVALID_FLAG = "auth_invalid";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -24,22 +25,32 @@ export async function middleware(req: NextRequest) {
 
   if (req.method !== "GET") return NextResponse.next();
 
-  const session = await getToken({ req, secret: SECRET });
+  const token = await getToken({ req, secret: SECRET }) as any;
 
-  // 🔧 جدید: انقضا را هم بسنج (با 30s مارجین)
-  const exp = typeof (session as any)?.accessTokenExpires === "number" ? (session as any).accessTokenExpires : 0;
-  const isExpired = exp > 0 && Date.now() >= (exp - 30_000);
-
-  // 🔧 جدید: فقط وقتی لاگین حسابش کن که منقضی نباشه
-  const isAuth = !!session && !isExpired;
-
-  const role = (session as any)?.role;
+  // ✳️ اگر روی صفحات احراز هویت هستیم، یک هدر به درخواست تزریق کن
+  const requestHeaders = new Headers(req.headers);
   const onAuth = pathname.startsWith(LOGIN) || pathname.startsWith(SIGNUP);
+  if (onAuth) {
+    requestHeaders.set("x-auth-page", "1");
+  }
+
   const onHome = pathname === HOME;
   const onProtected = PROTECTED.some(p => pathname.startsWith(p));
 
-  if (isAuth && (onAuth || onHome)) {
-    return NextResponse.redirect(new URL(ADMIN.includes(role as any) ? PANEL : BAZAAR, req.url));
+  const exp = typeof token?.accessTokenExpires === "number" ? token.accessTokenExpires : 0;
+  const isExpired = exp > 0 && Date.now() >= (exp - 30_000);
+  const hadRefreshError = token?.error === "RefreshAccessTokenError";
+  const flaggedInvalid = req.cookies.get(AUTH_INVALID_FLAG)?.value === "1";
+
+  const isAuth = !!token?.accessToken && !isExpired && !hadRefreshError && !flaggedInvalid;
+
+  // اجازهٔ رندر لاگین/ثبت‌نام
+  if (onAuth) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
+  if (isAuth && onHome) {
+    return NextResponse.redirect(new URL(ADMIN.includes(token?.role as any) ? PANEL : BAZAAR, req.url));
   }
 
   if (!isAuth && onProtected) {
@@ -48,11 +59,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isAuth && pathname.startsWith(PANEL) && !ADMIN.includes(role as any)) {
-    return NextResponse.redirect(new URL(BAZAAR, req.url));
-  }
-
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
