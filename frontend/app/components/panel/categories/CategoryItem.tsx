@@ -88,7 +88,7 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({ category, level, onA
   return (
     <>
       <div className="border-b dark:border-gray-700">
-       <span>{imageUrl}</span>
+
         <div className="flex w-full items-center justify-between p-3 pr-4 hover:bg-gray-50 dark:hover:bg-gray-700/50" style={{ paddingRight: `${level * 24 + 16}px` }}>
           <div className="flex flex-grow items-center gap-3 cursor-pointer select-none" onClick={handleToggle}>
             <div className="flex w-5 items-center justify-center">
