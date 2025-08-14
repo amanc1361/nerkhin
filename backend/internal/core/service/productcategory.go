@@ -134,7 +134,10 @@ func (pcs *ProductCategoryService) DeleteProductCategory(ctx context.Context, id
 		if err != nil {
 			return err
 		}
+		fmt.Println("**************Delete iamges******************")
 		for _, category := range categoriesToDelete {
+			fmt.Println(category.ImageUrl)
+			fmt.Println(pcs.appConfig.ImageBasePath)
 			if err = deleteImageFile(pcs.appConfig.ImageBasePath, category.ImageUrl); err != nil {
 				fmt.Printf("warning: could not delete category image %s: %v\n", category.ImageUrl, err)
 			}
