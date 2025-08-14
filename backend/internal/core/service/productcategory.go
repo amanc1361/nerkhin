@@ -128,7 +128,7 @@ func (pcs *ProductCategoryService) DeleteProductCategory(ctx context.Context, id
 				return errors.New(msg.ErrProductCategoryHasSubCategories) // یک پیام خطای جدید
 			}
 		}
-
+		fmt.Println(ids)
 		// خواندن دسته‌بندی‌ها برای حذف تصاویر فیزیکی آنها
 		categoriesToDelete, err := pcs.repo.GetCategoriesByFilter(ctx, db, &domain.ProductCategoryFilter{ParentIDs: ids}) // نیاز به افزودن GetCategoriesByIDs به ریپازیتوری
 		if err != nil {
