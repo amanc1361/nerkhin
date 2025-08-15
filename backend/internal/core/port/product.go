@@ -56,6 +56,10 @@ type ProductRepository interface {
 }
 
 type ProductService interface {
+	EnsureBrandByTitle(ctx context.Context, categoryID int64, brandTitle string) (int64, error)
+
+	// درج محصول بدون تصویر و بدون فیلتر، فقط با ImagesCount و تگ‌ها
+	CreateProductDirect(ctx context.Context, product *domain.Product, tagPayload *domain.ProductTagPayload) (int64, error)
 	CreateProduct(ctx context.Context, product *domain.Product,
 
 		imageFiles []*multipart.FileHeader,

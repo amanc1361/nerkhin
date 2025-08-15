@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nerkhin/internal/adapter/config"
 	"github.com/nerkhin/internal/adapter/storage/util/image"
@@ -427,4 +428,101 @@ func validateProduct(_ context.Context, product *domain.Product) error {
 		}
 	}
 	return nil
+}
+
+// EnsureBrandByTitle: اگر برند با این عنوان (و در صورت نیاز categoryID) موجود نبود، می‌سازد و ID برمی‌گرداند.
+func (ps *ProductService) EnsureBrandByTitle(ctx context.Context, categoryID int64, brandTitle string) (int64, error) {
+	if strings.TrimSpace(brandTitle) == "" {
+		return 0, fmt.Errorf("brand title is required")
+	}
+
+	dbSession, err := ps.dbms.NewDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var outID int64
+	err = ps.dbms.BeginTransaction(ctx, dbSession, func(tx interface{}) error {
+		// تلاش برای یافتن
+		b, err := ps.brandRepo.GetProductBrandByTitleAndCategory(ctx, tx, brandTitle, categoryID)
+		if err == nil && b != nil && b.ID > 0 {
+			outID = b.ID
+			return nil
+		}
+		// ساخت برند جدید
+		nb := &domain.ProductBrand{Title: brandTitle, CategoryID: categoryID}
+		id, err := ps.brandRepo.CreateProductBrand(ctx, tx, nb)
+		if err != nil {
+			return fmt.Errorf("create brand failed: %w", err)
+		}
+		outID = id
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return outID, nil
+}
+
+// CreateProductDirect: درج محصول بدون عکس و فیلتر؛ فقط ImagesCount ذخیره می‌شود.
+// ID محصول همان «نام پوشه» است. تگ‌ها مثل روال معمول شما در جدول ProductTag ذخیره و لینک می‌شوند.
+func (ps *ProductService) CreateProductDirect(
+	ctx context.Context,
+	product *domain.Product,
+	tagPayload *domain.ProductTagPayload,
+) (int64, error) {
+
+	if product == nil {
+		return 0, fmt.Errorf("product is nil")
+	}
+	if product.ID <= 0 {
+		return 0, fmt.Errorf("product.ID (folder number) must be > 0")
+	}
+	if product.BrandID <= 0 {
+		return 0, fmt.Errorf("brandID is required")
+	}
+	if strings.TrimSpace(product.ModelName) == "" {
+		return 0, fmt.Errorf("modelName is required")
+	}
+
+	dbSession, err := ps.dbms.NewDB(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var newID int64
+	err = ps.dbms.BeginTransaction(ctx, dbSession, func(tx interface{}) error {
+		// اعتبارسنجی برند (مثل CreateProduct شما)
+		if _, err := ps.brandRepo.GetProductBrandByID(ctx, tx, product.BrandID); err != nil {
+			return fmt.Errorf("invalid brand: %w", err)
+		}
+
+		// درج محصول (با ID از قبل ست‌شده)
+		id, err := ps.repo.CreateProduct(ctx, tx, product)
+		if err != nil {
+			return err
+		}
+		newID = id
+
+		// تگ‌ها (اختیاری)
+		if tagPayload != nil && len(tagPayload.NewTags) > 0 {
+			for _, t := range tagPayload.NewTags {
+				if t == nil {
+					continue
+				}
+				if strings.TrimSpace(t.Tag) == "" {
+					return fmt.Errorf("tag cannot be empty")
+				}
+				t.ProductID = newID
+			}
+			if err := ps.repo.SaveTags(ctx, tx, tagPayload); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return newID, nil
 }

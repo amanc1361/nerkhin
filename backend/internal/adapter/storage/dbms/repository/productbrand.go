@@ -152,3 +152,24 @@ func (pbr *ProductBrandRepository) GetBrandByCategoryId(ctx context.Context, dbS
 
 	return brands, nil
 }
+func (pbr *ProductBrandRepository) GetProductBrandByTitleAndCategory(
+	ctx context.Context,
+	dbSession interface{},
+	title string,
+	categoryID int64,
+) (*domain.ProductBrand, error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return nil, err
+	}
+
+	brand := &domain.ProductBrand{}
+	q := db.Model(&domain.ProductBrand{}).Where("title = ?", title)
+	if categoryID > 0 {
+		q = q.Where("category_id = ?", categoryID)
+	}
+	if err := q.Take(brand).Error; err != nil {
+		return nil, err // اگر نبود gorm.ErrRecordNotFound برمی‌گردد
+	}
+	return brand, nil
+}

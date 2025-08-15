@@ -21,6 +21,7 @@ type ProductBrandRepository interface {
 	GetExistingProductBrandIDs(ctx context.Context, dbSession interface{}, categoryID int64) (
 		brandIDs []int64, err error)
 	GetBrandByCategoryId(ctx context.Context, dbSession interface{}, CategoryID int64) ([]*domain.ProductBrand, error)
+	GetProductBrandByTitleAndCategory(ctx context.Context, dbSession interface{}, title string, categoryID int64) (*domain.ProductBrand, error)
 }
 
 type ProductBrandService interface {

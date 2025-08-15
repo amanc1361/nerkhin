@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
 
 	"strconv"
 
@@ -326,4 +329,200 @@ func (h *ProductHandler) GetByCategory(c *gin.Context) {
 	}
 
 	handleSuccess(c, result)
+}
+
+// --- CSV Import ---
+
+// POST /v1/products/import-csv
+// multipart/form-data: file=<csv>
+// اختیاری: categoryId (برای یافتن/ساختن برند در همان کتگوری) ، skipExisting=true|false (پیش‌فرض true)
+func (ph *ProductHandler) ImportFromCSV(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	categoryIDStr := strings.TrimSpace(c.DefaultPostForm("categoryId", c.DefaultQuery("categoryId", "0")))
+	var categoryID int64
+	if categoryIDStr != "" {
+		if v, err := strconv.ParseInt(normalizeDigits(categoryIDStr), 10, 64); err == nil {
+			categoryID = v
+		}
+	}
+	skipExistingStr := strings.ToLower(strings.TrimSpace(c.DefaultPostForm("skipExisting", c.DefaultQuery("skipExisting", "true"))))
+	skipExisting := !(skipExistingStr == "false" || skipExistingStr == "0")
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		validationError(c, fmt.Errorf("فایل CSV یافت نشد: %w", err), ph.AppConfig.Lang)
+		return
+	}
+	f, err := fileHeader.Open()
+	if err != nil {
+		HandleError(c, fmt.Errorf("خطا در بازکردن CSV: %w", err), ph.AppConfig.Lang)
+		return
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(bomAwareReader{r: f})
+	reader.FieldsPerRecord = -1
+
+	header, err := reader.Read()
+	if err != nil {
+		HandleError(c, fmt.Errorf("خطا در خواندن هدر CSV: %w", err), ph.AppConfig.Lang)
+		return
+	}
+
+	// نگاشت ستون‌ها (فارسی)
+	idx := map[string]int{
+		"برند":      -1,
+		"مدل":       -1,
+		"توضیحات":   -1,
+		"نام پوشه":  -1,
+		"تعداد عکس": -1,
+		"تگ":        -1,
+	}
+	for i, h := range header {
+		h = strings.TrimSpace(h)
+		if _, ok := idx[h]; ok {
+			idx[h] = i
+		}
+	}
+	// ستون‌های ضروری
+	for _, k := range []string{"برند", "مدل", "نام پوشه", "تعداد عکس"} {
+		if idx[k] < 0 {
+			validationError(c, fmt.Errorf("ستون «%s» در CSV پیدا نشد", k), ph.AppConfig.Lang)
+			return
+		}
+	}
+
+	type rowError struct {
+		Row   int    `json:"row"`
+		Error string `json:"error"`
+	}
+	type importResult struct {
+		Total     int        `json:"total"`
+		Inserted  int        `json:"inserted"`
+		Skipped   int        `json:"skipped"`
+		Failed    int        `json:"failed"`
+		RowErrors []rowError `json:"rowErrors,omitempty"`
+	}
+
+	res := importResult{}
+	rowNum := 1
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		rowNum++
+		if err != nil {
+			res.Failed++
+			res.RowErrors = append(res.RowErrors, rowError{Row: rowNum, Error: fmt.Sprintf("خطای CSV: %v", err)})
+			continue
+		}
+		res.Total++
+
+		brandTitle := strings.TrimSpace(record[idx["برند"]])
+		modelName := strings.TrimSpace(record[idx["مدل"]])
+		desc := safeGet(record, idx["توضیحات"])
+
+		folderRaw := normalizeDigits(strings.TrimSpace(record[idx["نام پوشه"]]))
+		folderID, err := strconv.ParseInt(folderRaw, 10, 64)
+		if err != nil || folderID <= 0 {
+			res.Failed++
+			res.RowErrors = append(res.RowErrors, rowError{Row: rowNum, Error: "«نام پوشه» عدد معتبر نیست"})
+			continue
+		}
+
+		imagesCountRaw := normalizeDigits(strings.TrimSpace(record[idx["تعداد عکس"]]))
+		imagesCount, err := strconv.Atoi(imagesCountRaw)
+		if err != nil || imagesCount < 0 {
+			res.Failed++
+			res.RowErrors = append(res.RowErrors, rowError{Row: rowNum, Error: "«تعداد عکس» عدد معتبر نیست"})
+			continue
+		}
+
+		if skipExisting {
+			if _, err := ph.service.GetProductByID(ctx, folderID); err == nil {
+				res.Skipped++
+				continue
+			}
+		}
+
+		brandID, err := ph.service.EnsureBrandByTitle(ctx, categoryID, brandTitle)
+		if err != nil {
+			res.Failed++
+			res.RowErrors = append(res.RowErrors, rowError{Row: rowNum, Error: fmt.Sprintf("برند «%s»: %v", brandTitle, err)})
+			continue
+		}
+
+		product := &domain.Product{
+			ID:          folderID, // همان «نام پوشه»
+			ModelName:   modelName,
+			BrandID:     brandID,
+			Description: desc,
+			ImagesCount: imagesCount, // فقط تعداد ذخیره می‌شود
+		}
+
+		// تگ‌ها: چندتا با جداکننده‌های متداول
+		tagList := splitTags(safeGet(record, idx["تگ"]))
+		tagPayload := &domain.ProductTagPayload{NewTags: make([]*domain.ProductTag, 0, len(tagList))}
+		for _, t := range tagList {
+			if t != "" {
+				tagPayload.NewTags = append(tagPayload.NewTags, &domain.ProductTag{Tag: t})
+			}
+		}
+
+		if _, err := ph.service.CreateProductDirect(ctx, product, tagPayload); err != nil {
+			res.Failed++
+			res.RowErrors = append(res.RowErrors, rowError{Row: rowNum, Error: fmt.Sprintf("درج محصول ID=%d: %v", product.ID, err)})
+			continue
+		}
+		res.Inserted++
+	}
+
+	handleSuccess(c, res)
+}
+
+// کمک‌متدها (لوکال به هندلر)
+type bomAwareReader struct{ r io.Reader }
+
+func (b bomAwareReader) Read(p []byte) (int, error) {
+	n, err := b.r.Read(p)
+	if n >= 3 && p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF {
+		copy(p, p[3:n])
+		n -= 3
+	}
+	return n, err
+}
+func safeGet(rec []string, i int) string {
+	if i < 0 || i >= len(rec) {
+		return ""
+	}
+	return strings.TrimSpace(rec[i])
+}
+func normalizeDigits(s string) string {
+	repl := strings.NewReplacer(
+		"۰", "0", "۱", "1", "۲", "2", "۳", "3", "۴", "4",
+		"۵", "5", "۶", "6", "۷", "7", "۸", "8", "۹", "9",
+		"٠", "0", "١", "1", "٢", "2", "٣", "3", "٤", "4",
+		"٥", "5", "٦", "6", "٧", "7", "٨", "8", "٩", "9",
+	)
+	return repl.Replace(strings.TrimSpace(s))
+}
+func splitTags(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	for _, sep := range []rune{',', '،', '|', ';', '/'} {
+		s = strings.ReplaceAll(s, string(sep), ",")
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if v := strings.TrimSpace(p); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
