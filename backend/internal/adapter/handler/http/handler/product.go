@@ -133,11 +133,11 @@ func (ph *ProductHandler) Update(c *gin.Context) {
 	}
 
 	product := &domain.Product{
-		ID:           req.ID,
-		ModelName:    req.ModelName,
-		BrandID:      req.BrandID,
-		Description:  req.Description,
-		ImagesCount:  len(files),
+		ID:          req.ID,
+		ModelName:   req.ModelName,
+		BrandID:     req.BrandID,
+		Description: req.Description,
+		ImagesCount: len(files),
 	}
 
 	filterPayload := &domain.ProductFilterPayload{
@@ -149,7 +149,6 @@ func (ph *ProductHandler) Update(c *gin.Context) {
 	for _, tag := range req.Tags {
 		tagPayload.NewTags = append(tagPayload.NewTags, &domain.ProductTag{Tag: tag})
 	}
-	
 
 	err = ph.service.UpdateProduct(c.Request.Context(), product, files, req.DefaultImageIndex, ph.AppConfig.ImageBasePath, filterPayload, tagPayload)
 	if err != nil {
@@ -159,7 +158,6 @@ func (ph *ProductHandler) Update(c *gin.Context) {
 
 	handleSuccess(c, nil)
 }
-
 
 // FetchProductsByFilter now accepts pagination parameters.
 type fetchProductsRequest struct {
