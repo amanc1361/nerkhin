@@ -19,7 +19,7 @@ type ImportResult = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/go";
-const IMPORT_ENDPOINT = `${API_BASE}/products/import-csv`;
+const IMPORT_ENDPOINT = `${API_BASE}/product/import-csv`;
 
 export default function ImportProductsCSVPage() {
   const router = useRouter();
