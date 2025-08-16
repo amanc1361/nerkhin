@@ -10,12 +10,13 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.ProductHandler) {
 	productGroup := parent.Group("/product").Use(
 		middleware.AuthMiddleware(handler.TokenService, handler.AppConfig),
 		middleware.ApprovedUserMiddleware(handler.TokenService, handler.AppConfig))
+	fast := parent.Group("/product")
 
 	productGroup.POST("/fetch-products", handler.FetchProductsByFilter)
 	productGroup.GET("/fetch/:id", handler.Fetch)
 	productGroup.GET("/by-brand/:brandId", handler.GetByBrand)
 	productGroup.GET("/by-category/:categoryId", handler.GetByCategory)
-	productGroup.POST("/import-csv", handler.ImportFromCSV)
+	fast.POST("/import-csv", handler.ImportFromCSV)
 	adminProductGroup := productGroup.Use(
 		middleware.AdminMiddleware(handler.TokenService, handler.AppConfig))
 

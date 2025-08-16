@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 
 /**
  * صفحه آپلود CSV محصولات
- * نکات:
+ * تغییرات کلیدی:
  * - category_id فقط از ستون «زیر دسته» داخل CSV خوانده می‌شود (سمت بک‌اند).
  * - گزینه skipExisting برای جلوگیری از درج تکراری براساس ID=نام پوشه.
- * - هدر Authorization به‌صورت خودکار از localStorage یا Cookie خوانده و اضافه می‌شود.
- * - credentials: "include" برای ارسال کوکی‌های سشن.
+ * - هیچ هدر Authorization اضافه نمی‌شود (بدون توکن).
  */
 
 type ImportResult = {
@@ -22,41 +21,6 @@ type ImportResult = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/go";
 const IMPORT_ENDPOINT = `${API_BASE}/product/import-csv`;
-
-/** خواندن توکن از localStorage یا Cookie و ساخت هدر Authorization */
-function getAuthHeaders(): Record<string, string> {
-  try {
-    const tryKeys = ["access_token", "token", "auth_token", "jwt"] as const;
-    let token: string | null = null;
-
-    if (typeof window !== "undefined") {
-      // 1) localStorage
-      for (const k of tryKeys) {
-        const v = window.localStorage.getItem(k);
-        if (v && v.trim()) {
-          token = v.replace(/^"|"$/g, "").trim();
-          break;
-        }
-      }
-      // 2) Cookie (fallback)
-      if (!token && typeof document !== "undefined") {
-        const cookies = document.cookie.split(";");
-        for (const c of cookies) {
-          const [ck, cv] = c.split("=");
-          if (ck && cv && tryKeys.includes(ck.trim() as any)) {
-            token = decodeURIComponent(cv.trim());
-            break;
-          }
-        }
-      }
-    }
-
-    if (token && !/^Bearer\s/i.test(token)) token = `Bearer ${token}`;
-    return token ? { Authorization: token } : {};
-  } catch {
-    return {};
-  }
-}
 
 export default function ImportProductsCSVPage() {
   const router = useRouter();
@@ -83,16 +47,11 @@ export default function ImportProductsCSVPage() {
       formData.append("file", file);
       formData.append("skipExisting", skipExisting ? "true" : "false");
 
-      const headers: Record<string, string> = {
-        Accept: "application/json",
-        ...getAuthHeaders(),
-      };
-
       const res = await fetch(IMPORT_ENDPOINT, {
         method: "POST",
-        body: formData,
-        credentials: "include", // کوکی‌های سشن هم ارسال شود
-        headers,
+        body: formData,          // FormData خودش boundary را ست می‌کند
+        credentials: "include",  // اگر نیازی به کوکی نیست، این خط را حذف کنید
+        headers: { Accept: "application/json" },
       });
 
       const contentType = res.headers.get("content-type") || "";
@@ -100,9 +59,7 @@ export default function ImportProductsCSVPage() {
         const payload = contentType.includes("application/json")
           ? JSON.stringify(await res.json())
           : await res.text();
-        throw new Error(
-          `درخواست ناموفق (${res.status}): ${payload || "Unknown"}`
-        );
+        throw new Error(`درخواست ناموفق (${res.status}): ${payload || "Unknown"}`);
       }
 
       const data: ImportResult = contentType.includes("application/json")
@@ -121,9 +78,8 @@ export default function ImportProductsCSVPage() {
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="text-xl font-semibold mb-1">آپلود CSV محصولات</h1>
       <p className="text-sm text-gray-600 mb-6">
-        برای هر ردیف، ستون <strong>«زیر دسته»</strong> باید شامل{" "}
-        <strong>category_id</strong> معتبر باشد. این مقدار فقط از CSV خوانده
-        می‌شود و از روت/فرم ارسال نمی‌گردد.
+        برای هر ردیف، ستون <strong>«زیر دسته»</strong> باید شامل <strong>category_id</strong> معتبر باشد.
+        این مقدار فقط از CSV خوانده می‌شود و از روت/فرم ارسال نمی‌گردد.
       </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
@@ -137,8 +93,7 @@ export default function ImportProductsCSVPage() {
             required
           />
           <p className="text-sm text-gray-500 mt-1">
-            ستون‌های لازم: «زیر دسته»، «برند»، «مدل»، «نام پوشه»، «تعداد عکس».
-            (اختیاری: «توضیحات»، «تگ»)
+            ستون‌های لازم: «زیر دسته»، «برند»، «مدل»، «نام پوشه»، «تعداد عکس». (اختیاری: «توضیحات»، «تگ»)
           </p>
         </div>
 
@@ -161,7 +116,7 @@ export default function ImportProductsCSVPage() {
             {submitting ? "در حال ارسال..." : "آپلود و درج"}
           </button>
 
-        <button
+          <button
             type="button"
             onClick={() => router.back()}
             className="px-4 py-2 rounded border"
@@ -199,9 +154,7 @@ export default function ImportProductsCSVPage() {
                   {result.rowErrors.map((re, idx) => (
                     <tr key={idx}>
                       <td className="border px-2 py-1">{re.row}</td>
-                      <td className="border px-2 py-1 whitespace-pre-wrap">
-                        {re.error}
-                      </td>
+                      <td className="border px-2 py-1 whitespace-pre-wrap">{re.error}</td>
                     </tr>
                   ))}
                 </tbody>
