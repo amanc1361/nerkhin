@@ -336,16 +336,13 @@ func (h *ProductHandler) GetByCategory(c *gin.Context) {
 // POST /v1/products/import-csv
 // multipart/form-data: file=<csv>
 // اختیاری: categoryId (برای یافتن/ساختن برند در همان کتگوری) ، skipExisting=true|false (پیش‌فرض true)
+// POST /v1/products/import-csv
+// multipart/form-data: file=<csv>
+// اختیاری: skipExisting=true|false (پیش‌فرض true)
 func (ph *ProductHandler) ImportFromCSV(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	categoryIDStr := strings.TrimSpace(c.DefaultPostForm("categoryId", c.DefaultQuery("categoryId", "0")))
-	var categoryID int64
-	if categoryIDStr != "" {
-		if v, err := strconv.ParseInt(normalizeDigits(categoryIDStr), 10, 64); err == nil {
-			categoryID = v
-		}
-	}
+	// فقط skipExisting از فرم خوانده می‌شود؛ categoryId دیگر از روت/فرم گرفته نمی‌شود
 	skipExistingStr := strings.ToLower(strings.TrimSpace(c.DefaultPostForm("skipExisting", c.DefaultQuery("skipExisting", "true"))))
 	skipExisting := !(skipExistingStr == "false" || skipExistingStr == "0")
 
@@ -370,8 +367,9 @@ func (ph *ProductHandler) ImportFromCSV(c *gin.Context) {
 		return
 	}
 
-	// نگاشت ستون‌ها (فارسی)
+	// نگاشت ستون‌ها (category_id از «زیر دسته»)
 	idx := map[string]int{
+		"زیر دسته":  -1, // ← category_id
 		"برند":      -1,
 		"مدل":       -1,
 		"توضیحات":   -1,
@@ -386,7 +384,7 @@ func (ph *ProductHandler) ImportFromCSV(c *gin.Context) {
 		}
 	}
 	// ستون‌های ضروری
-	for _, k := range []string{"برند", "مدل", "نام پوشه", "تعداد عکس"} {
+	for _, k := range []string{"زیر دسته", "برند", "مدل", "نام پوشه", "تعداد عکس"} {
 		if idx[k] < 0 {
 			validationError(c, fmt.Errorf("ستون «%s» در CSV پیدا نشد", k), ph.AppConfig.Lang)
 			return
@@ -421,6 +419,18 @@ func (ph *ProductHandler) ImportFromCSV(c *gin.Context) {
 		}
 		res.Total++
 
+		// category_id از «زیر دسته» (الزامی و سخت‌گیرانه)
+		subCatRaw := normalizeDigits(strings.TrimSpace(record[idx["زیر دسته"]]))
+		if subCatRaw == "" {
+			validationError(c, fmt.Errorf("ردیف %d: «زیر دسته» خالی است؛ فرآیند متوقف شد", rowNum), ph.AppConfig.Lang)
+			return
+		}
+		categoryIDRow, err := strconv.ParseInt(subCatRaw, 10, 64)
+		if err != nil || categoryIDRow <= 0 {
+			validationError(c, fmt.Errorf("ردیف %d: «زیر دسته» عدد معتبر نیست (%q)؛ فرآیند متوقف شد", rowNum, subCatRaw), ph.AppConfig.Lang)
+			return
+		}
+
 		brandTitle := strings.TrimSpace(record[idx["برند"]])
 		modelName := strings.TrimSpace(record[idx["مدل"]])
 		desc := safeGet(record, idx["توضیحات"])
@@ -441,6 +451,7 @@ func (ph *ProductHandler) ImportFromCSV(c *gin.Context) {
 			continue
 		}
 
+		// جلوگیری از درج تکراری بر اساس ID = نام پوشه
 		if skipExisting {
 			if _, err := ph.service.GetProductByID(ctx, folderID); err == nil {
 				res.Skipped++
@@ -448,22 +459,26 @@ func (ph *ProductHandler) ImportFromCSV(c *gin.Context) {
 			}
 		}
 
-		brandID, err := ph.service.EnsureBrandByTitle(ctx, categoryID, brandTitle)
+		// استفاده از categoryIDRow (از فایل) برای یافتن/ساختن برند
+		brandID, err := ph.service.EnsureBrandByTitle(ctx, categoryIDRow, brandTitle)
 		if err != nil {
 			res.Failed++
-			res.RowErrors = append(res.RowErrors, rowError{Row: rowNum, Error: fmt.Sprintf("برند «%s»: %v", brandTitle, err)})
+			res.RowErrors = append(res.RowErrors, rowError{
+				Row:   rowNum,
+				Error: fmt.Sprintf("برند «%s» (category_id=%d): %v", brandTitle, categoryIDRow, err),
+			})
 			continue
 		}
 
 		product := &domain.Product{
-			ID:          folderID, // همان «نام پوشه»
+			ID:          folderID, // = نام پوشه
 			ModelName:   modelName,
 			BrandID:     brandID,
 			Description: desc,
 			ImagesCount: imagesCount, // فقط تعداد ذخیره می‌شود
 		}
 
-		// تگ‌ها: چندتا با جداکننده‌های متداول
+		// تگ‌ها
 		tagList := splitTags(safeGet(record, idx["تگ"]))
 		tagPayload := &domain.ProductTagPayload{NewTags: make([]*domain.ProductTag, 0, len(tagList))}
 		for _, t := range tagList {

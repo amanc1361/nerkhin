@@ -438,7 +438,7 @@ func (ps *ProductService) EnsureBrandByTitle(ctx context.Context, categoryID int
 
 	dbSession, err := ps.dbms.NewDB(ctx)
 	if err != nil {
-		return 0, err
+		return 0, err	
 	}
 
 	var outID int64
