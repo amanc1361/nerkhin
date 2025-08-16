@@ -4,14 +4,10 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
 /**
- * این صفحه یک فرم ساده برای آپلود CSV می‌دهد و فرم‌دیتا را
- * به اندپوینت بک‌اند POST می‌کند:
- *   POST ${API_BASE}/v1/products/import-csv
- *
- * نکته:
- * - API_BASE از NEXT_PUBLIC_API_BASE_URL گرفته می‌شود (پیش‌فرض "/api/go").
- * - هدر Content-Type رو دستی ست نکن؛ خود مرورگر برای FormData تنظیم می‌کند.
- * - credentials: "include" برای ارسال کوکی‌های سشن.
+ * صفحه آپلود CSV محصولات
+ * تغییرات کلیدی:
+ * - دیگر categoryId از فرم/روت ارسال نمی‌شود؛ باید داخل CSV ستون «زیر دسته» وجود داشته باشد.
+ * - گزینه skipExisting برای جلوگیری از درج تکراری براساس ID=نام پوشه.
  */
 
 type ImportResult = {
@@ -29,7 +25,6 @@ export default function ImportProductsCSVPage() {
   const router = useRouter();
 
   const [file, setFile] = useState<File | null>(null);
-  const [categoryId, setCategoryId] = useState<string>("");
   const [skipExisting, setSkipExisting] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -47,40 +42,28 @@ export default function ImportProductsCSVPage() {
 
     try {
       setSubmitting(true);
-
       const formData = new FormData();
       formData.append("file", file);
-
-      // پارامترهای اختیاری
-      if (categoryId.trim()) {
-        formData.append("categoryId", categoryId.trim());
-      }
       formData.append("skipExisting", skipExisting ? "true" : "false");
 
       const res = await fetch(IMPORT_ENDPOINT, {
         method: "POST",
         body: formData,
-        // برای ارسال کوکی‌ها (سشن لاگین):
         credentials: "include",
-        // Accept برای جواب JSON
-        headers: {
-          Accept: "application/json",
-        },
+        headers: { Accept: "application/json" },
       });
 
-      const isJson =
-        res.headers.get("content-type")?.includes("application/json");
+      const contentType = res.headers.get("content-type") || "";
       if (!res.ok) {
-        const text = isJson ? JSON.stringify(await res.json()) : await res.text();
-        throw new Error(
-          `درخواست ناموفق (${res.status}): ${text || "Unknown error"}`
-        );
+        const payload = contentType.includes("application/json")
+          ? JSON.stringify(await res.json())
+          : await res.text();
+        throw new Error(`درخواست ناموفق (${res.status}): ${payload || "Unknown"}`);
       }
 
-      const data: ImportResult = isJson
+      const data: ImportResult = contentType.includes("application/json")
         ? await res.json()
-        : // اگر سرور json برنگرداند:
-          ({} as ImportResult);
+        : ({} as ImportResult);
 
       setResult(data);
     } catch (err: any) {
@@ -92,7 +75,11 @@ export default function ImportProductsCSVPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="text-xl font-semibold mb-4">آپلود CSV محصولات</h1>
+      <h1 className="text-xl font-semibold mb-1">آپلود CSV محصولات</h1>
+      <p className="text-sm text-gray-600 mb-6">
+        برای هر ردیف، ستون <strong>«زیر دسته»</strong> باید شامل <strong>category_id</strong> معتبر باشد.
+        این مقدار فقط از CSV خوانده می‌شود و از روت/فرم ارسال نمی‌گردد.
+      </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
@@ -105,23 +92,7 @@ export default function ImportProductsCSVPage() {
             required
           />
           <p className="text-sm text-gray-500 mt-1">
-            ستون‌های لازم: «برند»، «مدل»، «نام پوشه»، «تعداد عکس». (اختیاری:
-            «توضیحات»، «تگ»)
-          </p>
-        </div>
-
-        <div>
-          <label className="block mb-1">categoryId (اختیاری)</label>
-          <input
-            type="number"
-            inputMode="numeric"
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            placeholder="مثلاً 12"
-            className="block w-full border rounded p-2"
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            اگر خالی بماند، برند فقط بر اساس عنوانش بررسی/ایجاد می‌شود.
+            ستون‌های لازم: «زیر دسته»، «برند»، «مدل»، «نام پوشه»، «تعداد عکس». (اختیاری: «توضیحات»، «تگ»)
           </p>
         </div>
 
@@ -132,7 +103,7 @@ export default function ImportProductsCSVPage() {
             checked={skipExisting}
             onChange={(e) => setSkipExisting(e.target.checked)}
           />
-          <label htmlFor="skipExisting">رد کردن محصولات موجود (پیش‌فرض)</label>
+          <label htmlFor="skipExisting">رد کردن محصولاتِ موجود (پیش‌فرض)</label>
         </div>
 
         <div className="flex gap-3">
@@ -163,10 +134,10 @@ export default function ImportProductsCSVPage() {
       {result ? (
         <div className="mt-6 space-y-3">
           <div className="p-3 rounded bg-green-50 border border-green-200">
-            <div>کل ردیف‌ها: {result.total}</div>
-            <div>درج‌شده: {result.inserted}</div>
-            <div>ردشده (موجود): {result.skipped}</div>
-            <div>ناموفق: {result.failed}</div>
+            <div>کل ردیف‌ها: {result.total ?? 0}</div>
+            <div>درج‌شده: {result.inserted ?? 0}</div>
+            <div>ردشده (موجود): {result.skipped ?? 0}</div>
+            <div>ناموفق: {result.failed ?? 0}</div>
           </div>
 
           {result.rowErrors && result.rowErrors.length > 0 ? (
@@ -182,9 +153,7 @@ export default function ImportProductsCSVPage() {
                   {result.rowErrors.map((re, idx) => (
                     <tr key={idx}>
                       <td className="border px-2 py-1">{re.row}</td>
-                      <td className="border px-2 py-1 whitespace-pre-wrap">
-                        {re.error}
-                      </td>
+                      <td className="border px-2 py-1 whitespace-pre-wrap">{re.error}</td>
                     </tr>
                   ))}
                 </tbody>
