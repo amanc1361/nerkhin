@@ -97,7 +97,7 @@ func LoadAppConfig() App {
 // LoadTokenConfig - بارگذاری تنظیمات مربوط به توکن
 func LoadTokenConfig() TokenConfig {
 	return TokenConfig{
-		Duration:             getEnv("ACCESS_TOKEN_DURATION", "15m"),
+		Duration:             getEnv("ACCESS_TOKEN_DURATION", "504h"),
 		RefreshTokenDuration: getEnv("REFRESH_TOKEN_DURATION", "720h"), // مثال: 30 روز
 		SymmetricKeyHex:      os.Getenv("PASETO_SYMMETRIC_KEY_HEX"),    // این باید حتماً تنظیم شود
 	}
