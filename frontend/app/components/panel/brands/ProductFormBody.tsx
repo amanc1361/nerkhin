@@ -150,6 +150,14 @@ export const ProductFormBody: React.FC<Props> = ({
       {/* آپلود تصویر */}
       <section className="space-y-2">
         <label className="block font-medium">{msg.imageUploadLabel}</label>
+
+        {mode === "edit" && (
+          <p className="text-xs sm:text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            توجه: در حالت ویرایش، باید <b>کل تصاویر جدید</b> را آپلود کنید. تصاویر زیر فقط
+            پیش‌نمایش تصاویر فعلی هستند؛ انتخاب پیش‌فرض باید از بین عکس‌های جدید انجام شود.
+          </p>
+        )}
+
         <div className="flex flex-wrap gap-4">
           {remoteImages.map((img, idx) => (
             <div key={img.id} className="relative">
@@ -160,28 +168,43 @@ export const ProductFormBody: React.FC<Props> = ({
                 height={96}
                 className="rounded object-cover"
               />
+
+              {/* دکمه پیش‌فرض برای ریموت‌ها در ویرایش غیرفعال است */}
               <button
                 type="button"
-                onClick={() => setDefaultImageIndex(idx)}
+                onClick={() => {
+                  if (mode === "edit") return; // بلاک
+                  setDefaultImageIndex(idx);
+                }}
+                disabled={mode === "edit"}
                 className={`absolute bottom-1 right-1 text-xs px-1 rounded ${
-                  idx === defaultImageIndex
+                  idx === defaultImageIndex && mode !== "edit"
                     ? "bg-blue-600 text-white"
                     : "bg-gray-200"
-                }`}
+                } ${mode === "edit" ? "opacity-60 cursor-not-allowed" : ""}`}
+                title={
+                  mode === "edit"
+                    ? "انتخاب پیش‌فرض فقط از بین عکس‌های جدید مجاز است"
+                    : "پیش‌فرض"
+                }
               >
                 پیش‌فرض
               </button>
+
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   setFormData((p) => ({
                     ...p,
                     remoteImages: p.remoteImages.filter((r) => r.id !== img.id),
-                    defaultImageIndex:
-                      p.defaultImageIndex === idx ? 0 : p.defaultImageIndex,
-                  }))
-                }
+                  }));
+                  if (defaultImageIndex === idx) {
+                    // اگر پیش‌فرض روی همین ریموت بود، به 0 (اولین جدید) برگردان
+                    setDefaultImageIndex(0);
+                  }
+                }}
                 className="absolute -top-1 -left-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                title="حذف از پیش‌نمایش"
               >
                 ×
               </button>
@@ -192,11 +215,11 @@ export const ProductFormBody: React.FC<Props> = ({
             images={images}
             setImages={setImages}
             defaultIndex={
-              defaultImageIndex >= totalRemote ? defaultImageIndex - totalRemote : -1
+              defaultImageIndex >= totalRemote
+                ? defaultImageIndex - totalRemote
+                : -1
             }
-            setDefaultIndex={(idx) =>
-              setDefaultImageIndex(idx + totalRemote)
-            }
+            setDefaultIndex={(idx) => setDefaultImageIndex(idx + totalRemote)}
           />
         </div>
       </section>
@@ -219,10 +242,10 @@ export const ProductFormBody: React.FC<Props> = ({
                   __newOption: undefined,
                 }))
               }
-              disabled={remainingFilters.length === 0}
+              disabled={filters.length === 0}
             >
               <option value="">{msg.selectFilter}</option>
-              {remainingFilters.map((f) => (
+              {filters.map((f) => (
                 <option key={f.filter.id} value={f.filter.id}>
                   {f.filter.name}
                 </option>
@@ -319,4 +342,4 @@ export const ProductFormBody: React.FC<Props> = ({
       </section>
     </form>
   );
-};
+}

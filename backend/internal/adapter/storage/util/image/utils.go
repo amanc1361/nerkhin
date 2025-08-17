@@ -68,7 +68,7 @@ func SaveProductImagesWithPayload(productID int64, files []*multipart.FileHeader
 				return
 			}
 
-			url := fmt.Sprintf("images/%d/%s", productID, fileName)
+			url := fmt.Sprintf("uploads/%d/%s", productID, fileName)
 
 			mu.Lock()
 			results[i] = url

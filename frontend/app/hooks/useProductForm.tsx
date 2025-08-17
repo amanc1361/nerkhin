@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
 
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
@@ -27,6 +27,10 @@ interface Args {
   presetFilters?: ProductFilterData[];
 }
 
+// مسیر نمایش تصاویر ذخیره‌شده روی سرور: /uploads/{productId}/{index}.jpg
+const buildImageUrl = (productId: number, index: number) =>
+  `/uploads/${productId}/${index}.jpg`;
+
 export const useProductForm = ({
   mode,
   brandId,
@@ -39,9 +43,9 @@ export const useProductForm = ({
 
   const [formData, setFormData] = useState<ProductFormState>(() => {
     if (mode === "edit" && initialProduct) {
-      const optionSource = initialProduct.filterRelations ?? [];
+      // 1) بازسازی گزینه‌های انتخاب‌شده
+      const optionSource = (initialProduct as any).filterRelations ?? [];
       const selected: Record<number, number[]> = {};
-
       optionSource.forEach((rel: any) => {
         const fid = typeof rel.filterId === "number" ? rel.filterId : rel.Filter?.id;
         const oid = typeof rel.optionId === "number" ? rel.optionId : rel.Option?.id;
@@ -51,13 +55,18 @@ export const useProductForm = ({
         }
       });
 
-      const remoteImages = (initialProduct.images ?? []).map((img, idx) => ({
-        id: img.id,
-        url: `https://nerrkhin.com/images/${img.url}`,
-        isDefault: img.isDefault,
-        _originIndex: idx,
-      }));
-      const defaultIdx = remoteImages.findIndex((i) => i.isDefault);
+      // 2) پیش‌نمایش تصاویر از روی imagesCount و productId (طبق الگوی جدید)
+      const count = Number((initialProduct as any).imagesCount ?? 0);
+      const pid = Number(initialProduct.id);
+      let remoteImages: { id: number; url: string; isDefault: boolean }[] = [];
+
+      if (pid && count > 0) {
+        remoteImages = Array.from({ length: count }, (_, i) => ({
+          id: i + 1,
+          url: buildImageUrl(pid, i + 1),
+          isDefault: false, // در ویرایش، پیش‌فرض باید از بین «جدیدها» انتخاب شود
+        }));
+      }
 
       return {
         modelName: initialProduct.modelName ?? "",
@@ -66,12 +75,13 @@ export const useProductForm = ({
         selectedOptions: selected,
         remoteImages,
         newImages: [],
-        defaultImageIndex: defaultIdx >= 0 ? defaultIdx : 0,
+        defaultImageIndex: -1, // پیش‌فرض را کاربر بین «جدیدها» انتخاب می‌کند
         __newFilter: undefined,
         __newOption: undefined,
       };
     }
 
+    // حالت ایجاد
     return {
       modelName: "",
       description: "",
@@ -89,9 +99,9 @@ export const useProductForm = ({
   const [loadingFilters, setLoadingFilters] = useState(!presetFilters);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // واکشی فیلترها در صورت نیاز
   useEffect(() => {
     if (presetFilters) return;
-
     (async () => {
       setLoadingFilters(true);
       try {
@@ -121,6 +131,25 @@ export const useProductForm = ({
       return;
     }
 
+    // الزام: در ویرایش باید کل تصاویر جدید آپلود شوند
+    if (mode === "edit" && formData.newImages.length === 0) {
+      toast.error("در ویرایش، آپلود همهٔ تصاویر جدید الزامی است.");
+      return;
+    }
+
+    // ایندکس پیش‌فرض داخل «جدیدها» (نه کل remote+new)
+    const totalRemote = formData.remoteImages.length;
+    let defaultNewImageIndex =
+      formData.defaultImageIndex >= totalRemote
+        ? formData.defaultImageIndex - totalRemote
+        : 0;
+    if (
+      defaultNewImageIndex < 0 ||
+      defaultNewImageIndex >= formData.newImages.length
+    ) {
+      defaultNewImageIndex = 0;
+    }
+
     const fd = new FormData();
 
     const payload = {
@@ -128,9 +157,11 @@ export const useProductForm = ({
       brandId,
       modelName: formData.modelName,
       description: formData.description,
-      defaultImageIndex: formData.defaultImageIndex,
+      defaultImageIndex: defaultNewImageIndex, // سرور انتظار ایندکس داخل «جدیدها» را دارد
       filterOptionIds: optionIds,
       tags: formData.tags.map((t) => t.tag),
+      // اگر لازم است می‌توانید imagesCount را هم ارسال کنید:
+      // imagesCount: formData.newImages.length,
     };
 
     fd.append("data", JSON.stringify(payload));
@@ -150,6 +181,7 @@ export const useProductForm = ({
     }
   }, [api, mode, brandId, formData, initialProduct, onSuccess]);
 
+  // امضای سازگار با ImageUploader و فرم شما
   const setImages: React.Dispatch<React.SetStateAction<File[]>> = (value) =>
     setFormData((prev) => {
       const newImgs = typeof value === "function" ? (value as any)(prev.newImages) : value;
