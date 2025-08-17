@@ -27,9 +27,9 @@ interface Args {
   presetFilters?: ProductFilterData[];
 }
 
-// مسیر نمایش تصاویر ذخیره‌شده روی سرور: /uploads/{productId}/{index}.jpg
+// مسیر نمایش تصاویر ذخیره‌شده روی سرور: /uploads/{productId}/{index}.webp
 const buildImageUrl = (productId: number, index: number) =>
-  `/uploads/${productId}/${index}.jpg`;
+  `/uploads/${productId}/${index}.webp`;
 
 export const useProductForm = ({
   mode,
