@@ -29,7 +29,7 @@ interface Args {
 
 // مسیر نمایش تصاویر ذخیره‌شده روی سرور: /uploads/{productId}/{index}.webp
 const buildImageUrl = (productId: number, index: number) =>
-  `/uploads/${productId}/${index}.webp`;
+  `https://nerkhin.com/uploads/${productId}/${index}.webp`;
 
 export const useProductForm = ({
   mode,
