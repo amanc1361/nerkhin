@@ -166,7 +166,7 @@ func (pfs *ProductFilterService) GetAllProductFilters(ctx context.Context, categ
 	return filters, nil
 }
 
-func (pfs *ProductFilterService) BatchDeleteProductFilters(ctx context.Context, filterIDs []int64) (
+func (pfs *ProductFilterService) BatchDeleteProductFilters(ctx context.Context, filterID int64) (
 	err error) {
 	db, err := pfs.dbms.NewDB(ctx)
 	if err != nil {
@@ -174,7 +174,7 @@ func (pfs *ProductFilterService) BatchDeleteProductFilters(ctx context.Context, 
 	}
 
 	err = pfs.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-		err = pfs.repo.BatchDeleteProductFilters(ctx, txSession, filterIDs)
+		err = pfs.repo.BatchDeleteProductFilters(ctx, txSession, filterID)
 		if err != nil {
 			return err
 		}
@@ -189,14 +189,14 @@ func (pfs *ProductFilterService) BatchDeleteProductFilters(ctx context.Context, 
 }
 
 func (pfs *ProductFilterService) BatchDeleteProductFilterOptions(ctx context.Context,
-	filterOptionIDs []int64) (err error) {
+	filterOptionID int64) (err error) {
 	db, err := pfs.dbms.NewDB(ctx)
 	if err != nil {
 		return
 	}
 
 	err = pfs.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-		err = pfs.repo.BatchDeleteProductFilterOptions(ctx, txSession, filterOptionIDs)
+		err = pfs.repo.BatchDeleteProductFilterOptions(ctx, txSession, filterOptionID)
 		if err != nil {
 			return err
 		}

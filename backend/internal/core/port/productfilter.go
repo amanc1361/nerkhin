@@ -14,10 +14,10 @@ type ProductFilterRepository interface {
 		filterData *domain.ProductFilterData) (err error)
 	GetAllProductFilters(ctx context.Context, dbSession interface{}, categoryID int64) (
 		data []*domain.ProductFilterData, err error)
-	BatchDeleteProductFilters(ctx context.Context, dbSession interface{}, filterIDs []int64) (
+	BatchDeleteProductFilters(ctx context.Context, dbSession interface{}, filterID int64) (
 		err error)
 	BatchDeleteProductFilterOptions(ctx context.Context, dbSession interface{},
-		filterOptionIDs []int64) (err error)
+		filterOptionID int64) (err error)
 	GetFilterOptionsByIDs(ctx context.Context, dbSession interface{}, filterOptionIDs []int64) (
 		filterOptions []*domain.ProductFilterOption, err error)
 	CreateProductFilterRelations(ctx context.Context, dbSession interface{},
@@ -25,7 +25,7 @@ type ProductFilterRepository interface {
 	UpdateProductFilterRelations(ctx context.Context, dbSession interface{},
 		updatedFilterRelations []*domain.ProductFilterRelation, defaultOptionID int64) (err error)
 	DeleteProductFilterRelations(ctx context.Context, dbSession interface{},
-		deletedOptionIDs []int64) (err error)
+		deletedOptionID int64) (err error)
 	GetProductFilterRelations(ctx context.Context, dbSession interface{}, productID int64) (
 		filterRelations []*domain.ProductFilterRelationViewModel, err error)
 	GetProductFiltersMapByProductIDs(ctx context.Context, dbSession interface{}, productIDs []int64) (
@@ -44,8 +44,8 @@ type ProductFilterService interface {
 	UpdateProductFilter(ctx context.Context, updatedFilterData *domain.ProductFilterData) (err error)
 	GetAllProductFilters(ctx context.Context, categoryID int64) (
 		data *domain.ProductFiltersData, err error)
-	BatchDeleteProductFilters(ctx context.Context, filterIDs []int64) (err error)
-	BatchDeleteProductFilterOptions(ctx context.Context, filterOptionIDs []int64) (err error)
+	BatchDeleteProductFilters(ctx context.Context, filterID int64) (err error)
+	BatchDeleteProductFilterOptions(ctx context.Context, filterOptionID int64) (err error)
 	GetProductFilterRelations(ctx context.Context, txSession interface{}, productID int64) (
 		filterRelations []*domain.ProductFilterRelationViewModel, err error)
 }

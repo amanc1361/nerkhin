@@ -126,10 +126,7 @@ func (pfr *ProductFilterRepository) GetAllProductFilters(ctx context.Context,
 }
 
 func (pfr *ProductFilterRepository) BatchDeleteProductFilters(ctx context.Context,
-	dbSession interface{}, filterIDs []int64) (err error) {
-	if len(filterIDs) == 0 {
-		return
-	}
+	dbSession interface{}, filterID int64) (err error) {
 
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
@@ -137,7 +134,7 @@ func (pfr *ProductFilterRepository) BatchDeleteProductFilters(ctx context.Contex
 	}
 
 	err = db.Model(&domain.ProductFilter{}).
-		Where("id IN ?", filterIDs).
+		Where("id = ?", filterID).
 		Delete(&domain.ProductFilter{}).Error
 	if err != nil {
 		return
@@ -147,10 +144,7 @@ func (pfr *ProductFilterRepository) BatchDeleteProductFilters(ctx context.Contex
 }
 
 func (pfr *ProductFilterRepository) BatchDeleteProductFilterOptions(ctx context.Context,
-	dbSession interface{}, filterOptionIDs []int64) (err error) {
-	if len(filterOptionIDs) == 0 {
-		return
-	}
+	dbSession interface{}, filterOptionID int64) (err error) {
 
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
@@ -158,7 +152,7 @@ func (pfr *ProductFilterRepository) BatchDeleteProductFilterOptions(ctx context.
 	}
 
 	err = db.Model(&domain.ProductFilterOption{}).
-		Where("id IN ?", filterOptionIDs).
+		Where("id = ?", filterOptionID).
 		Delete(&domain.ProductFilterOption{}).Error
 	if err != nil {
 		return
@@ -231,10 +225,7 @@ func (pfr *ProductFilterRepository) UpdateProductFilterRelations(ctx context.Con
 }
 
 func (pfr *ProductFilterRepository) DeleteProductFilterRelations(ctx context.Context,
-	dbSession interface{}, deletedRelationIDs []int64) (err error) {
-	if len(deletedRelationIDs) == 0 {
-		return
-	}
+	dbSession interface{}, deletedRelationIDs int64) (err error) {
 
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
@@ -242,7 +233,7 @@ func (pfr *ProductFilterRepository) DeleteProductFilterRelations(ctx context.Con
 	}
 
 	err = db.Model(&domain.ProductFilterRelation{}).
-		Where("id IN ?", deletedRelationIDs).
+		Where("id =?", deletedRelationIDs).
 		Delete(&domain.ProductFilterRelation{}).Error
 	if err != nil {
 		return

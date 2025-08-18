@@ -88,7 +88,7 @@ export const filterApi = {
   }),
 
   deleteOption: (id: number) => ({
-    url: `/product-filter-option/delete/${id}`,
+    url: `/product-filter/delete-options/${id}`,
     method: "delete" as const,
   }),
 };

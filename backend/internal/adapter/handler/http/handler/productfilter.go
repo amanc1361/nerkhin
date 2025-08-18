@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
 	"github.com/nerkhin/internal/core/domain"
@@ -117,21 +119,18 @@ func (pfh *ProductFilterHandler) FetchAll(c *gin.Context) {
 	handleSuccess(c, filters)
 }
 
-type batchDeleteProductFilterRequest struct {
-	IDs []int64 `json:"ids"`
-}
 
 type batchDeleteProductFilterResponse struct{}
 
 func (pfh *ProductFilterHandler) BatchDeleteProductFilters(c *gin.Context) {
-	var req batchDeleteProductFilterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
 		validationError(c, err, pfh.AppConfig.Lang)
 		return
 	}
 
 	ctx := c.Request.Context()
-	err := pfh.service.BatchDeleteProductFilters(ctx, req.IDs)
+	err = pfh.service.BatchDeleteProductFilters(ctx,int64(id))
 	if err != nil {
 		HandleError(c, err, pfh.AppConfig.Lang)
 		return
@@ -142,21 +141,17 @@ func (pfh *ProductFilterHandler) BatchDeleteProductFilters(c *gin.Context) {
 	handleSuccess(c, resp)
 }
 
-type batchDeleteProductFilterOptionsRequest struct {
-	IDs []int64 `json:"ids"`
-}
 
-type batchDeleteProductFilterOptionsResponse struct{}
 
 func (pfh *ProductFilterHandler) BatchDeleteProductFilterOptions(c *gin.Context) {
-	var req batchDeleteProductFilterOptionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
 		validationError(c, err, pfh.AppConfig.Lang)
 		return
 	}
 
 	ctx := c.Request.Context()
-	err := pfh.service.BatchDeleteProductFilterOptions(ctx, req.IDs)
+	err = pfh.service.BatchDeleteProductFilterOptions(ctx, int64(id))
 	if err != nil {
 		HandleError(c, err, pfh.AppConfig.Lang)
 		return
