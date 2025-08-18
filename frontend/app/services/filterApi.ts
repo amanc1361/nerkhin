@@ -78,7 +78,7 @@ export const filterApi = {
 
   // به PUT تغییر داده شد و بدنه با struct بک‌اند هم‌راستا شد
   updateOption: (data: UpdateOptionDto) => ({
-    url: "/product-filter-option/update",
+    url: "/product-filter/update",
     method: "put" as const,
     body: {
       id: data.id,
