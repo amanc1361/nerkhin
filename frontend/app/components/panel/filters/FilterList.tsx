@@ -1,24 +1,26 @@
 "use client";
 
 import React, { useState } from "react";
-import { PlusCircle, Edit, Trash2, ChevronDown, ChevronUp } from "lucide-react";
-
-
+import { PlusCircle, Edit, Trash2 } from "lucide-react";
 import ReusableModal from "@/app/components/shared/generalModal";
 import { useFiltersByCategoryAdmin } from "@/app/hooks/useFiltersByCategoryAdmin";
 import { FilterForm } from "./FilterForm";
 import { OptionForm } from "./optionForm";
+import { useFilterActions } from "@/app/hooks/useFilterAction";
 
 export const FilterList: React.FC<{ categoryId: number }> = ({ categoryId }) => {
   const { filters, loading, error, refresh } = useFiltersByCategoryAdmin(categoryId);
+  const { act, submitting } = useFilterActions(refresh);
 
   const [modal, setModal] = useState<
     | { type: "addFilter" }
-    | { type: "editFilter"; filterId: number|string}
-    | { type: "addOption"; filterId: number |string}
-    | { type: "editOption"; filterId: number|string; optionId: number|string }
+    | { type: "editFilter"; filterId: number | string }
+    | { type: "addOption"; filterId: number | string }
+    | { type: "editOption"; filterId: number | string; optionId: number | string }
     | null
   >(null);
+
+  const confirm = async (msg: string) => window.confirm(msg);
 
   if (loading) return <p>در حال بارگذاری...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
@@ -36,21 +38,27 @@ export const FilterList: React.FC<{ categoryId: number }> = ({ categoryId }) => 
       {filters.map((f) => (
         <details key={f.filter.id} className="border rounded">
           <summary className="cursor-pointer flex justify-between items-center px-4 py-2">
-            <span>{f.filter.name}</span>
+            <span>{f.filter.displayName || f.filter.name}</span>
             <div className="flex gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setModal({ type: "editFilter", filterId: f.filter.id });
                 }}
+                title="ویرایش فیلتر"
               >
                 <Edit size={16} />
               </button>
+
               <button
-                onClick={(e) => {
+                disabled={submitting}
+                onClick={async (e) => {
                   e.stopPropagation();
-                  // TODO: call deleteFilter(f.filter.id)
+                  if (await confirm("حذف این فیلتر باعث حذف گزینه‌های آن می‌شود. مطمئن هستید؟")) {
+                    await act("deleteFilter", { id: f.filter.id });
+                  }
                 }}
+                title="حذف فیلتر"
               >
                 <Trash2 size={16} />
               </button>
@@ -58,15 +66,25 @@ export const FilterList: React.FC<{ categoryId: number }> = ({ categoryId }) => 
           </summary>
 
           <div className="p-4 space-y-2 bg-gray-50 dark:bg-gray-800/30">
-            {/* گزینه‌ها */}
-            {f.options.map((o:any) => (
+            {f.options.map((o: any) => (
               <div key={o.id} className="flex justify-between items-center px-2 py-1 rounded hover:bg-gray-100">
                 <span>{o.name}</span>
                 <div className="flex gap-2">
-                  <button onClick={() => setModal({ type: "editOption", filterId: f.filter.id, optionId: o.id })}>
+                  <button
+                    onClick={() => setModal({ type: "editOption", filterId: f.filter.id, optionId: o.id })}
+                    title="ویرایش گزینه"
+                  >
                     <Edit size={14} />
                   </button>
-                  <button /* TODO: delete option */>
+                  <button
+                    disabled={submitting}
+                    onClick={async () => {
+                      if (await confirm("گزینه حذف شود؟")) {
+                        await act("deleteOption", { id: o.id });
+                      }
+                    }}
+                    title="حذف گزینه"
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -84,7 +102,7 @@ export const FilterList: React.FC<{ categoryId: number }> = ({ categoryId }) => 
         </details>
       ))}
 
-      {/* Modal های فرم */}
+      {/* Filter Modal */}
       <ReusableModal
         isOpen={modal?.type === "addFilter" || modal?.type === "editFilter"}
         onClose={() => setModal(null)}
@@ -93,7 +111,7 @@ export const FilterList: React.FC<{ categoryId: number }> = ({ categoryId }) => 
         {modal && (modal.type === "addFilter" || modal.type === "editFilter") && (
           <FilterForm
             categoryId={categoryId}
-            filterId={modal.type === "editFilter" ? modal.filterId :0}
+            filterId={modal.type === "editFilter" ? modal.filterId : 0}
             onSuccess={() => {
               setModal(null);
               refresh();
@@ -102,10 +120,9 @@ export const FilterList: React.FC<{ categoryId: number }> = ({ categoryId }) => 
         )}
       </ReusableModal>
 
+      {/* Option Modal */}
       <ReusableModal
-        isOpen={
-          modal?.type === "addOption" || modal?.type === "editOption"
-        }
+        isOpen={modal?.type === "addOption" || modal?.type === "editOption"}
         onClose={() => setModal(null)}
         title={modal?.type === "addOption" ? "گزینه جدید" : "ویرایش گزینه"}
       >

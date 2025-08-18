@@ -2,28 +2,26 @@
 
 import React, { useEffect, useState } from "react";
 import LoadingSpinner from "@/app/components/Loading/Loading";
-
 import { useFilterDetails } from "@/app/hooks/useFilterDetails";
 import { filterMessages as m } from "@/app/constants/filterMessage";
 import { toast } from "react-toastify";
 import { useFilterActions } from "@/app/hooks/useFilterAction";
 
 interface Props {
-  filterId: number|string;
-  optionId: number|string;
+  filterId: number | string;
+  optionId: number | string;
   onSuccess: () => void;
 }
 
-/** فرم ایجاد یا ویرایش گزینهٔ فیلتر */
 export const OptionForm: React.FC<Props> = ({ filterId, optionId, onSuccess }) => {
-  const isEdit = !!optionId;
-  const { submitting, act } = useFilterActions(onSuccess);
+  const fid = Number(filterId) || 0;
+  const oid = Number(optionId) || 0;
+  const isEdit = oid > 0;
 
-  /* واکشی عنوان گزینه در حالت edit */
-  const { title: initialTitle, loading } = useFilterDetails("option", optionId);
+  const { submitting, act } = useFilterActions(onSuccess);
+  const { title: initialTitle, loading } = useFilterDetails("option", oid);
   const [title, setTitle] = useState("");
 
-  /* همگام‌سازی با مقدار واکشی‌شده */
   useEffect(() => setTitle(initialTitle), [initialTitle]);
 
   const handleSave = () => {
@@ -31,10 +29,11 @@ export const OptionForm: React.FC<Props> = ({ filterId, optionId, onSuccess }) =
       toast.error(m.fieldRequired);
       return;
     }
-    act(isEdit ? "updateOption" : "createOption", {
-      ...(isEdit ? { id: optionId } : { filterId }),
-      title,
-    });
+    const payload = isEdit
+      ? { id: oid, filterId: fid, title }  // ← filterId را هم بفرست
+      : { filterId: fid, title };
+
+    act(isEdit ? "updateOption" : "createOption", payload);
   };
 
   if (loading) return <LoadingSpinner size="small" />;
@@ -44,7 +43,7 @@ export const OptionForm: React.FC<Props> = ({ filterId, optionId, onSuccess }) =
       <label className="block text-sm mb-1">{m.optionTitleLabel}</label>
       <input
         className="w-full border rounded p-2"
-        value={title}
+        value={title || ""}
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
       />

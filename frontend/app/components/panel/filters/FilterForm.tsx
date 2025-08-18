@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import LoadingSpinner from "@/app/components/Loading/Loading";
-
-
 import { filterMessages as m } from "@/app/constants/filterMessage";
 import { toast } from "react-toastify";
 import { useFilterActions } from "@/app/hooks/useFilterAction";
@@ -11,19 +9,18 @@ import { useFilterDetails } from "@/app/hooks/useFilterDetails";
 
 interface Props {
   categoryId: number;
-  filterId: number|string;
+  filterId: number | string;
   onSuccess: () => void;
 }
 
 export const FilterForm: React.FC<Props> = ({ categoryId, filterId, onSuccess }) => {
-  const isEdit = !!filterId;
-  const { submitting, act } = useFilterActions(onSuccess);
+  const fid = Number(filterId) || 0;
+  const isEdit = fid > 0;
 
-  /* واکشی عنوان فیلتر با هوک مشترک */
-  const { title: initialTitle, loading } = useFilterDetails("filter", filterId);
+  const { submitting, act } = useFilterActions(onSuccess);
+  const { title: initialTitle, loading } = useFilterDetails("filter", fid);
   const [title, setTitle] = useState("");
 
-  /* همگام‌سازی initialTitle */
   useEffect(() => setTitle(initialTitle), [initialTitle]);
 
   const handleSave = () => {
@@ -31,11 +28,12 @@ export const FilterForm: React.FC<Props> = ({ categoryId, filterId, onSuccess })
       toast.error(m.fieldRequired);
       return;
     }
-    act(isEdit ? "updateFilter" : "createFilter", {
-      ...(isEdit ? { id: filterId } : { categoryId }),
-      title
-      
-    });
+
+    const payload = isEdit
+      ? { id: fid, categoryId, title }  // ← categoryId را هم می‌فرستیم تا ساختار کامل شود
+      : { categoryId, title };
+
+    act(isEdit ? "updateFilter" : "createFilter", payload);
   };
 
   if (loading) return <LoadingSpinner size="small" />;
@@ -45,7 +43,7 @@ export const FilterForm: React.FC<Props> = ({ categoryId, filterId, onSuccess })
       <label className="block text-sm mb-1">{m.filterTitleLabel}</label>
       <input
         className="w-full border rounded p-2"
-        value={title}
+        value={title || ""}
         onChange={(e) => setTitle(e.target.value)}
         autoFocus
       />
