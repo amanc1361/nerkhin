@@ -19,8 +19,7 @@ useEffect(() => {
   api
     .get<FiltersResponse>(filterApi.getByCategory(categoryId))
       .then((resp) => {
-        console.log("پاسخ خام:", resp);    // ← ببینید دقیقاً چه می‌آید
-        setFilters(resp.productFilters ?? []);
+          setFilters(resp.productFilters ?? []);
       })
     .catch((err) => setError(err))
     .finally(() => setLoading(false));

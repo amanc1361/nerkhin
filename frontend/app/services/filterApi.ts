@@ -19,7 +19,7 @@ export const filterApi = {
   },
   updateFilter: (data: { id: number; title: string }) => ({
     url: "/product-filter/update",
-    method: "post" as const,
+    method: "put" as const,
     body: data,
   }),
   deleteFilter: (id: number) => ({

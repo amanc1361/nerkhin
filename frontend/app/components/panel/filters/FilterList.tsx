@@ -11,8 +11,7 @@ import { OptionForm } from "./optionForm";
 
 export const FilterList: React.FC<{ categoryId: number }> = ({ categoryId }) => {
   const { filters, loading, error, refresh } = useFiltersByCategoryAdmin(categoryId);
-  console.log("************************************");
-  console.log(filters);
+
   const [modal, setModal] = useState<
     | { type: "addFilter" }
     | { type: "editFilter"; filterId: number|string}

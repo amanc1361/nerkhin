@@ -30,7 +30,7 @@ export const useFilterActions = (onSuccess: () => void) => {
             await api.post<SuccessResponse>(filterApi.createFilter(data));
             break;
           case "updateFilter":
-            await api.post<SuccessResponse>(filterApi.updateFilter(data));
+            await api.put<SuccessResponse>(filterApi.updateFilter(data));
             break;
           case "deleteFilter":
             await api.delete<SuccessResponse>(filterApi.deleteFilter(data.id));
