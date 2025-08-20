@@ -1,7 +1,7 @@
-
-import { formatTodayJalali } from "@/lib/date/jalai";
 import { MarketMessages } from "@/lib/server/texts/marketMessages";
-import Image from "next/image";
+import BrandLogo from "../shared/‌BrandLogo";
+import { formatTodayJalali } from "@/lib/date/jalai";
+
 
 export default function PageHeader({ t }: { t: MarketMessages }) {
   return (
@@ -10,7 +10,13 @@ export default function PageHeader({ t }: { t: MarketMessages }) {
       <div className="mx-auto max-w-6xl px-4 py-6 md:py-8">
         <div className="flex items-center justify-between">
           <div className="text-xs md:text-sm text-slate-600">{formatTodayJalali()}</div>
-          <Image src="/logo.svg" alt="Logo" width={56} height={56} priority className="drop-shadow" />
+
+          {/* ✅ لوگوی شما */}
+          <BrandLogo
+            variant="logo3"   // یا "logo2"
+            className="w-20 h-auto"
+            title="Nerkhin"
+          />
         </div>
       </div>
     </section>
