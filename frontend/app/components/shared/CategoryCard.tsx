@@ -10,7 +10,7 @@ export default function CategoryCard({ item, href }: { item: Category; href: str
     >
       <div className="aspect-square rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">
         {item.imageUrl ? (
-          <Image src={item.imageUrl} alt={item.title} width={160} height={160} className="object-cover w-full h-full group-hover:scale-[1.03] transition" />
+          <Image src={"https://nerkhin.com/uploads/"+item.imageUrl} alt={item.title} width={160} height={160} className="object-cover w-full h-full group-hover:scale-[1.03] transition" />
         ) : <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200" />}
       </div>
       <div className="mt-2.5 text-center text-sm text-slate-800 line-clamp-1">{item.title}</div>
