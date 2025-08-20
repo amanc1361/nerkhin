@@ -1,11 +1,10 @@
 import { getAllCategories } from "@/lib/server/server-api";
+import { SearchParamsPromise } from "../types/searchparam";
+import PageHeader from "../components/layout/PageHeader";
+import BottomNav from "../components/nav/BottomNav";
+import SearchClient from "../components/pages/search/SearchClient";
 import { getMarketMessages } from "@/lib/server/texts/marketMessages";
 
-
-import PageHeader from "../components/layout/PageHeader";
-import SearchClient from "../components/pages/search/SearchClient";
-import BottomNav from "../components/nav/BottomNav";
-import { SearchParamsPromise } from "../types/searchparam";
 
 export const revalidate = 0;
 

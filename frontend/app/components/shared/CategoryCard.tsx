@@ -6,22 +6,14 @@ export default function CategoryCard({ item, href }: { item: Category; href: str
   return (
     <Link
       href={href}
-      className="group flex flex-col items-center gap-2 rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition bg-white"
+      className="group rounded-2xl p-3 border border-slate-200/70 bg-white/80 backdrop-blur hover:bg-white transition shadow-sm hover:shadow-[0_12px_30px_rgba(0,0,0,0.08)]"
     >
-      <div className="w-24 h-24 md:w-28 md:h-28 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center">
+      <div className="aspect-square rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">
         {item.imageUrl ? (
-          <Image
-            src={item.imageUrl}
-            width={120}
-            height={120}
-            alt={item.title}
-            className="object-cover w-full h-full"
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-100" />
-        )}
+          <Image src={item.imageUrl} alt={item.title} width={160} height={160} className="object-cover w-full h-full group-hover:scale-[1.03] transition" />
+        ) : <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200" />}
       </div>
-      <div className="text-sm text-gray-700 group-hover:text-gray-900 line-clamp-1">{item.title}</div>
+      <div className="mt-2.5 text-center text-sm text-slate-800 line-clamp-1">{item.title}</div>
     </Link>
   );
 }
