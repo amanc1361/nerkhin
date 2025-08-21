@@ -6,17 +6,13 @@ import CategoryGrid from "@/app/components/shared/CategoryGrid";
 
 export const revalidate = 0;
 
-// ✅ در Next.js 15، params باید Promise باشد
-type Params = { role: "wholesaler" | "retailer"; parentId: string };
-
 export default async function SubCategoriesPage({
   params,
 }: {
-  params: Promise<Params>;
+  params: Promise<{ role: "wholesaler" | "retailer"; parentId: string }>;
 }) {
   const { role, parentId } = await params;
   const t = getMarketMessages("fa");
-
   const subs: Category[] = await getSubCategories(parentId).catch(() => []);
 
   return (
@@ -26,7 +22,6 @@ export default async function SubCategoriesPage({
           {t.subcategoriesTitle}
         </h1>
       </div>
-
       <CategoryGrid
         categories={subs}
         linkFor={(c) => `/${role}/brands?categoryId=${c.id}`}

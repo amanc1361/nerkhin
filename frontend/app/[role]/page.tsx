@@ -9,16 +9,27 @@ import { getMarketMessages } from "@/lib/server/texts/marketMessages";
 export const revalidate = 0;
 
 export default async function RoleHome({
-  params, searchParams,
-}:{ params: { role: "wholesaler" | "retailer" }; searchParams: SearchParamsPromise }) {
+  params,
+  searchParams,
+}: {
+  params: Promise<{ role: "wholesaler" | "retailer" }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { role } = await params;
+  const sp = await searchParams;
+  const raw = sp?.q;
+  const q = Array.isArray(raw) ? raw[0] : raw ?? "";
+
   const t = getMarketMessages("fa");
   const categories = await getAllCategories().catch(() => []);
-  const sp = await searchParams; const raw = sp?.q; const q = Array.isArray(raw) ? raw[0] : raw ?? "";
 
   return (
     <main className="bg-white">
-      <SearchHero t={t} role={params.role} initialQuery={q} />
-      <CategoryGrid categories={categories} linkFor={(c) => `/${params.role}/categories/${c.id}`} />
+      <SearchHero t={t} role={role} initialQuery={q} />
+      <CategoryGrid
+        categories={categories}
+        linkFor={(c) => `/${role}/categories/${c.id}`}
+      />
     </main>
   );
 }
