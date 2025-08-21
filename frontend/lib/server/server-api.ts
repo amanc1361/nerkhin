@@ -10,7 +10,7 @@ import type {
   Model,
 } from '@/app/types/types';
 
-import { API_BASE_URL } from '@/app/config/apiConfig';
+import { API_BASE_URL, INTERNAL_GO_API_URL } from '@/app/config/apiConfig';
 import { ApiError } from '@/app/services/apiService';
 import {
   PaginatedAdminsResponse,
@@ -156,6 +156,18 @@ export async function getAllCategories(): Promise<Category[]> {
     method: 'GET',
   });
 }
+
+
+// GET /product-category/fetch-sub-categories/:id
+export async function getSubCategories(parentId: number | string): Promise<Category[]> {
+  const url = `${INTERNAL_GO_API_URL}/product-category/fetch-sub-categories/${parentId}`;
+  const res = await fetch(url, { method: "GET", cache: "no-store" });
+  if (!res.ok) throw new Error(`getSubCategories failed: ${res.status}`);
+  const data = await res.json();
+  // انتظار: Category[]
+  return Array.isArray(data) ? data : (data?.data ?? []);
+}
+
 
 export async function getBrandDetails(id: string | number): Promise<Brand> {
   return authenticatedFetch(brandApi.getById(id).url, { method: 'GET' });

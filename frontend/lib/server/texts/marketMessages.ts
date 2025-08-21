@@ -3,6 +3,8 @@ export type MarketMessages = {
   datePrefix: string;
   searchPlaceholder: string;
   searchCta: string;
+    subcategoriesTitle: string;
+
   categoriesTitle: string;
   menu: {
     search: string;
@@ -23,6 +25,8 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
       menu: { search: "Search", myAccount: "My Account", myProducts: "My Products" },
       emptyState: "No category found.",
       errorState: "Could not load categories.",
+            subcategoriesTitle: "Subcategories",
+
     };
   }
 
@@ -35,5 +39,10 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
     menu: { search: "جستجو", myAccount: "حساب من", myProducts: "محصولات من" },
     emptyState: "دسته‌ای یافت نشد.",
     errorState: "خطا در دریافت دسته‌بندی‌ها.",
+        subcategoriesTitle: "زیرشاخه‌ها",
+
   };
 };
+
+
+
