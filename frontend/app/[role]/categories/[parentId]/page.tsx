@@ -22,6 +22,7 @@ export default async function SubCategoriesPage({
           {t.subcategoriesTitle}
         </h1>
       </div>
+      <span>{subs.length}</span>
       <CategoryGrid
         categories={subs}
         linkFor={(c) => `/${role}/brands?categoryId=${c.id}`}

@@ -165,6 +165,7 @@ export async function getSubCategories(parentId: number | string): Promise<Categ
   if (!res.ok) throw new Error(`getSubCategories failed: ${res.status}`);
   const data = await res.json();
   // انتظار: Category[]
+  
   return Array.isArray(data) ? data : (data?.data ?? []);
 }
 
