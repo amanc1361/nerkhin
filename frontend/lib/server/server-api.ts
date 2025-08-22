@@ -160,13 +160,10 @@ export async function getAllCategories(): Promise<Category[]> {
 
 // GET /product-category/fetch-sub-categories/:id
 export async function getSubCategories(parentId: number | string): Promise<Category[]> {
-  const url = `${INTERNAL_GO_API_URL}/product-category/fetch-sub-categories/${parentId}`;
-  const res = await fetch(url, { method: "GET", cache: "no-store" });
-  if (!res.ok) throw new Error(`getSubCategories failed: ${res.status}`);
-  const data = await res.json();
-  // انتظار: Category[]
-  
-  return Array.isArray(data) ? data : (data?.data ?? []);
+  if (parentId === null || parentId === undefined || parentId === "") return [];
+  return authenticatedFetch(`/product-category/fetch-sub-categories/${encodeURIComponent(String(parentId))}`, {
+    method: 'GET',
+  });
 }
 
 
