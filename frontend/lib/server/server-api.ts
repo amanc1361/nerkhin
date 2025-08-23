@@ -8,6 +8,7 @@ import type {
   PaginatedUsersResponse,
   Brand,
   Model,
+
 } from '@/app/types/types';
 
 import { API_BASE_URL, INTERNAL_GO_API_URL } from '@/app/config/apiConfig';
@@ -23,6 +24,7 @@ import { Category } from '@/app/types/category/categoryManagement';
 import { brandApi, modelApi } from '@/app/services/brandapi';
 import { ProductFilterData } from '@/app/types/model/model';
 import { authOptions } from './authOptions';
+import { AccountUser, UserSubscription } from '@/app/types/account/account';
 
 /* ---------- helpers ---------- */
 function joinUrl(base: string, path: string) {
@@ -185,4 +187,13 @@ export async function getFiltersByCategory(
     { method: 'GET' }
   );
   return Array.isArray(res.productFilters) ? res.productFilters : [];
+}
+
+export async function fetchUserInfo(): Promise<AccountUser> {
+  return authenticatedFetch("/user/fetch-user", { method: "GET" });
+}
+
+// --- USER SUBSCRIPTION ---
+export async function fetchUserSubscriptions(): Promise<UserSubscription[]> {
+  return authenticatedFetch("/user-subscription/fetch-user-subscriptions", { method: "GET" });
 }
