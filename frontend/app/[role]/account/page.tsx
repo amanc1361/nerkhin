@@ -8,17 +8,13 @@ import { normalizeRole, UserRole } from "@/app/types/role";
 import {
   fetchUserInfo,
   fetchUserSubscriptions,
- 
+
 } from "@/lib/server/server-api";
 import { getAccountMessages } from "@/lib/server/texts/accountMessages";
 
 
-// اطمینان از SSR و عدم کش (با سッション سازگارتر است)
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-// کمک‌تایپ سازگار با Next 14/15: params می‌تواند شیء یا Promise باشد
-type MaybePromise<T> = T | Promise<T>;
 
 function toMonthDayDiff(now: Date, end?: string | null) {
   if (!end) return null;
@@ -44,11 +40,10 @@ function validityTextFromSubs(locale: "fa" | "en", subs: UserSubscription[]) {
   return `${diff.months} ${t.header.months} و ${diff.days} ${t.header.days}`;
 }
 
-export default async function AccountPage(props: {
-  params: MaybePromise<{ role: string }>;
-}) {
-  // ← سازگاری با هر دو نسخه: اگر Promise بود await می‌شود، اگر نبود همان شیء را می‌دهد
-  const { role } = await Promise.resolve(props.params);
+export default async function AccountPage(
+   { params }: { params: Promise<{ role: string }> } // ✅ سازگار با Next 15
+) {
+  const { role } = await params;
 
   const roleSegment = (role === "wholesaler" ? "wholesaler" : "retailer") as
     | "wholesaler"
@@ -57,7 +52,6 @@ export default async function AccountPage(props: {
   const locale: "fa" | "en" = "fa";
   const t = getAccountMessages(locale);
 
-  // SSR fetch (با سشن)
   const [user, subs] = await Promise.all([
     fetchUserInfo(),
     fetchUserSubscriptions().catch(() => [] as UserSubscription[]),
@@ -75,7 +69,7 @@ export default async function AccountPage(props: {
         user={{
           fullName: user.fullName,
           imageUrl: user.imageUrl,
-          // اطلاعات فروشگاه برای عمده‌فروش
+          // فروشگاه برای عمده‌فروش
           shopName: user.shopName,
           shopAddress: user.shopAddress,
           shopPhone1: user.shopPhone1,
@@ -111,7 +105,11 @@ export default async function AccountPage(props: {
           title={t.list.transactions}
           icon={<span>💳</span>}
         />
-        <AccountListItem href={`/rules`} title={t.list.rules} icon={<span>📘</span>} />
+        <AccountListItem
+          href={`/rules`}
+          title={t.list.rules}
+          icon={<span>📘</span>}
+        />
       </div>
     </main>
   );
