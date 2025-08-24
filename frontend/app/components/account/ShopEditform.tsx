@@ -55,7 +55,7 @@ export default function ShopEditForm({ t, user }: Props) {
   useEffect(() => {
     if (state?.ok) {
       // ساده: بعد از ذخیره موفق می‌تونیم پیام بدهیم یا رفرش کنیم
-      alert(t.actions.saved);
+    //  alert(t.actions.saved);
     } else if (state && !state.ok) {
       alert(state.error || t.errors.unknown);
     }
