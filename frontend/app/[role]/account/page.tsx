@@ -3,27 +3,31 @@
 import { AccountHeaderCard } from "@/app/components/account/AccountHeaderCard";
 import AccountListItem from "@/app/components/account/AccountListItem";
 import AccountQuickActions from "@/app/components/account/AccountQuickActions";
+import SignOutRow from "@/app/components/account/SignOutRow";
 import { UserSubscription } from "@/app/types/account/account";
 import { normalizeRole, UserRole } from "@/app/types/role";
 import { fetchUserInfo, fetchUserSubscriptions } from "@/lib/server/server-api";
 import { getAccountMessages } from "@/lib/server/texts/accountMessages";
-
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/* ---------- helpers ---------- */
 function toMonthDayDiff(now: Date, end?: string | null) {
   if (!end) return null;
   const endDt = new Date(end);
   const ms = endDt.getTime() - now.getTime();
-  if (Number.isNaN(ms) || ms <= 0) return null;
+  if (!Number.isFinite(ms) || ms <= 0) return null;
   const daysTotal = Math.floor(ms / (1000 * 60 * 60 * 24));
   const months = Math.floor(daysTotal / 30);
   const days = daysTotal % 30;
   return { months, days };
 }
+
 function validityTextFromSubs(locale: "fa" | "en", subs: UserSubscription[]) {
   if (!Array.isArray(subs) || subs.length === 0) return null;
-  const latest = subs.map(s => s.endAt).filter(Boolean)
+  const latest = subs
+    .map((s) => s.endAt)
+    .filter(Boolean)
     .sort((a, b) => new Date(a!).getTime() - new Date(b!).getTime())
     .at(-1);
   const diff = toMonthDayDiff(new Date(), latest || null);
@@ -32,23 +36,41 @@ function validityTextFromSubs(locale: "fa" | "en", subs: UserSubscription[]) {
   return `${diff.months} ${t.header.months} و ${diff.days} ${t.header.days}`;
 }
 
-export default async function AccountPage({ params }: { params: Promise<{ role: string }> }) {
+/* ---------- page ---------- */
+export default async function AccountPage({
+  params,
+}: {
+  params: Promise<{ role: string }>;
+}) {
+  // Next.js 15: params یک Promise است
   const { role } = await params;
-  const roleSegment = (role === "wholesaler" ? "wholesaler" : "retailer") as "wholesaler" | "retailer";
+
+  const roleSegment = (role === "wholesaler" ? "wholesaler" : "retailer") as
+    | "wholesaler"
+    | "retailer";
+
   const locale: "fa" | "en" = "fa";
   const t = getAccountMessages(locale);
 
+  // SSR fetch با سشن
   const [user, subs] = await Promise.all([
     fetchUserInfo(),
     fetchUserSubscriptions().catch(() => [] as UserSubscription[]),
   ]);
+
   const validityText = validityTextFromSubs(locale, subs || []);
   const nRole = normalizeRole(roleSegment);
   const isWholesale = nRole === UserRole.Wholesaler;
 
+  const HeartIcon = (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 21s-7.2-4.35-9.6-8.4C.9 10.1 2.1 6.6 5.4 6c1.8-.3 3.6.6 4.6 2 1-1.4 2.8-2.3 4.6-2 3.3.6 4.5 4.1 3 6.6C19.2 16.65 12 21 12 21z" />
+    </svg>
+  );
+
   return (
     <main className="mx-auto max-w-screen-sm px-3 py-4">
-      {/* کارت بالای صفحه */}
+      {/* Header card */}
       <AccountHeaderCard
         role={nRole}
         locale={locale}
@@ -70,17 +92,40 @@ export default async function AccountPage({ params }: { params: Promise<{ role: 
         validityText={validityText || undefined}
       />
 
-      {/* دکمه‌های اکشن */}
-      <AccountQuickActions role={nRole} roleSegment={roleSegment} locale={locale} />
+      {/* Quick actions */}
+      <AccountQuickActions
+        role={nRole}
+        roleSegment={roleSegment}
+        locale={locale}
+      />
 
-      {/* لیست‌ها */}
+      {/* List items */}
       <div className="mt-4 space-y-3">
-        <AccountListItem href={`/${roleSegment}/likes`}        title={t.list.likes}        icon={<span className="text-lg">⭐</span>} />
+        <AccountListItem
+          href={`/${roleSegment}/likes`}
+          title={t.list.likes}
+          icon={HeartIcon}
+        />
         {isWholesale && (
-          <AccountListItem href={`/${roleSegment}/customers`}   title={t.list.customers}    icon={<span className="text-lg">👥</span>} />
+          <AccountListItem
+            href={`/${roleSegment}/customers`}
+            title={t.list.customers}
+            icon={<span className="text-lg">👥</span>}
+          />
         )}
-        <AccountListItem href={`/${roleSegment}/transactions`} title={t.list.transactions} icon={<span className="text-lg">💳</span>} />
-        <AccountListItem href={`/rules`}                       title={t.list.rules}        icon={<span className="text-lg">📘</span>} />
+        <AccountListItem
+          href={`/${roleSegment}/transactions`}
+          title={t.list.transactions}
+          icon={<span className="text-lg">💳</span>}
+        />
+        <AccountListItem
+          href={`/rules`}
+          title={t.list.rules}
+          icon={<span className="text-lg">📘</span>}
+        />
+
+        {/* Sign out */}
+        <SignOutRow />
       </div>
     </main>
   );
