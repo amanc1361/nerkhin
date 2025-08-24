@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { defaultRouteForRole, isAdmin, isRetailer, isWholesaler } from "./app/types/role";
 
-
 const SECRET = process.env.NEXTAUTH_SECRET!;
 
 const LOGIN  = "/auth/login";
@@ -37,7 +36,15 @@ export async function middleware(req: NextRequest) {
 
   // احراز
   const session = await getToken({ req, secret: SECRET });
-  const role = (session as any)?.role;
+
+  // 👇 نقش را از چند محل ممکنِ سشن استخراج کن (بدون دست‌کاری فایل‌های دیگر)
+  const role =
+    (session as any)?.role ??
+    (session as any)?.user?.role ??
+    (session as any)?.userRole ??
+    (session as any)?.user?.userRole ??
+    (session as any)?.claims?.role ??
+    null;
 
   // انقضا با بافر 30 ثانیه
   const exp = typeof (session as any)?.accessTokenExpires === "number"
@@ -68,24 +75,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }
 
-  // 4) گارد تطابق مسیر با نقش
+  // 4) گارد تطابق مسیر با نقش — فقط وقتی نقش «قطعاً» خلاف مسیر است، ریدایرکت کن
   if (isAuth && pathname.startsWith(WHOLESALER)) {
-    if (isAdmin(role)) return NextResponse.redirect(new URL(PANEL, req.url));
-    if (!isWholesaler(role)) return NextResponse.redirect(new URL(RETailerOrPanel(role), req.url));
+    if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
+    if (isRetailer(role))     return NextResponse.redirect(new URL(RETAILER, req.url));
+    // نقش نامشخص یا عمده‌فروش؟ دست نزن
   }
 
   if (isAuth && pathname.startsWith(RETAILER)) {
-    if (isAdmin(role)) return NextResponse.redirect(new URL(PANEL, req.url));
-    if (!isRetailer(role)) return NextResponse.redirect(new URL(WHOLESALER, req.url));
+    if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
+    if (isWholesaler(role))   return NextResponse.redirect(new URL(WHOLESALER, req.url));
+    // نقش نامشخص یا خرده‌فروش؟ دست نزن
   }
 
   return NextResponse.next();
-}
-
-// کمک کوچک: اگر نقش کاربر Retailer نیست، و Admin هم نیست، پس Wholesaler است.
-// برای خوانایی ریدایرکت‌ها:
-function RETailerOrPanel(role: any) {
-  return isAdmin(role) ? "/panel" : "/retailer";
 }
 
 export const config = {
