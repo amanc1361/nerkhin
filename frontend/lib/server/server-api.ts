@@ -197,3 +197,10 @@ export async function fetchUserInfo(): Promise<AccountUser> {
 export async function fetchUserSubscriptions(): Promise<UserSubscription[]> {
   return authenticatedFetch("/user-subscription/fetch-user-subscriptions", { method: "GET" });
 }
+export async function updateShop(form: FormData): Promise<void> {
+  // Route طبق روتری که دادی: PUT /user/update-shop
+  return authenticatedFetch('/user/update-shop', {
+    method: 'PUT',
+    body: form, // FormData → هدر Content-Type به‌صورت خودکار ست می‌شود
+  });
+}
