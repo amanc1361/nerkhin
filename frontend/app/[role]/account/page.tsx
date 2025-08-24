@@ -5,13 +5,8 @@ import AccountListItem from "@/app/components/account/AccountListItem";
 import AccountQuickActions from "@/app/components/account/AccountQuickActions";
 import { UserSubscription } from "@/app/types/account/account";
 import { normalizeRole, UserRole } from "@/app/types/role";
-import {
-  fetchUserInfo,
-  fetchUserSubscriptions,
-
-} from "@/lib/server/server-api";
+import { fetchUserInfo, fetchUserSubscriptions } from "@/lib/server/server-api";
 import { getAccountMessages } from "@/lib/server/texts/accountMessages";
-
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,12 +21,9 @@ function toMonthDayDiff(now: Date, end?: string | null) {
   const days = daysTotal % 30;
   return { months, days };
 }
-
 function validityTextFromSubs(locale: "fa" | "en", subs: UserSubscription[]) {
   if (!Array.isArray(subs) || subs.length === 0) return null;
-  const latest = subs
-    .map((s) => s.endAt)
-    .filter(Boolean)
+  const latest = subs.map(s => s.endAt).filter(Boolean)
     .sort((a, b) => new Date(a!).getTime() - new Date(b!).getTime())
     .at(-1);
   const diff = toMonthDayDiff(new Date(), latest || null);
@@ -40,15 +32,9 @@ function validityTextFromSubs(locale: "fa" | "en", subs: UserSubscription[]) {
   return `${diff.months} ${t.header.months} و ${diff.days} ${t.header.days}`;
 }
 
-export default async function AccountPage(
-   { params }: { params: Promise<{ role: string }> } // ✅ سازگار با Next 15
-) {
+export default async function AccountPage({ params }: { params: Promise<{ role: string }> }) {
   const { role } = await params;
-
-  const roleSegment = (role === "wholesaler" ? "wholesaler" : "retailer") as
-    | "wholesaler"
-    | "retailer";
-
+  const roleSegment = (role === "wholesaler" ? "wholesaler" : "retailer") as "wholesaler" | "retailer";
   const locale: "fa" | "en" = "fa";
   const t = getAccountMessages(locale);
 
@@ -56,20 +42,19 @@ export default async function AccountPage(
     fetchUserInfo(),
     fetchUserSubscriptions().catch(() => [] as UserSubscription[]),
   ]);
-
   const validityText = validityTextFromSubs(locale, subs || []);
   const nRole = normalizeRole(roleSegment);
   const isWholesale = nRole === UserRole.Wholesaler;
 
   return (
     <main className="mx-auto max-w-screen-sm px-3 py-4">
+      {/* کارت بالای صفحه */}
       <AccountHeaderCard
         role={nRole}
         locale={locale}
         user={{
           fullName: user.fullName,
           imageUrl: user.imageUrl,
-          // فروشگاه برای عمده‌فروش
           shopName: user.shopName,
           shopAddress: user.shopAddress,
           shopPhone1: user.shopPhone1,
@@ -85,31 +70,17 @@ export default async function AccountPage(
         validityText={validityText || undefined}
       />
 
+      {/* دکمه‌های اکشن */}
       <AccountQuickActions role={nRole} roleSegment={roleSegment} locale={locale} />
 
+      {/* لیست‌ها */}
       <div className="mt-4 space-y-3">
-        <AccountListItem
-          href={`/${roleSegment}/likes`}
-          title={t.list.likes}
-          icon={<span>⭐</span>}
-        />
+        <AccountListItem href={`/${roleSegment}/likes`}        title={t.list.likes}        icon={<span className="text-lg">⭐</span>} />
         {isWholesale && (
-          <AccountListItem
-            href={`/${roleSegment}/customers`}
-            title={t.list.customers}
-            icon={<span>👥</span>}
-          />
+          <AccountListItem href={`/${roleSegment}/customers`}   title={t.list.customers}    icon={<span className="text-lg">👥</span>} />
         )}
-        <AccountListItem
-          href={`/${roleSegment}/transactions`}
-          title={t.list.transactions}
-          icon={<span>💳</span>}
-        />
-        <AccountListItem
-          href={`/rules`}
-          title={t.list.rules}
-          icon={<span>📘</span>}
-        />
+        <AccountListItem href={`/${roleSegment}/transactions`} title={t.list.transactions} icon={<span className="text-lg">💳</span>} />
+        <AccountListItem href={`/rules`}                       title={t.list.rules}        icon={<span className="text-lg">📘</span>} />
       </div>
     </main>
   );
