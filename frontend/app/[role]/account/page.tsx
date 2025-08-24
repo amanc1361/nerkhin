@@ -62,11 +62,19 @@ export default async function AccountPage({
   const nRole = normalizeRole(roleSegment);
   const isWholesale = nRole === UserRole.Wholesaler;
 
-  const HeartIcon = (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 21s-7.2-4.35-9.6-8.4C.9 10.1 2.1 6.6 5.4 6c1.8-.3 3.6.6 4.6 2 1-1.4 2.8-2.3 4.6-2 3.3.6 4.5 4.1 3 6.6C19.2 16.65 12 21 12 21z" />
-    </svg>
-  );
+const HeartIcon = (
+  <svg
+    className="h-5 w-5"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+  </svg>
+);
 
   return (
     <main className="mx-auto max-w-screen-sm px-3 py-4">
