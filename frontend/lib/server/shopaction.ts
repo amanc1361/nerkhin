@@ -2,16 +2,15 @@
 "use server";
 
 /**
- * ✅ فایل واحد با لاگ کامل ورودی/خروجی:
- * - fetchUserInfoForEdit(): Promise<AccountUser>
+ * ✅ اکشن‌های سروری حساب/فروشگاه + لاگ کامل:
+ * - fetchUserInfoForEdit(): Promise<AccountUser>  ← اینجا imageUrl را مطلق می‌کنیم و placeholder امن می‌گذاریم
  * - updateShop(form: FormData): Promise<void>
- * - updateShopAction(prevState, formData): Promise<UpdateShopResult>  ← شامل revalidatePath + لاگ کامل
+ * - updateShopAction(prevState, formData): Promise<UpdateShopResult>  ← شامل revalidatePath
  *
  * نکات:
  * - همه توابع export شده async هستند (قانون Server Actions).
- * - ساخت FormData داخل همین فایل انجام می‌شود ولی export نمی‌شود.
- * - روی موفقیت، JSON parse نمی‌کنیم (ممکن است 204 برگردد).
- * - اگر DEBUG_SHOP=1 باشد، همه‌چیز را لاگ می‌کنیم (payload، فایل، درخواست، پاسخ).
+ * - روی موفقیتِ درخواست، JSON parse نمی‌کنیم (ممکن است 204 برگردد).
+ * - اگر DEBUG_SHOP=1 باشد، تمام ورودی/خروجی‌ها لاگ می‌شوند.
  */
 
 import { getServerSession } from "next-auth";
@@ -62,6 +61,50 @@ async function getAuthHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
+/* ---------------- image resolver ---------------- */
+
+/**
+ * سرور معمولاً فقط filename یا مسیر نسبی می‌دهد؛ این متد آن را مطلق می‌کند.
+ * می‌تونی این دو env را در .env.frontend تنظیم کنی، وگرنه پیش‌فرض امن داریم:
+ *   NEXT_PUBLIC_FILE_HOST=https://nerkhin.com
+ *   NEXT_PUBLIC_FILE_PREFIX=/uploads
+ */
+const FILE_HOST =
+  (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+const FILE_PREFIX = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "").replace(/\/+$/, "");
+
+function absolutizeImageUrl(img?: string | null): string | undefined {
+  if (!img) return undefined;
+  const val = String(img).trim();
+  if (!val) return undefined;
+  if (/^https?:\/\//i.test(val)) return val;
+
+  // اگر مسیر نسبی کامل باشد (مثلاً "uploads/xxx.webp" یا "/uploads/xxx.webp")
+  if (/^\/?uploads\//i.test(val)) {
+    const cleaned = val.replace(/^\/+/, ""); // حذف اسلش ابتدایی
+    return `${FILE_HOST}/${cleaned}`;
+  }
+
+  // اگر فقط filename است (بدون دایرکتوری)
+  const file = val.replace(/^\/+/, "");
+  return `${FILE_HOST}${FILE_PREFIX}/${file}`;
+}
+
+/** placeholder امن (data URL) تا اگر فایل نبود 404 نگیریم */
+const FALLBACK_AVATAR_DATA = `data:image/svg+xml;utf8,` + encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'>
+     <defs>
+       <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+         <stop offset='0' stop-color='%23EEE'/>
+         <stop offset='1' stop-color='%23DDD'/>
+       </linearGradient>
+     </defs>
+     <rect width='100%' height='100%' fill='url(%23g)'/>
+     <circle cx='64' cy='48' r='24' fill='%23bbb'/>
+     <rect x='20' y='84' width='88' height='28' rx='14' fill='%23c9c9c9'/>
+   </svg>`
+);
+
 /* ---------------- Server Actions (همه async) ---------------- */
 
 export async function fetchUserInfoForEdit(): Promise<AccountUser> {
@@ -86,9 +129,15 @@ export async function fetchUserInfoForEdit(): Promise<AccountUser> {
   }
 
   const data = (await res.json()) as AccountUser;
+
+  // ✅ تصویر را مطلق کن (اگر فقط filename یا مسیر نسبی بود)
+  const resolved = absolutizeImageUrl(data?.imageUrl as any);
+  data.imageUrl = resolved || FALLBACK_AVATAR_DATA;
+
   dbg("Received user:", {
     id: data?.id,
     fullName: data?.fullName,
+    imageUrl: data?.imageUrl,
     hasShop: !!(data?.shopName || data?.shopAddress),
   });
   return data;
@@ -139,10 +188,9 @@ function buildUpdateShopFormLocal(
   fd.set("data", dataString);
 
   if (imageFile && imageFile.size > 0) {
-    fd.append("images", imageFile); // 👈 طبق هندلر Go
+    fd.append("images", imageFile); // طبق هندلر Go
   }
 
-  // 🔎 لاگ امن از خروجی FormData
   if (DEBUG) {
     const img = imageFile
       ? { name: (imageFile as any)?.name, size: imageFile.size, type: imageFile.type }
@@ -163,7 +211,6 @@ export async function updateShop(form: FormData): Promise<void> {
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user/update-shop");
 
-  // لاگ از data ارسالی
   if (DEBUG) {
     const dataField = form.get("data") as string | File | null;
     const dataStr =
@@ -202,7 +249,6 @@ export async function updateShop(form: FormData): Promise<void> {
     }
   }
 
-  // موفقیت: ممکن است بدنه خالی باشد
   try {
     const ct = res.headers.get("content-type");
     dbg("Success headers:", { "content-type": ct });
@@ -223,7 +269,6 @@ export async function updateShopAction(
   formData: FormData
 ): Promise<UpdateShopResult> {
   try {
-    // 🔎 لاگ ورودی خام
     if (DEBUG) {
       const raw: Record<string, any> = {};
       for (const [k, v] of formData.entries()) {
@@ -233,11 +278,9 @@ export async function updateShopAction(
       dbg("Incoming formData:", raw);
     }
 
-    // 1) role برای revalidate
     const roleRaw = (formData.get("role") ?? "").toString().toLowerCase();
     const role = roleRaw === "wholesaler" || roleRaw === "retailer" ? roleRaw : "";
 
-    // 2) payload را از فرم بساز
     const payload = {
       shopName: (formData.get("shopName") ?? "").toString(),
       shopPhone1: (formData.get("shopPhone1") ?? "").toString(),
@@ -253,16 +296,11 @@ export async function updateShopAction(
     };
 
     const file = formData.get("image") as File | null;
-
-    // 3) ساخت FormData مقصد + لاگ خروجی
     const fd = buildUpdateShopFormLocal(payload, file);
 
-    // 4) آپلود به بک‌اند
     await updateShop(fd);
 
-    // 5) بی‌اعتبارسازی صفحهٔ حساب تا UI دادهٔ جدید را بگیرد
     if (role) {
-      // مثال: /wholesaler/account یا /retailer/account
       dbg("revalidatePath ->", `/${role}/account`);
       revalidatePath(`/${role}/account`, "page");
     } else {
