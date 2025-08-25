@@ -1,28 +1,20 @@
 // lib/server/shopaction.ts
 "use server";
 
-/**
- * ✅ فایل واحد برای اکشن‌های سروری ویرایش فروشگاه:
- * - fetchUserInfoForEdit(): Promise<AccountUser>
- * - updateShop(form: FormData): Promise<void>
- * - updateShopAction(prevState, formData): Promise<UpdateShopResult>
- *
- * نکته‌ها:
- * - همه توابع export شده async هستن (الزام Next.js برای Server Actions).
- * - ساخت FormData داخل همین فایل انجام می‌شه ولی export نمی‌شه.
- * - روی موفقیتِ درخواست، JSON parse نمی‌کنیم (ممکنه 204 برگرده).
- */
+
 
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/server/authOptions";
 import { API_BASE_URL, INTERNAL_GO_API_URL } from "@/app/config/apiConfig";
 import type { AccountUser } from "@/app/types/account/account";
 
-/* ---------------- helpers هم‌راستا با سایر فایل‌ها ---------------- */
+
 
 const clean = (s: string) => (s || "").replace(/\/+$/, "");
 const isAbs = (s: string) => /^https?:\/\//i.test(s);
 const withLeadingSlash = (s: string) => (s.startsWith("/") ? s : `/${s}`);
+
 
 function resolveRootBase(publicBase: string, internalBase: string) {
   const pb = clean(publicBase || "/api/go");
@@ -76,7 +68,7 @@ export async function updateShop(form: FormData): Promise<void> {
 
   const res = await fetch(url, {
     method: "PUT",
-    headers, // ❌ Content-Type را ست نکن؛ FormData خودش boundary می‌سازه
+    headers, // ❌ Content-Type را ست نکن؛ FormData خودش boundary می‌سازد
     body: form,
     cache: "no-store",
   });
@@ -97,19 +89,22 @@ export async function updateShop(form: FormData): Promise<void> {
 export type UpdateShopResult = { ok: true } | { ok: false; error: string };
 
 /* ---------- کمک‌تابع داخلی (export نشده) برای ساخت FormData ---------- */
-function buildUpdateShopFormLocal(payload: {
-  shopName?: string;
-  shopPhone1?: string;
-  shopPhone2?: string;
-  shopPhone3?: string;
-  shopAddress?: string;
-  telegramUrl?: string;
-  instagramUrl?: string;
-  whatsappUrl?: string;
-  websiteUrl?: string;
-  latitude?: string | number | null;
-  longitude?: string | number | null;
-}, imageFile?: File | null): FormData {
+function buildUpdateShopFormLocal(
+  payload: {
+    shopName?: string;
+    shopPhone1?: string;
+    shopPhone2?: string;
+    shopPhone3?: string;
+    shopAddress?: string;
+    telegramUrl?: string;
+    instagramUrl?: string;
+    whatsappUrl?: string;
+    websiteUrl?: string;
+    latitude?: string | number | null;
+    longitude?: string | number | null;
+  },
+  imageFile?: File | null
+): FormData {
   const fd = new FormData();
 
   fd.set(
@@ -148,12 +143,19 @@ function buildUpdateShopFormLocal(payload: {
  * name فیلدهای فرم باید این‌ها باشد:
  * image, shopName, shopPhone1, shopPhone2, shopPhone3, shopAddress,
  * telegramUrl, instagramUrl, whatsappUrl, websiteUrl, latitude, longitude
+ *
+ * نکته مهم: برای invalidation باید <input type="hidden" name="role" value="wholesaler|retailer" /> را هم از فرم بفرستی.
  */
 export async function updateShopAction(
   _prevState: UpdateShopResult | null,
   formData: FormData
 ): Promise<UpdateShopResult> {
   try {
+    // 1) role را از فرم بگیر تا مسیر درست را revalidate کنیم
+    const roleRaw = (formData.get("role") ?? "").toString().toLowerCase();
+    const role = roleRaw === "wholesaler" || roleRaw === "retailer" ? roleRaw : "";
+
+    // 2) payload را از فرم بساز
     const payload = {
       shopName: (formData.get("shopName") ?? "").toString(),
       shopPhone1: (formData.get("shopPhone1") ?? "").toString(),
@@ -164,14 +166,26 @@ export async function updateShopAction(
       instagramUrl: (formData.get("instagramUrl") ?? "").toString(),
       whatsappUrl: (formData.get("whatsappUrl") ?? "").toString(),
       websiteUrl: (formData.get("websiteUrl") ?? "").toString(),
-      latitude: (formData.get("latitude") ?? "").toString(),
-      longitude: (formData.get("longitude") ?? "").toString(),
+      latitude: (formData.get("latitude") ?? "").toString() || "",
+      longitude: (formData.get("longitude") ?? "").toString() || "",
     };
 
+    // 3) فایل را بگیر و FormData مقصد را بساز
     const file = formData.get("image") as File | null;
     const fd = buildUpdateShopFormLocal(payload, file);
 
+    // 4) آپلود به بک‌اند
     await updateShop(fd);
+
+    // 5) بی‌اعتبارسازی صفحهٔ حساب تا UI دادهٔ جدید را بگیرد
+    if (role) {
+      // مثال: /wholesaler/account یا /retailer/account
+      revalidatePath(`/${role}/account`, "page");
+    } else {
+      // اگر role نداشتیم، حداقل لایهٔ اصلی را رفرش کن
+      revalidatePath("/", "layout");
+    }
+
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "خطای ناشناخته" };
