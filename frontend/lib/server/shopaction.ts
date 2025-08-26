@@ -1,17 +1,6 @@
-// lib/server/shopaction.ts
+
 "use server";
 
-/**
- * ✅ اکشن‌های سروری حساب/فروشگاه + لاگ کامل:
- * - fetchUserInfoForEdit(): Promise<AccountUser>  ← اینجا imageUrl را مطلق می‌کنیم و placeholder امن می‌گذاریم
- * - updateShop(form: FormData): Promise<void>
- * - updateShopAction(prevState, formData): Promise<UpdateShopResult>  ← شامل revalidatePath
- *
- * نکات:
- * - همه توابع export شده async هستند (قانون Server Actions).
- * - روی موفقیتِ درخواست، JSON parse نمی‌کنیم (ممکن است 204 برگردد).
- * - اگر DEBUG_SHOP=1 باشد، تمام ورودی/خروجی‌ها لاگ می‌شوند.
- */
 
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
@@ -19,7 +8,7 @@ import { authOptions } from "@/lib/server/authOptions";
 import { API_BASE_URL, INTERNAL_GO_API_URL } from "@/app/config/apiConfig";
 import type { AccountUser } from "@/app/types/account/account";
 
-/* ---------------- Debug helpers ---------------- */
+
 
 const DEBUG = process.env.DEBUG_SHOP === "1";
 function dbg(...args: any[]) {
@@ -30,7 +19,7 @@ function maskToken(token?: string) {
   return token.length <= 12 ? "***" : token.slice(0, 12) + "...";
 }
 
-/* ---------------- URL helpers (طبق الگوی پروژه) ---------------- */
+
 
 const clean = (s: string) => (s || "").replace(/\/+$/, "");
 const isAbs = (s: string) => /^https?:\/\//i.test(s);
@@ -61,51 +50,46 @@ async function getAuthHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
-/* ---------------- image resolver ---------------- */
+/* ---------------- image resolver برای نمایش امن (اختیاری) ---------------- */
 
-/**
- * سرور معمولاً فقط filename یا مسیر نسبی می‌دهد؛ این متد آن را مطلق می‌کند.
- * می‌تونی این دو env را در .env.frontend تنظیم کنی، وگرنه پیش‌فرض امن داریم:
- *   NEXT_PUBLIC_FILE_HOST=https://nerkhin.com
- *   NEXT_PUBLIC_FILE_PREFIX=/uploads
- */
 const FILE_HOST =
   (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
-const FILE_PREFIX = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "").replace(/\/+$/, "");
+const FILE_PREFIX =
+  "/" +
+  (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads")
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "");
 
 function absolutizeImageUrl(img?: string | null): string | undefined {
   if (!img) return undefined;
   const val = String(img).trim();
   if (!val) return undefined;
   if (/^https?:\/\//i.test(val)) return val;
-
-  // اگر مسیر نسبی کامل باشد (مثلاً "uploads/xxx.webp" یا "/uploads/xxx.webp")
   if (/^\/?uploads\//i.test(val)) {
-    const cleaned = val.replace(/^\/+/, ""); // حذف اسلش ابتدایی
+    const cleaned = val.replace(/^\/+/, "");
     return `${FILE_HOST}/${cleaned}`;
   }
-
-  // اگر فقط filename است (بدون دایرکتوری)
   const file = val.replace(/^\/+/, "");
   return `${FILE_HOST}${FILE_PREFIX}/${file}`;
 }
 
-/** placeholder امن (data URL) تا اگر فایل نبود 404 نگیریم */
-const FALLBACK_AVATAR_DATA = `data:image/svg+xml;utf8,` + encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'>
-     <defs>
-       <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
-         <stop offset='0' stop-color='%23EEE'/>
-         <stop offset='1' stop-color='%23DDD'/>
-       </linearGradient>
-     </defs>
-     <rect width='100%' height='100%' fill='url(%23g)'/>
-     <circle cx='64' cy='48' r='24' fill='%23bbb'/>
-     <rect x='20' y='84' width='88' height='28' rx='14' fill='%23c9c9c9'/>
-   </svg>`
-);
+const FALLBACK_AVATAR_DATA =
+  `data:image/svg+xml;utf8,` +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'>
+       <defs>
+         <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+           <stop offset='0' stop-color='%23EEE'/>
+           <stop offset='1' stop-color='%23DDD'/>
+         </linearGradient>
+       </defs>
+       <rect width='100%' height='100%' fill='url(%23g)'/>
+       <circle cx='64' cy='48' r='24' fill='%23bbb'/>
+       <rect x='20' y='84' width='88' height='28' rx='14' fill='%23c9c9c9'/>
+     </svg>`
+  );
 
-/* ---------------- Server Actions (همه async) ---------------- */
+/* ---------------- Server Actions ---------------- */
 
 export async function fetchUserInfoForEdit(): Promise<AccountUser> {
   const headers = await getAuthHeader();
@@ -129,8 +113,6 @@ export async function fetchUserInfoForEdit(): Promise<AccountUser> {
   }
 
   const data = (await res.json()) as AccountUser;
-
-  // ✅ تصویر را مطلق کن (اگر فقط filename یا مسیر نسبی بود)
   const resolved = absolutizeImageUrl(data?.imageUrl as any);
   data.imageUrl = resolved || FALLBACK_AVATAR_DATA;
 
@@ -146,8 +128,8 @@ export async function fetchUserInfoForEdit(): Promise<AccountUser> {
 /* ---------- نوع نتیجه برای useFormState ---------- */
 export type UpdateShopResult = { ok: true } | { ok: false; error: string };
 
-/* ---------- کمک‌تابع داخلی (export نشده) برای ساخت FormData ---------- */
-function buildUpdateShopFormLocal(
+/* ---------- کمک‌تابع داخلی: بازسازی File و ساخت FormData (async) ---------- */
+async function buildUpdateShopFormLocal(
   payload: {
     shopName?: string;
     shopPhone1?: string;
@@ -162,7 +144,7 @@ function buildUpdateShopFormLocal(
     longitude?: string | number | null;
   },
   imageFile?: File | null
-): FormData {
+): Promise<FormData> {
   const fd = new FormData();
 
   const dataString = JSON.stringify({
@@ -188,17 +170,21 @@ function buildUpdateShopFormLocal(
   fd.set("data", dataString);
 
   if (imageFile && imageFile.size > 0) {
-    fd.append("images", imageFile); // طبق هندلر Go
+    // ✅ بازسازی فایل با نام و نوع صریح تا Gin آن را به‌عنوان فایل ببیند
+    const name = (imageFile as any).name || "upload";
+    const type = imageFile.type || "application/octet-stream";
+    const bytes = new Uint8Array(await imageFile.arrayBuffer());
+    const rebuilt = new File([bytes], name, { type });
+    // ⚠️ filename را هم بده
+    fd.append("images", rebuilt, rebuilt.name);
   }
 
   if (DEBUG) {
-    const img = imageFile
-      ? { name: (imageFile as any)?.name, size: imageFile.size, type: imageFile.type }
-      : null;
+    const img = fd.get("images") as File | null;
     dbg("Outgoing FormData:", {
       dataLen: dataString.length,
-      hasImage: !!imageFile,
-      imageMeta: img,
+      hasImage: !!img,
+      imageMeta: img ? { name: (img as any)?.name, size: img.size, type: img.type } : null,
     });
   }
 
@@ -213,16 +199,11 @@ export async function updateShop(form: FormData): Promise<void> {
 
   if (DEBUG) {
     const dataField = form.get("data") as string | File | null;
-    const dataStr =
-      typeof dataField === "string"
-        ? dataField
-        : dataField
-        ? "[File]"
-        : "[null]";
     const img = form.get("images") as File | null;
     dbg("PUT", url, {
       hasData: !!dataField,
-      dataPreview: typeof dataField === "string" ? dataField.slice(0, 200) : dataStr,
+      dataPreview:
+        typeof dataField === "string" ? dataField.slice(0, 200) : dataField ? "[File]" : "[null]",
       hasImage: !!img,
       imageMeta: img ? { name: (img as any)?.name, size: img.size, type: img.type } : null,
     });
@@ -230,7 +211,7 @@ export async function updateShop(form: FormData): Promise<void> {
 
   const res = await fetch(url, {
     method: "PUT",
-    headers, // ❌ Content-Type را ست نکن؛ FormData خودش boundary می‌سازد
+    headers,      // ❌ Content-Type را ست نکن؛ FormData خودش boundary می‌سازد
     body: form,
     cache: "no-store",
   });
@@ -262,7 +243,7 @@ export async function updateShop(form: FormData): Promise<void> {
  * image, shopName, shopPhone1, shopPhone2, shopPhone3, shopAddress,
  * telegramUrl, instagramUrl, whatsappUrl, websiteUrl, latitude, longitude
  *
- * نکته مهم: برای invalidation باید <input type="hidden" name="role" value="wholesaler|retailer" /> را هم از فرم بفرستی.
+ * نکته مهم: <input type="hidden" name="role" value="wholesaler|retailer" /> را هم از فرم بفرست.
  */
 export async function updateShopAction(
   _prevState: UpdateShopResult | null,
@@ -296,7 +277,9 @@ export async function updateShopAction(
     };
 
     const file = formData.get("image") as File | null;
-    const fd = buildUpdateShopFormLocal(payload, file);
+
+    // ⬅️ بازسازی و ساخت FormData مقصد (async)
+    const fd = await buildUpdateShopFormLocal(payload, file);
 
     await updateShop(fd);
 
