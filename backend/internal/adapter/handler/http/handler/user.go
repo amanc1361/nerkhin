@@ -3,14 +3,14 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
 	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
 	"github.com/nerkhin/internal/core/domain"
-	"github.com/nerkhin/internal/core/domain/msg"
+
 	"github.com/nerkhin/internal/core/port"
 	"github.com/shopspring/decimal"
 )
@@ -255,17 +255,16 @@ type updateShopRequest struct {
 }
 
 func (uh *UserHandler) UpdateShop(c *gin.Context) {
-	// ❶: برای PUT + multipart، اول بدنه را پارس کن
-	ct := c.GetHeader("Content-Type")
-	fmt.Println("[UpdateShop] CT:", ct)
-	if strings.HasPrefix(strings.ToLower(ct), "multipart/form-data") {
+	// --- A) اطمینان از پارسِ multipart قبل از PostForm
+	ct := strings.ToLower(c.GetHeader("Content-Type"))
+	if strings.HasPrefix(ct, "multipart/form-data") {
 		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
-			HandleError(c, fmt.Errorf("%s: %w", msg.ErrInternal, err), uh.AppConfig.Lang)
+			HandleError(c, err, uh.AppConfig.Lang)
 			return
 		}
 	}
 
-	// ❷: حالا data را از فرم بگیر
+	// --- B) data را بخوان و JSON کن
 	var req updateShopRequest
 	jsonData := c.PostForm("data")
 	if jsonData == "" {
@@ -277,7 +276,7 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 		return
 	}
 
-	// ❸: بقیه‌ی پارس‌ها مثل قبل
+	// --- C) تبدیل مختصات
 	latitude := decimal.NullDecimal{}
 	if req.Latitude != "" {
 		lat, err := decimal.NewFromString(req.Latitude)
@@ -288,7 +287,6 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 		latitude.Decimal = lat
 		latitude.Valid = !lat.IsZero()
 	}
-
 	longitude := decimal.NullDecimal{}
 	if req.Longitude != "" {
 		long, err := decimal.NewFromString(req.Longitude)
@@ -300,9 +298,9 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 		longitude.Valid = !long.IsZero()
 	}
 
+	// --- D) ساخت مدل
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
-
 	shop := &domain.User{
 		ID:           currentUserID,
 		ShopName:     req.ShopName,
@@ -318,31 +316,22 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 		Longitude:    longitude,
 	}
 
-	// ❹: فایل‌ها را بگیر (کلید must be "images") و خطا را حتماً پاسخ بده
+	// --- E) دریافت فایل‌ها (کلید: "images") + بازگرداندن خطا (ساکت نباش)
 	imageFileNames, err := saveAndGetImageFileNames(c, "images", uh.AppConfig.ImageBasePath, USER_IMAGES_LIMIT)
 	if err != nil {
 		HandleError(c, err, uh.AppConfig.Lang)
 		return
 	}
-
-	// ❺: لاگ تشخیصی واقعی: چه کلیدهایی فایل دارند؟
-	if mf, err := c.MultipartForm(); err == nil {
-		for k := range mf.File {
-			fmt.Printf("[UpdateShop] file key: %s count=%d\n", k, len(mf.File[k]))
-		}
-	}
-	fmt.Println("[UpdateShop] images len:", len(imageFileNames))
-
 	if len(imageFileNames) > 0 {
 		shop.ImageUrl = imageFileNames[0]
 	}
 
+	// --- F) به‌روزرسانی و پاسخ
 	ctx := c.Request.Context()
 	if err := uh.service.UpdateShop(ctx, shop); err != nil {
 		HandleError(c, err, uh.AppConfig.Lang)
 		return
 	}
-
 	handleSuccess(c, nil)
 }
 
