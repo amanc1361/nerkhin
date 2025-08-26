@@ -175,7 +175,6 @@ type fetchUsersByFilterResponse struct {
 	TotalCount int64                   `json:"totalCount"`
 }
 
-
 type changeUserStateRequest struct {
 	UserID      int64            `json:"userId"`
 	TargetState domain.UserState `json:"targetState"`
@@ -307,7 +306,7 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 	if err != nil {
 		return
 	}
-    fmt.Println("************image file name*********************")
+	fmt.Println("************image file name*********************")
 	fmt.Println(len(imageFileNames))
 	if len(imageFileNames) > 0 {
 		fmt.Println(imageFileNames[0])

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 
@@ -96,7 +97,7 @@ func saveAndGetImageFileNames(c *gin.Context, imagesKey, imageBasePath string, l
 	}
 
 	imageFiles := []*multipart.FileHeader{}
-
+	fmt.Println("image count:", len(imageFiles))
 	if limit != -1 {
 		imageFiles = form.File[imagesKey]
 		if len(imageFiles) > limit {
