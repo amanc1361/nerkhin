@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 
@@ -111,6 +112,7 @@ func saveAndGetImageFileNames(c *gin.Context, imagesKey, imageBasePath string, l
 	for _, img := range imageFiles {
 		fileName := uuid.NewString()
 		newFilePath := imageBasePath + "/" + fileName
+		fmt.Println(newFilePath)
 		err = c.SaveUploadedFile(img, newFilePath)
 		if err != nil {
 			return

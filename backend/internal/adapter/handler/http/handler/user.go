@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
@@ -306,8 +307,10 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 	if err != nil {
 		return
 	}
-
+    fmt.Println("************image file name*********************")
+	fmt.Println(len(imageFileNames))
 	if len(imageFileNames) > 0 {
+		fmt.Println(imageFileNames[0])
 		shop.ImageUrl = imageFileNames[0]
 	}
 
