@@ -122,7 +122,7 @@ func (pt *PasetoToken) CreateAccessToken(user *domain.User, adminAccess *domain.
 }
 
 func (pt *PasetoToken) VerifyAccessToken(tokenString string) (*domain.TokenPayload, error) {
-	fmt.Println("VerifyAccessToken")
+
 	var tokenPayload domain.TokenPayload
 	parsedToken, err := pt.safeParse(tokenString)
 	if err != nil {

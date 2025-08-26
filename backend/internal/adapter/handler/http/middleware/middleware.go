@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"errors"
-	"fmt"
 
 	"strings"
 
@@ -45,20 +44,14 @@ func AuthMiddleware(token port.TokenService, appConfig config.App) gin.HandlerFu
 			handler.HandleAbort(c, errors.New(msg.ErrInvalidAuthorizationType), appConfig.Lang)
 			return
 		}
-		
+
 		tokenString := fields[1]
 		if strings.Contains(c.Request.URL.Path, "/product-model/by-brand") {
-			fmt.Println("888888888888888888888888888888888")
-			fmt.Println(tokenString)
-			fmt.Println("--------------------------------------------")
-			fmt.Println(token)
+
 		}
 
 		payload, err := token.VerifyAccessToken(tokenString)
 
-		if strings.Contains(c.Request.URL.Path, "/product-model/by-brand") {
-			fmt.Println("***********************************")
-		}
 		if err != nil || payload == nil {
 
 			handler.HandleAbort(c, errors.New(msg.ErrInvalidToken), appConfig.Lang)
@@ -93,9 +86,6 @@ func AdminMiddleware(token port.TokenService, appConfig config.App) gin.HandlerF
 
 func ApprovedUserMiddleware(token port.TokenService, appConfig config.App) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		fmt.Println("************ApproveMiddleware*****************")
-		fmt.Println(ctx.Request)
-		fmt.Println("*****************************")
 
 		// استخراج payload
 		val, exists := ctx.Get(httputil.AuthPayloadKey)
