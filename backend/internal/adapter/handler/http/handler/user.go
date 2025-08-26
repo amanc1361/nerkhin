@@ -2,12 +2,15 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
 	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
 	"github.com/nerkhin/internal/core/domain"
+	"github.com/nerkhin/internal/core/domain/msg"
 	"github.com/nerkhin/internal/core/port"
 	"github.com/shopspring/decimal"
 )
@@ -252,13 +255,29 @@ type updateShopRequest struct {
 }
 
 func (uh *UserHandler) UpdateShop(c *gin.Context) {
+	// ❶: برای PUT + multipart، اول بدنه را پارس کن
+	ct := c.GetHeader("Content-Type")
+	fmt.Println("[UpdateShop] CT:", ct)
+	if strings.HasPrefix(strings.ToLower(ct), "multipart/form-data") {
+		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+			HandleError(c, fmt.Errorf("%s: %w", msg.ErrInternal, err), uh.AppConfig.Lang)
+			return
+		}
+	}
+
+	// ❷: حالا data را از فرم بگیر
 	var req updateShopRequest
 	jsonData := c.PostForm("data")
+	if jsonData == "" {
+		validationError(c, errors.New("invalid payload: missing 'data'"), uh.AppConfig.Lang)
+		return
+	}
 	if err := json.Unmarshal([]byte(jsonData), &req); err != nil {
 		validationError(c, err, uh.AppConfig.Lang)
 		return
 	}
 
+	// ❸: بقیه‌ی پارس‌ها مثل قبل
 	latitude := decimal.NullDecimal{}
 	if req.Latitude != "" {
 		lat, err := decimal.NewFromString(req.Latitude)
@@ -266,7 +285,6 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 			validationError(c, err, uh.AppConfig.Lang)
 			return
 		}
-
 		latitude.Decimal = lat
 		latitude.Valid = !lat.IsZero()
 	}
@@ -278,7 +296,6 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 			validationError(c, err, uh.AppConfig.Lang)
 			return
 		}
-
 		longitude.Decimal = long
 		longitude.Valid = !long.IsZero()
 	}
@@ -301,28 +318,106 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 		Longitude:    longitude,
 	}
 
-	imageFileNames, err := saveAndGetImageFileNames(c, "images",
-		uh.AppConfig.ImageBasePath, USER_IMAGES_LIMIT)
+	// ❹: فایل‌ها را بگیر (کلید must be "images") و خطا را حتماً پاسخ بده
+	imageFileNames, err := saveAndGetImageFileNames(c, "images", uh.AppConfig.ImageBasePath, USER_IMAGES_LIMIT)
 	if err != nil {
 		HandleError(c, err, uh.AppConfig.Lang)
 		return
 	}
-	fmt.Println("************image file name*********************")
-	fmt.Println(len(imageFileNames))
+
+	// ❺: لاگ تشخیصی واقعی: چه کلیدهایی فایل دارند؟
+	if mf, err := c.MultipartForm(); err == nil {
+		for k := range mf.File {
+			fmt.Printf("[UpdateShop] file key: %s count=%d\n", k, len(mf.File[k]))
+		}
+	}
+	fmt.Println("[UpdateShop] images len:", len(imageFileNames))
+
 	if len(imageFileNames) > 0 {
-		fmt.Println(imageFileNames[0])
 		shop.ImageUrl = imageFileNames[0]
 	}
 
 	ctx := c.Request.Context()
-	err = uh.service.UpdateShop(ctx, shop)
-	if err != nil {
+	if err := uh.service.UpdateShop(ctx, shop); err != nil {
 		HandleError(c, err, uh.AppConfig.Lang)
 		return
 	}
 
 	handleSuccess(c, nil)
 }
+
+// func (uh *UserHandler) UpdateShop(c *gin.Context) {
+// 	var req updateShopRequest
+// 	jsonData := c.PostForm("data")
+// 	if err := json.Unmarshal([]byte(jsonData), &req); err != nil {
+// 		validationError(c, err, uh.AppConfig.Lang)
+// 		return
+// 	}
+
+// 	latitude := decimal.NullDecimal{}
+// 	if req.Latitude != "" {
+// 		lat, err := decimal.NewFromString(req.Latitude)
+// 		if err != nil {
+// 			validationError(c, err, uh.AppConfig.Lang)
+// 			return
+// 		}
+
+// 		latitude.Decimal = lat
+// 		latitude.Valid = !lat.IsZero()
+// 	}
+
+// 	longitude := decimal.NullDecimal{}
+// 	if req.Longitude != "" {
+// 		long, err := decimal.NewFromString(req.Longitude)
+// 		if err != nil {
+// 			validationError(c, err, uh.AppConfig.Lang)
+// 			return
+// 		}
+
+// 		longitude.Decimal = long
+// 		longitude.Valid = !long.IsZero()
+// 	}
+
+// 	authPayload := httputil.GetAuthPayload(c)
+// 	currentUserID := authPayload.UserID
+
+// 	shop := &domain.User{
+// 		ID:           currentUserID,
+// 		ShopName:     req.ShopName,
+// 		ShopPhone1:   req.ShopPhone1,
+// 		ShopPhone2:   req.ShopPhone2,
+// 		ShopPhone3:   req.ShopPhone3,
+// 		ShopAddress:  req.ShopAddress,
+// 		TelegramUrl:  req.TelegramUrl,
+// 		InstagramUrl: req.InstagramUrl,
+// 		WhatsappUrl:  req.WhatsappUrl,
+// 		WebsiteUrl:   req.WebsiteUrl,
+// 		Latitude:     latitude,
+// 		Longitude:    longitude,
+// 	}
+
+// 	imageFileNames, err := saveAndGetImageFileNames(c, "images",
+// 		uh.AppConfig.ImageBasePath, USER_IMAGES_LIMIT)
+// 	if err != nil {
+// 		HandleError(c, err, uh.AppConfig.Lang)
+// 		return
+// 	}
+// 	fmt.Println("************image file name*********************")
+// 	fmt.Println(len(imageFileNames))
+// 	if len(imageFileNames) > 0 {
+// 		fmt.Println(imageFileNames[0])
+// 		shop.ImageUrl = imageFileNames[0]
+// 	}
+
+// 	ctx := c.Request.Context()
+// 	err = uh.service.UpdateShop(ctx, shop)
+// 	if err != nil {
+// 		HandleError(c, err, uh.AppConfig.Lang)
+// 		return
+// 	}
+
+// 	handleSuccess(c, nil)
+// }
 
 type addNewUserRequest struct {
 	Phone    string `json:"phone"`
