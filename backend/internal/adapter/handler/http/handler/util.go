@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"mime/multipart"
 	"net/http"
 
@@ -90,17 +89,14 @@ func handleSuccess(c *gin.Context, data any) {
 func saveAndGetImageFileNames(c *gin.Context, imagesKey, imageBasePath string, limit int) (
 
 	imageUrls []string, err error) {
-	fmt.Println("_________________________")
-	fmt.Println(c)
+
 	form, err := c.MultipartForm()
 	if err != nil {
-		fmt.Println("error in get image")
-		fmt.Println(err)
 		return
 	}
 
 	imageFiles := []*multipart.FileHeader{}
-	fmt.Println("image lens", len(imageFiles))
+
 	if limit != -1 {
 		imageFiles = form.File[imagesKey]
 		if len(imageFiles) > limit {
@@ -118,7 +114,7 @@ func saveAndGetImageFileNames(c *gin.Context, imagesKey, imageBasePath string, l
 	for _, img := range imageFiles {
 		fileName := uuid.NewString()
 		newFilePath := imageBasePath + "/" + fileName
-		fmt.Println(newFilePath)
+
 		err = c.SaveUploadedFile(img, newFilePath)
 		if err != nil {
 			return
