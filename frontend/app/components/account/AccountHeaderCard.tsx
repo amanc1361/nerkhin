@@ -86,6 +86,7 @@ export const AccountHeaderCard: FC<Props> = ({
       {/* آواتار کاملاً بالا-راست (absolute) */}
       <div className="absolute right-5 top-5">
         <div className="relative h-16 w-16 overflow-hidden rounded-full ring-2 ring-purple-300">
+            <span>image path</span>
             <span>{user.imageUrl}</span>
           <Image
             src={"https://nerkhin.com/uploads/"+user.imageUrl+".webp" || "/uploads/avatar-placeholder.png"}
