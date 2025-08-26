@@ -304,6 +304,7 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 	imageFileNames, err := saveAndGetImageFileNames(c, "images",
 		uh.AppConfig.ImageBasePath, USER_IMAGES_LIMIT)
 	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
 		return
 	}
 	fmt.Println("************image file name*********************")

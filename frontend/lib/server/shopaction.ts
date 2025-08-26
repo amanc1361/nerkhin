@@ -186,9 +186,10 @@ function buildUpdateShopFormLocal(
   });
 
   fd.set("data", dataString);
-
+ console.log("show files ********************************************* files")
   if (imageFile && imageFile.size > 0) {
-    fd.append("images", imageFile); 
+    console.log("get files *******************************files")
+    fd.append("images", imageFile, (imageFile as any).name || "upload.jpg");
   }
 
   if (DEBUG) {
