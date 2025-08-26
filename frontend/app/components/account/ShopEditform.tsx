@@ -88,7 +88,7 @@ export default function ShopEditForm({ t, user }: Props) {
       <div className="flex flex-col items-center gap-2">
         <div className="relative h-20 w-20 overflow-hidden rounded-full ring-2 ring-indigo-200">
           <Image
-            src={imagePreview || "/images/avatar-placeholder.png"}
+            src={"https://nerkhin.com/uploads/"+imagePreview || "/images/avatar-placeholder.png"}
             alt="avatar"
             fill
             sizes="80px"
@@ -168,13 +168,13 @@ export default function ShopEditForm({ t, user }: Props) {
       </div>
 
       {/* description (UI-only) */}
-      <div className="space-y-1">
+      {/* <div className="space-y-1">
         <label className="text-sm text-gray-600">{t.fields.description}</label>
         <textarea
           placeholder={t.fields.description}
           className="min-h-24 w-full rounded-xl border px-3 py-2 text-sm"
         />
-      </div>
+      </div> */}
 
       {/* map / geo */}
         <div className="space-y-2">
