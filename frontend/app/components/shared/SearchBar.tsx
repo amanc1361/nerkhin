@@ -1,7 +1,15 @@
-// components/common/SearchBar.tsx
 "use client";
 import { MarketMessages } from "@/lib/server/texts/marketMessages";
 import { useRouter } from "next/navigation";
+
+function IconSearch({ className = "" }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.75" fill="none" />
+      <path d="M16.5 16.5 L21 21" stroke="currentColor" strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export default function SearchBar({
   t,
@@ -36,17 +44,9 @@ export default function SearchBar({
           <button
             type="submit"
             aria-label={t.menu.search}
-            className="absolute left-2 top-1/2 -translate-y-1/2 grid place-items-center w-8 h-8 rounded-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+            className="absolute left-2 top-1/2 -translate-y-1/2 grid place-items-center w-8 h-8 rounded-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
           >
-            <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
-              <path
-                d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 0l9 9"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                fill="none"
-                strokeLinecap="round"
-              />
-            </svg>
+            <IconSearch className="w-5 h-5 -translate-y-[1px]" />
             <span className="sr-only">{t.menu.search}</span>
           </button>
         </div>

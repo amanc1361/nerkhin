@@ -1,16 +1,33 @@
 import { MarketMessages } from "@/lib/server/texts/marketMessages";
 import Link from "next/link";
-
+import React from "react";
 
 type Role = "wholesaler" | "retailer";
 type Active = "search" | "account" | "products";
 
-const Icon = {
-  search:   () => <svg viewBox="0 0 24 24" className="w-5 h-5"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 0l9 9" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>,
-  account:  () => <svg viewBox="0 0 24 24" className="w-5 h-5"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-5 0-8 3-8 6v1h16v-1c0-3-3-6-8-6Z" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>,
-  products: () => <svg viewBox="0 0 24 24" className="w-5 h-5"><path d="M3 7l9 4 9-4M3 7l9-4 9 4M3 7v10l9 4 9-4V7" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>,
+/** آیکن‌های یکدست */
+type IconProps = { className?: string };
+const Icons: Record<Active, React.FC<IconProps>> = {
+  search: ({ className = "" }) => (
+    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.75" fill="none" />
+      <path d="M16.5 16.5 L21 21" stroke="currentColor" strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  account: ({ className = "" }) => (
+    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.75" fill="none" />
+      <path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  products: ({ className = "" }) => (
+    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+      <path d="M12 3l9 5-9 5-9-5 9-5Z" stroke="currentColor" strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 8v8l9 5 9-5V8" stroke="currentColor" strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 13V3" stroke="currentColor" strokeWidth="1.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 };
-
 
 export default function BottomNav({
   t,
@@ -37,10 +54,10 @@ export default function BottomNav({
   return (
     <nav dir="rtl" className="md:hidden fixed bottom-2 left-1/2 -translate-x-1/2 z-50 w-[94%]">
       <div className="rounded-3xl px-3 py-2 bg-white/90 backdrop-blur border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
-        {/* ستون‌ها دقیقا برابر تعداد آیتم‌ها تا هیچ شِفْتی نباشه */}
         <ul className="grid gap-1" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
           {items.map(({ key, href, label }) => {
             const isActive = active === key;
+            const IconCmp = Icons[key];
             return (
               <li key={key} className="flex justify-center">
                 <Link
@@ -51,10 +68,7 @@ export default function BottomNav({
                     isActive ? "text-slate-900 bg-slate-100 shadow-inner" : "text-slate-500 hover:text-slate-900",
                   ].join(" ")}
                 >
-                  {/* آیکن placeholder – اگر آیکن سفارشی داری جایگزین کن */}
-                  <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden>
-                    <path d="M12 12" stroke="currentColor" />
-                  </svg>
+                  <IconCmp className="w-5 h-5 -translate-y-[1px]" />
                   <span className="leading-none">{label}</span>
                 </Link>
               </li>
