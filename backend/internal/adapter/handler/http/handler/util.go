@@ -90,9 +90,12 @@ func handleSuccess(c *gin.Context, data any) {
 func saveAndGetImageFileNames(c *gin.Context, imagesKey, imageBasePath string, limit int) (
 
 	imageUrls []string, err error) {
-
+	fmt.Println("get images")
+	fmt.Println(c)
 	form, err := c.MultipartForm()
 	if err != nil {
+		fmt.Println("*****error*************")
+		fmt.Println(err)
 		return
 	}
 
