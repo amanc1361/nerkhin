@@ -80,7 +80,7 @@ export default function ShopEditForm({ t, user }: Props) {
   };
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="space-y-4">
+    <form action={formAction} encType="multipart/form-data" method="post" className="space-y-4">
       {/* avatar */}
       <input type="hidden" name="role" value="wholesaler" />
 

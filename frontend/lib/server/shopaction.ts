@@ -188,7 +188,7 @@ function buildUpdateShopFormLocal(
   fd.set("data", dataString);
 
   if (imageFile && imageFile.size > 0) {
-    fd.append("images", imageFile); // طبق هندلر Go
+    fd.append("images", imageFile); 
   }
 
   if (DEBUG) {
