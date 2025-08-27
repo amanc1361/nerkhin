@@ -335,78 +335,7 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 	handleSuccess(c, nil)
 }
 
-// func (uh *UserHandler) UpdateShop(c *gin.Context) {
-// 	var req updateShopRequest
-// 	jsonData := c.PostForm("data")
-// 	if err := json.Unmarshal([]byte(jsonData), &req); err != nil {
-// 		validationError(c, err, uh.AppConfig.Lang)
-// 		return
-// 	}
 
-// 	latitude := decimal.NullDecimal{}
-// 	if req.Latitude != "" {
-// 		lat, err := decimal.NewFromString(req.Latitude)
-// 		if err != nil {
-// 			validationError(c, err, uh.AppConfig.Lang)
-// 			return
-// 		}
-
-// 		latitude.Decimal = lat
-// 		latitude.Valid = !lat.IsZero()
-// 	}
-
-// 	longitude := decimal.NullDecimal{}
-// 	if req.Longitude != "" {
-// 		long, err := decimal.NewFromString(req.Longitude)
-// 		if err != nil {
-// 			validationError(c, err, uh.AppConfig.Lang)
-// 			return
-// 		}
-
-// 		longitude.Decimal = long
-// 		longitude.Valid = !long.IsZero()
-// 	}
-
-// 	authPayload := httputil.GetAuthPayload(c)
-// 	currentUserID := authPayload.UserID
-
-// 	shop := &domain.User{
-// 		ID:           currentUserID,
-// 		ShopName:     req.ShopName,
-// 		ShopPhone1:   req.ShopPhone1,
-// 		ShopPhone2:   req.ShopPhone2,
-// 		ShopPhone3:   req.ShopPhone3,
-// 		ShopAddress:  req.ShopAddress,
-// 		TelegramUrl:  req.TelegramUrl,
-// 		InstagramUrl: req.InstagramUrl,
-// 		WhatsappUrl:  req.WhatsappUrl,
-// 		WebsiteUrl:   req.WebsiteUrl,
-// 		Latitude:     latitude,
-// 		Longitude:    longitude,
-// 	}
-
-// 	imageFileNames, err := saveAndGetImageFileNames(c, "images",
-// 		uh.AppConfig.ImageBasePath, USER_IMAGES_LIMIT)
-// 	if err != nil {
-// 		HandleError(c, err, uh.AppConfig.Lang)
-// 		return
-// 	}
-// 	fmt.Println("************image file name*********************")
-// 	fmt.Println(len(imageFileNames))
-// 	if len(imageFileNames) > 0 {
-// 		fmt.Println(imageFileNames[0])
-// 		shop.ImageUrl = imageFileNames[0]
-// 	}
-
-// 	ctx := c.Request.Context()
-// 	err = uh.service.UpdateShop(ctx, shop)
-// 	if err != nil {
-// 		HandleError(c, err, uh.AppConfig.Lang)
-// 		return
-// 	}
-
-// 	handleSuccess(c, nil)
-// }
 
 type addNewUserRequest struct {
 	Phone    string `json:"phone"`

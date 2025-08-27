@@ -338,12 +338,12 @@ func (uph *UserProductHandler) Fetch(c *gin.Context) {
 	handleSuccess(c, userProduct)
 }
 
-type deleteUserProductRequest struct {
-	Id int64 `json:"id"`
+type deleteUserProductByIdRequest struct {
+  Id int64 `uri:"id" binding:"required"`
 }
 
 func (uph *UserProductHandler) Delete(c *gin.Context) {
-	var req deleteUserProductRequest
+	var req deleteUserProductByIdRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		validationError(c, err, uph.AppConfig.Lang)
 		return
