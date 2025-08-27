@@ -7,18 +7,20 @@ import MyProductsPage from "./MyproductsPage";
 
 type Role = "wholesaler" | "retailer";
 type RoleParam = { role: Role };
+type Search = Record<string, string | string[] | undefined>;
 
-export default async function Page(
-  {
-    params,
-  }: Readonly<{
-    // ⚠️ دقیقا مطابق constraint پروژه: Promise<any> | undefined
-    // ما نوع دقیق‌تر رو داخل Promise می‌گذاریم
-    params: Promise<RoleParam>; 
-    searchParams?: Record<string, string | string[] | undefined>;
-  }>
-) {
-  const { role } = await params; // اگر پروژه‌ات همیشه Promise می‌دهد، این دقیقاً مطابق قرارداد است
+export default async function Page({
+  params,
+  searchParams,
+}: Readonly<{
+  // ✅ همسو با PageProps سراسری شما که Promise می‌خواهد
+  params: Promise<RoleParam>;
+  searchParams?: Promise<Search>;
+}>) {
+  const { role } = await params; // اگر Promise نباشد هم TS سازگار است (await روی non-Promise مشکلی ندارد)
+
+  // اگر جایی به searchParams نیاز داشتی:
+  // const sp = searchParams ? await searchParams : undefined;
 
   const [items, priceList] = await Promise.all([
     fetchMyShopProductsSSR(),
@@ -36,4 +38,3 @@ export default async function Page(
     />
   );
 }
-
