@@ -26,39 +26,39 @@ func (upr *UserProductRepository) CreateUserProduct(ctx context.Context, dbSessi
 	return id, nil
 }
 
-func (pr *UserProductRepository) FetchShopProducts(ctx context.Context, dbSession interface{},
-	id int64) (products []*domain.UserProductView, err error) {
+// حذف join به product_model و جایگزینی model_id → model_name
+func (pr *UserProductRepository) FetchShopProducts(
+	ctx context.Context,
+	dbSession interface{},
+	userID int64,
+) (products []*domain.UserProductView, err error) {
+
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
 		return
 	}
 
-	err = db.Table("user_product AS up").
+	err = db.WithContext(ctx).
+		Table("user_product AS up").
 		Joins("JOIN product p ON p.id = up.product_id").
 		Joins("JOIN product_category pc ON pc.id = p.category_id").
 		Joins("JOIN product_brand pb ON pb.id = p.brand_id").
-		Joins("JOIN product_model pm ON pm.id = p.model_id").
-		Where("up.user_id = ?", id).
-		Order("up.id ASC").
-		Select(
-			"up.*",
-			"p.category_id        		AS category_id",
-			"p.brand_id        			AS brand_id",
-			"p.model_id        			AS model_id",
-			"pc.title 					AS product_category",
-			"pb.title 					AS product_brand",
-			"pm.title 					AS product_model",
-			"p.default_image_url 		AS default_image_url",
-			"p.description 				AS description",
-			"p.shops_count              AS shops_count",
-		).
-		Order("up.order_c ASC").
+		Where("up.user_id = ?", userID).
+		Select(`
+			up.*,
+			p.category_id         AS category_id,
+			p.brand_id            AS brand_id,
+			p.model_name          AS model_name,      -- جایگزین model_id/pm.title
+			pc.title              AS product_category,
+			pb.title              AS product_brand,
+			p.default_image_url   AS default_image_url,
+			p.description         AS description,
+			p.shops_count         AS shops_count
+		`).
+		Order("up.order_c ASC, up.id ASC").
 		Scan(&products).Error
-	if err != nil {
-		return
-	}
 
-	return products, nil
+	return
 }
 
 func (upr *UserProductRepository) FetchUserProduct(ctx context.Context, dbSession interface{},

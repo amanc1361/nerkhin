@@ -79,7 +79,6 @@ func (uph *UserProductHandler) Create(c *gin.Context) {
 		UserID:     authPayload.UserID,
 		CategoryID: req.CategoryID,
 		BrandID:    req.BrandID,
-		ModelID:    req.ModelID,
 		IsDollar:   req.IsDollar,
 		DollarPrice: decimal.NullDecimal{
 			Decimal: dollarPriceDecimal,
@@ -339,7 +338,7 @@ func (uph *UserProductHandler) Fetch(c *gin.Context) {
 }
 
 type deleteUserProductByIdRequest struct {
-  Id int64 `uri:"id" binding:"required"`
+	Id int64 `uri:"id" binding:"required"`
 }
 
 func (uph *UserProductHandler) Delete(c *gin.Context) {

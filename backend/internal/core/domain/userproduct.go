@@ -97,20 +97,23 @@ type ProductPrice struct {
 }
 
 type UserProduct struct {
-	ID          int64               `json:"id"`
-	UserID      int64               `json:"userId"`
-	ProductID   int64               `json:"productId"`
-	CategoryID  int64               `gorm:"->" json:"categoryId"`
-	BrandID     int64               `gorm:"->" json:"brandId"`
-	ModelID     int64               `gorm:"->" json:"modelId"`
+	ID        int64 `json:"id"`
+	UserID    int64 `json:"userId" gorm:"not null;index:idx_user_product_unique,unique,priority:1"`
+	ProductID int64 `json:"productId" gorm:"not null;index:idx_user_product_unique,unique,priority:2"`
+
+	BrandID    int64  `json:"brandId"     gorm:"->"`
+	CategoryID int64  `json:"categoryId"  gorm:"->"`
+	ModelName  string `json:"modelName"   gorm:"->;column:model_name"`
+
 	IsDollar    bool                `json:"isDollar"`
 	DollarPrice decimal.NullDecimal `json:"dollarPrice"`
 	OtherCosts  decimal.NullDecimal `json:"otherCosts"`
 	FinalPrice  decimal.Decimal     `json:"finalPrice"`
-	Order       int64               `gorm:"column:order_c" json:"order"`
-	IsHidden    bool                `json:"isHidden"`
-	CreatedAt   time.Time           `json:"createdAt"`
-	UpdatedAt   sql.NullTime        `json:"updatedAt"`
+
+	Order     int64        `json:"order"   gorm:"column:order_c"`
+	IsHidden  bool         `json:"isHidden"`
+	CreatedAt time.Time    `json:"createdAt"`
+	UpdatedAt sql.NullTime `json:"updatedAt"`
 }
 
 func (UserProduct) TableName() string {
