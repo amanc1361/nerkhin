@@ -26,7 +26,6 @@ func (upr *UserProductRepository) CreateUserProduct(ctx context.Context, dbSessi
 	return id, nil
 }
 
-// حذف join به product_model و جایگزینی model_id → model_name
 func (pr *UserProductRepository) FetchShopProducts(
 	ctx context.Context,
 	dbSession interface{},
@@ -40,20 +39,21 @@ func (pr *UserProductRepository) FetchShopProducts(
 
 	err = db.WithContext(ctx).
 		Table("user_product AS up").
-		Joins("JOIN product p ON p.id = up.product_id").
-		Joins("JOIN product_category pc ON pc.id = p.category_id").
-		Joins("JOIN product_brand pb ON pb.id = p.brand_id").
+		Joins("JOIN product AS p        ON p.id = up.product_id").
+		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
+		Joins("JOIN product_category AS pc ON pc.id = pb.category_id").
 		Where("up.user_id = ?", userID).
 		Select(`
 			up.*,
-			p.category_id         AS category_id,
-			p.brand_id            AS brand_id,
-			p.model_name          AS model_name,      -- جایگزین model_id/pm.title
-			pc.title              AS product_category,
-			pb.title              AS product_brand,
-			p.default_image_url   AS default_image_url,
-			p.description         AS description,
-			p.shops_count         AS shops_count
+			pb.category_id         AS category_id,      -- از brand
+			p.brand_id             AS brand_id,
+			p.model_name           AS model_name,       -- مدل جدید
+			p.model_name           AS product_model,    -- برای سازگاری با فرانت قدیمی
+			pc.title               AS product_category,
+			pb.title               AS product_brand,
+			p.default_image_url    AS default_image_url,
+			p.description          AS description,
+			p.shops_count          AS shops_count
 		`).
 		Order("up.order_c ASC, up.id ASC").
 		Scan(&products).Error
