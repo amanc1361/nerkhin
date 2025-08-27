@@ -4,17 +4,21 @@ import { fetchMyShopProductsSSR, fetchPriceListSSR } from "@/lib/server/userProd
 import MyProductsPage from "./MyproductsPage";
 
 
+
 type Role = "wholesaler" | "retailer";
-type Params = { role: Role };
-type MaybePromise<T> = T | Promise<T>;
+type RoleParam = { role: Role };
 
-type PageProps = Readonly<{
-  params: MaybePromise<Params>;
-  searchParams?: Record<string, string | string[] | undefined>;
-}>;
-
-export default async function Page({ params }: PageProps) {
-  const { role } = await params; // ← اگر Promise باشد await بازش می‌کند، اگر نباشد هم OK است
+export default async function Page(
+  {
+    params,
+  }: Readonly<{
+    // ⚠️ دقیقا مطابق constraint پروژه: Promise<any> | undefined
+    // ما نوع دقیق‌تر رو داخل Promise می‌گذاریم
+    params: Promise<RoleParam>; 
+    searchParams?: Record<string, string | string[] | undefined>;
+  }>
+) {
+  const { role } = await params; // اگر پروژه‌ات همیشه Promise می‌دهد، این دقیقاً مطابق قرارداد است
 
   const [items, priceList] = await Promise.all([
     fetchMyShopProductsSSR(),
@@ -32,3 +36,4 @@ export default async function Page({ params }: PageProps) {
     />
   );
 }
+
