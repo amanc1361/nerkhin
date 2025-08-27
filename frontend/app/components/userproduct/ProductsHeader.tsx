@@ -15,17 +15,16 @@ export default function ProductsHeader({ count, messages }: Props) {
         {messages.summary(count)}
       </div>
 
-      {/* هدر ستون‌ها: ارز / ترتیب / کالا */}
+      {/* هدر ستون‌ها: ارز / ترتیب / کالا (با آیکن‌ها مثل عکس) */}
       <div className="flex items-center text-xs text-neutral-500 px-1 py-2 border-b">
+        <div className="flex-1 text-left"></div>
         <div className="w-10 text-center">{messages.headers.currency}</div>
-
         <div className="w-12 flex items-center justify-center gap-1">
           {messages.headers.sort}
-          <svg viewBox="0 0 24 24" className="w-4 h-4" stroke="currentColor" fill="none" strokeWidth="1.6">
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" stroke="currentColor" fill="none" strokeWidth="1.6">
             <path d="M8 7l4-4 4 4M16 17l-4 4-4-4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-
         <div className="flex-1">{messages.headers.product}</div>
       </div>
     </div>
