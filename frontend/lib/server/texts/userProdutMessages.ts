@@ -5,6 +5,7 @@ export type UserProductMessages = {
     share: string;
     jpg: string;
     pdf: string;
+    priceList:string;
     dollarPrice: (price: string) => string;
     addProduct: string;
   };
@@ -38,6 +39,7 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
       toolbar: {
         share: "Price list",
         jpg: "JPG",
+        priceList:"priceList",
         pdf: "PDF",
         dollarPrice: (p) => `USD price: ${p}`,
         addProduct: "Add product",
@@ -74,6 +76,7 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
     title: "محصولات من",
     toolbar: {
       share: "لیست قیمت",
+      priceList:"لیست قیمت",
       jpg: "JPG",
       pdf: "PDF",
       dollarPrice: (p) => `قیمت دلار: ${p}`,

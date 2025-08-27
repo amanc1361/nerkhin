@@ -1,6 +1,4 @@
-// app/[role]/products/_components/ProductsList.tsx
 "use client";
-
 
 import { UserProductVM } from "@/app/types/userproduct/userProduct";
 import UserProductItem from "./UserProductItem";
@@ -24,7 +22,7 @@ export default function ProductsList({
   if (!items?.length) return null;
 
   return (
-    <div className="space-y-2">
+    <div dir="rtl" className="space-y-3 mt-2">
       {items.map((it) => (
         <UserProductItem
           key={it.id}
