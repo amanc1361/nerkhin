@@ -253,39 +253,41 @@ func (upr *UserProductRepository) GetProductShops(ctx context.Context,
 	return shopProducts, nil
 }
 
-func (pr *UserProductRepository) GetPriceList(ctx context.Context, dbSession interface{},
-	userId int64) (priceList []*domain.UserProductView, err error) {
+// مدل جدید بدون product_model و بدون p.category_id (دسته از برند می‌آید) + استفاده از p.model_name
+func (pr *UserProductRepository) GetPriceList(
+	ctx context.Context,
+	dbSession interface{},
+	userID int64,
+) (priceList []*domain.UserProductView, err error) {
+
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
 		return
 	}
 
-	err = db.Table("user_product AS up").
-		Joins("JOIN product p ON p.id = up.product_id").
-		Joins("JOIN product_category pc ON pc.id = p.category_id").
-		Joins("JOIN product_brand pb ON pb.id = p.brand_id").
-		Joins("JOIN product_model pm ON pm.id = p.model_id").
-		Joins("JOIN user_t u ON u.id = up.user_id").
-		Joins("LEFT JOIN user_subscription us ON us.user_id = u.id").
-		Joins("JOIN city c ON c.id = u.city_id").
-		Where("up.is_hidden = FALSE AND up.user_id = ?", userId).
+	err = db.WithContext(ctx).
+		Table("user_product AS up").
+		Joins("JOIN product AS p            ON p.id = up.product_id").
+		Joins("JOIN product_brand AS pb     ON pb.id = p.brand_id").
+		Joins("JOIN product_category AS pc  ON pc.id = pb.category_id").
+		Joins("JOIN user_t AS u             ON u.id = up.user_id").
+		Joins("LEFT JOIN user_subscription AS us ON us.user_id = u.id").
+		Joins("JOIN city AS c               ON c.id = u.city_id").
+		Where("up.is_hidden = FALSE AND up.user_id = ?", userID).
 		Where("us.expires_at > NOW()").
-		Order("up.id ASC").
-		Select(
-			"up.*",
-			"p.category_id 		AS category_id",
-			"p.brand_id 			AS brand_id",
-			"p.model_id 			AS model_id",
-			"pc.title 				AS product_category",
-			"pb.title 				AS product_brand",
-			"pm.title 				AS product_model",
-		).
+		Select(`
+			up.*,
+			pb.category_id      AS category_id,      -- category از brand
+			p.brand_id          AS brand_id,
+			p.model_name        AS model_name,       -- جایگزین model_id/pm.title
+			p.model_name        AS product_model,    -- برای سازگاری با فرانت قدیمی (اختیاری)
+			pc.title            AS product_category,
+			pb.title            AS product_brand
+		`).
+		Order("up.order_c ASC, up.id ASC").
 		Scan(&priceList).Error
-	if err != nil {
-		return
-	}
 
-	return priceList, nil
+	return
 }
 
 func (pr *UserProductRepository) GetUserProductByID(ctx context.Context, dbSession interface{}, userProductID int64) (
