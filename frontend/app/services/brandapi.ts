@@ -3,6 +3,7 @@ import { NewModelFormData } from "@/app/types/model/model";
 
 export const brandApi = {
   getById: (id: string | number) => ({ url: `/product-brand/fetch/${id}`, method: 'get' as const }),
+  getBrandByCategoryId: (id: string | number) => ({ url: `/product-brand/fetch-brands/${id}`, method: 'get' as const }),
 };
 
 export const modelApi = {

@@ -16,7 +16,7 @@ export function useBrandsByCategory(categoryId: number | string) {
     setLoading(true);
     try {
       // هماهنگ با useAuthenticatedApi: api.get فقط props می‌گیرد (url/params/...)
-      const res = await api.get<Brand[]>(brandApi.getById(categoryId));
+      const res = await api.get<Brand[]>(brandApi.getBrandByCategoryId(categoryId));
       // بعضی سرویس‌ها data را داخل data برمی‌گردانند؛ هر دو را پشتیبانی کنیم
       setItems(Array.isArray(res) ? res : (res as any)?.data ?? []);
     } finally {
