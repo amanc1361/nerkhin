@@ -6,6 +6,7 @@ import { getUserProductMessages } from "@/lib/server/texts/userProdutMessages";
 import { useBrandsByCategory } from "@/app/hooks/useBrandCategory";
 import { useProductsByBrand } from "@/app/hooks/useProductsBy‌Brand";
 import { toast } from "react-toastify";
+import SearchableSelect from "../shared/SearchableSelect";
 
 
 export default function AddUserProductForm({ subCategoryId }: { subCategoryId: number }) {
@@ -93,29 +94,23 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
         </select>
       </div>
 
-      {/* کشوی مدل با جستجو */}
-      <div className="grid gap-1">
-        <label className="text-sm text-slate-700">{t.form.productLabel}</label>
-        <input
-          dir="rtl"
-          className="rounded-2xl border border-slate-200 p-3 outline-none"
-          placeholder={t.form.searchPlaceholder}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          disabled={!brandId || loadingProducts}
-        />
-        <select
-          className="mt-2 rounded-2xl border border-slate-200 p-3 outline-none"
-          value={productId}
-          onChange={(e) => setProductId(e.target.value ? Number(e.target.value) : "")}
-          disabled={!brandId || loadingProducts}
-        >
-          <option value="">{t.form.productLabel}</option>
-          {filteredProducts.map((p: any) => (
-            <option key={p.id} value={p.id}>{p.modelName}</option>
-          ))}
-        </select>
-      </div>
+{/* محصولات برند؛ یک کشوی قابل جستجو */}
+<div className="grid gap-1">
+  <label className="text-sm text-slate-700">{t.form.productLabel}</label>
+
+  <SearchableSelect
+    dir="rtl"
+    disabled={!brandId || loadingProducts}
+    value={productId}
+    onChange={(v) => setProductId(v === "" ? "" : Number(v))}
+    items={products.map((p: any) => ({ value: p.id, label: p.modelName }))}
+    placeholder={t.form.productLabel}
+    searchPlaceholder={t.form.searchPlaceholder}
+    noOptionsText={t.empty.title}
+    className=""
+  />
+</div>
+
 
       {/* سوییچ قیمت دلاری (استایل شبیه تصویر) */}
       <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-3">
