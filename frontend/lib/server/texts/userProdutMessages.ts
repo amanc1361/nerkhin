@@ -6,7 +6,7 @@ export type UserProductMessages = {
     jpg: string;
     pdf: string;
     save: string;
-    priceList:string;
+    priceList: string;
     dollarPrice: (price: string) => string;
     addProduct: string;
   };
@@ -31,6 +31,31 @@ export type UserProductMessages = {
     orderSaved: string;
     error: string;
   };
+  /** متن‌های فرم افزودن محصول عمده‌فروش */
+  form: {
+    brandLabel: string;
+    productLabel: string;
+    searchPlaceholder: string;
+    toggleDollar: string;
+    dollarPriceLabel: string;
+    otherCostsLabel: string;
+    finalPriceLabel: string;
+    addBtn: string;
+    requestBtn: string;
+    priceTitle: string;
+    currencySuffix: string;
+    notes: {
+      dailyDollar: string;
+      fees: string;
+      notFound: string;
+    };
+    validations: {
+      brand: string;
+      product: string;
+      dollarPrice: string;
+      finalPrice: string;
+    };
+  };
 };
 
 export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductMessages => {
@@ -41,7 +66,7 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
         share: "Price list",
         save: "Save",
         jpg: "JPG",
-        priceList:"priceList",
+        priceList: "priceList",
         pdf: "PDF",
         dollarPrice: (p) => `USD price: ${p}`,
         addProduct: "Add product",
@@ -71,6 +96,30 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
         orderSaved: "Order updated",
         error: "Something went wrong",
       },
+      form: {
+        brandLabel: "Select brand",
+        productLabel: "Select model",
+        searchPlaceholder: "Search model...",
+        toggleDollar: "Enter USD price",
+        dollarPriceLabel: "USD price (visible only to you)",
+        otherCostsLabel: "Rial costs (visible only to you)",
+        finalPriceLabel: "Sale price (Rial)",
+        addBtn: "Add product",
+        requestBtn: "Request product",
+        priceTitle: "Sale price",
+        currencySuffix: "Toman",
+        notes: {
+          dailyDollar: "Enter the day's USD rate so final prices update.",
+          fees: "If there are extra costs like shipping, enter them.",
+          notFound: "If you can't find the product, use Request product.",
+        },
+        validations: {
+          brand: "Please select a brand.",
+          product: "Please select a model.",
+          dollarPrice: "Please enter the USD price.",
+          finalPrice: "Please enter the sale price.",
+        },
+      },
     };
   }
 
@@ -79,7 +128,7 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
     toolbar: {
       share: "لیست قیمت",
       save: "ذخیره",
-      priceList:"لیست قیمت",
+      priceList: "لیست قیمت",
       jpg: "JPG",
       pdf: "PDF",
       dollarPrice: (p) => `قیمت دلار: ${p}`,
@@ -109,6 +158,30 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
       statusChanged: "وضعیت نمایش تغییر کرد",
       orderSaved: "ترتیب ذخیره شد",
       error: "خطایی رخ داد",
+    },
+    form: {
+      brandLabel: "انتخاب برند",
+      productLabel: "انتخاب مدل",
+      searchPlaceholder: "جستجوی مدل...",
+      toggleDollar: "وارد کردن قیمت دلاری",
+      dollarPriceLabel: "قیمت دلاری محصول (تنها شما آن را می‌بینید)",
+      otherCostsLabel: "هزینه‌های ریالی (تنها شما آن را می‌بینید)",
+      finalPriceLabel: "قیمت فروش (تومان)",
+      addBtn: "افزودن محصول",
+      requestBtn: "درخواست محصول",
+      priceTitle: "قیمت فروش",
+      currencySuffix: "تومان",
+      notes: {
+        dailyDollar: "قیمت دلار روز را وارد کنید تا قیمت نهایی کالاها به‌روز شود.",
+        fees: "در صورت داشتن هزینه‌های جانبی مثل کرایه بار، آن را وارد کنید.",
+        notFound: "اگر محصول مدنظر را پیدا نکردید، گزینهٔ درخواست محصول را بزنید.",
+      },
+      validations: {
+        brand: "لطفاً برند را انتخاب کنید.",
+        product: "لطفاً مدل را انتخاب کنید.",
+        dollarPrice: "لطفاً قیمت دلاری را وارد کنید.",
+        finalPrice: "لطفاً قیمت فروش را وارد کنید.",
+      },
     },
   };
 };
