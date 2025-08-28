@@ -5,6 +5,7 @@ export type UserProductMessages = {
     share: string;
     jpg: string;
     pdf: string;
+    save: string;
     priceList:string;
     dollarPrice: (price: string) => string;
     addProduct: string;
@@ -38,6 +39,7 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
       title: "My Products",
       toolbar: {
         share: "Price list",
+        save: "Save",
         jpg: "JPG",
         priceList:"priceList",
         pdf: "PDF",
@@ -76,6 +78,7 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
     title: "محصولات من",
     toolbar: {
       share: "لیست قیمت",
+      save: "ذخیره",
       priceList:"لیست قیمت",
       jpg: "JPG",
       pdf: "PDF",

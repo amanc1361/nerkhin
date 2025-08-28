@@ -15,7 +15,7 @@ export default async function RoleLayout({
   const t = getMarketMessages("fa");
 
   return (
-    <div className="min-h-dvh bg-white">
+    <div  dir="rtl" className="min-h-dvh bg-white">
       <TopNav t={t} role={role} active="search" />
       {children}
       <div className="h-24 md:h-0" />
