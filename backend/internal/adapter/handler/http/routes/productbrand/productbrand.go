@@ -13,12 +13,12 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.ProductBrandHandler) {
 
 	productBrandGroup.GET("/fetch-all/:categoryId", handler.FetchAll)
 	productBrandGroup.GET("/fetch-brands/:categoryId", handler.FetchBrands)
-
+	productBrandGroup.GET("/fetch/:id", handler.Fetch)
 	adminProductBrandGroup := productBrandGroup.Use(
 		middleware.AdminMiddleware(handler.TokenService, handler.AppConfig))
 
 	adminProductBrandGroup.POST("/create", handler.Create)
 	adminProductBrandGroup.PUT("/update", handler.Update)
 	adminProductBrandGroup.DELETE("/:id", handler.Delete)
-	adminProductBrandGroup.GET("/fetch/:id", handler.Fetch)
+
 }
