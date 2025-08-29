@@ -71,10 +71,8 @@ export default function MyproductsPage({
     (async () => {
       try {
         const res: any = await api.get({ url: `/user/dollar-price/${uid}` });
-        console.log("[DollarPrice][RAW_RESPONSE] =>", res);
+         const payload = res && typeof res === "object" && "data" in res ? res.data : res;
 
-        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
-        console.log("[DollarPrice][PAYLOAD] type:", typeof payload, "value:", payload);
 
         // ---- فقط بخش صحیح را نگه می‌داریم (اعشار حذف) ----
         const toIntegerDigits = (v: any): string => {
@@ -155,6 +153,7 @@ export default function MyproductsPage({
             count={initialItems?.length ?? 0}
             messages={messages}
           />
+     
 
           <ProductsList
             items={initialItems ?? []}
