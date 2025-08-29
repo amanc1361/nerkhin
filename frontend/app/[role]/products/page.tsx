@@ -19,8 +19,7 @@ export default async function Page({
 }>) {
   const { role } = await params; // اگر Promise نباشد هم TS سازگار است (await روی non-Promise مشکلی ندارد)
 
-  // اگر جایی به searchParams نیاز داشتی:
-  // const sp = searchParams ? await searchParams : undefined;
+
 
   const [items, priceList] = await Promise.all([
     fetchMyShopProductsSSR(),
