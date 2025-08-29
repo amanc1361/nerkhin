@@ -40,6 +40,27 @@ func RegisterUserService(dbms port.DBMS, repo port.UserRepository,
 	}
 }
 
+func (us *UserService) GetDollarPrice(ctx context.Context, id int64) (dollarPrice string, err error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return
+	}
+
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		dollarPrice, err = us.repo.GetDollarPrice(ctx, txSession, id)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return
+	}
+
+	return dollarPrice, nil
+}
+
 func (us *UserService) RegisterUser(ctx context.Context, user *domain.User) (id int64, err error) {
 	db, err := us.dbms.NewDB(ctx)
 	if err != nil {
@@ -163,19 +184,16 @@ func (us *UserService) GetUsersByFilter(
 		return nil, 0, err
 	}
 
-
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 {
-		limit = 10 
+		limit = 10
 	} else if limit > 100 {
-		limit = 100 
+		limit = 100
 	}
 
-
 	offset := (page - 1) * limit
-
 
 	users, totalCount, err = us.repo.GetUsersByFilter(ctx, db, filter, limit, offset)
 	if err != nil {
@@ -184,6 +202,7 @@ func (us *UserService) GetUsersByFilter(
 
 	return users, totalCount, nil
 }
+
 // func (us *UserService) GetUsersByFilter(ctx context.Context, filter domain.UserFilter) (
 // 	users []*domain.UserViewModel, err error) {
 // 	db, err := us.dbms.NewDB(ctx)

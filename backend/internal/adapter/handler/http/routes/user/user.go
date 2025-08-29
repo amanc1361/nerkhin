@@ -16,6 +16,7 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.UserHandler) {
 	userGroup.PUT("/update-shop", handler.UpdateShop)
 	userGroup.GET("/fetch-user", handler.FetchUserInfo)
 	userGroup.PUT("/update-dollar-price", handler.UpdateDollarPrice)
+	userGroup.GET("dollar-price/:id", handler.GetDollarPrice)
 
 	adminUserGroup := userGroup.Use(
 		middleware.AdminMiddleware(handler.TokenService, handler.AppConfig))

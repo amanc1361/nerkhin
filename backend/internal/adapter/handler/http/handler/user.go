@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"strings"
 
@@ -335,8 +336,6 @@ func (uh *UserHandler) UpdateShop(c *gin.Context) {
 	handleSuccess(c, nil)
 }
 
-
-
 type addNewUserRequest struct {
 	Phone    string `json:"phone"`
 	CityId   int64  `json:"cityId"`
@@ -460,6 +459,23 @@ func (uh *UserHandler) FetchUserInfo(c *gin.Context) {
 
 type updateDollarPriceRequest struct {
 	DollarPrice string `json:"dollarPrice"`
+}
+
+func (uh *UserHandler) GetDollarPrice(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		validationError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	ctx := c.Request.Context()
+	dollarPrice, err := uh.service.GetDollarPrice(ctx, int64(id))
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, dollarPrice)
 }
 
 func (uh *UserHandler) UpdateDollarPrice(c *gin.Context) {

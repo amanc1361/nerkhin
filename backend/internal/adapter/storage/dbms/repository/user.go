@@ -64,6 +64,23 @@ func (ur *UserRepository) GetUserByID(ctx context.Context, dbSession interface{}
 	return user, nil
 }
 
+func (ur *UserRepository) GetDollarPrice(ctx context.Context, dbSession interface{}, id int64) (dollarPrice string, err error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return
+	}
+
+	err = db.Model(&domain.User{}).
+		Where(&domain.User{ID: id}).
+		Select("dollar_price").
+		Take(&dollarPrice).Error
+	if err != nil {
+		return
+	}
+
+	return dollarPrice, nil
+}
+
 func (ur *UserRepository) GetUserByPhone(ctx context.Context, dbSession interface{},
 	phone string) (user *domain.User, err error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
