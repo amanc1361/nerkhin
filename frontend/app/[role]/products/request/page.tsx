@@ -5,25 +5,26 @@ import type { ProductRequestMessages } from "@/app/types/productRequest/product-
 
 type Role = "wholesaler" | "retailer";
 
-// ⬅️ اسم تایپ لوکال را از PageProps به Props تغییر دادیم تا با Next تداخل نکند
+// توجه: در Next.js 15، params و searchParams از نوع Promise هستند
 type Props = {
-  // ⬅️ در Next 15، params برای داینامیک روت‌ها Promise است
   params: Promise<{ role: Role }>;
-  searchParams?: { locale?: string };
+  searchParams?: Promise<{ locale?: string }>;
 };
 
 export default async function RequestProductPage({ params, searchParams }: Props) {
-  // اگر به role نیاز نداری، فقط await کن تا Promise مصرف شود (از نظر تایپی هم درست است)
-  await params;
+  // اگر به role نیاز داری می‌تونی ازش استفاده کنی
+  const { role } = await params;
+
+  // searchParams هم Promise است
+  const sp = (searchParams ? await searchParams : {}) || {};
+  const locale = sp.locale ?? "fa";
 
   // SSR messages (غیرهاردکد)
-  const locale = searchParams?.locale ?? "fa";
   const base =
     typeof getUserProductMessages === "function"
       ? getUserProductMessages("fa")
       : ({} as any);
 
-  // نگاشت پیام‌ها به ساختار پروژه
   const messages: ProductRequestMessages = {
     title: base?.request?.title ?? "درخواست محصول",
     subtitle:
