@@ -25,9 +25,9 @@ func RegisterUserProductHandler(service port.UserProductService, tokenService po
 }
 
 type createUserProductRequest struct {
+	ProductID   int64  `json:"productId"`
 	CategoryID  int64  `json:"categoryId"`
 	BrandID     int64  `json:"brandId"`
-	ModelID     int64  `json:"modelId"`
 	IsDollar    bool   `json:"isDollar"`
 	DollarPrice string `json:"dollarPrice"`
 	OtherCosts  string `json:"otherCosts"`
@@ -76,6 +76,7 @@ func (uph *UserProductHandler) Create(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	category := &domain.UserProduct{
+		ProductID:  req.ProductID,
 		UserID:     authPayload.UserID,
 		CategoryID: req.CategoryID,
 		BrandID:    req.BrandID,
