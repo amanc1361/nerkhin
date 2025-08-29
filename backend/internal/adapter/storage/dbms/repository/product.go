@@ -10,6 +10,7 @@ import (
 )
 
 type ProductRepository struct{}
+
 func (pr *ProductRepository) DeleteProductTags(ctx context.Context, dbSession interface{}, productID int64) error {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
@@ -57,11 +58,11 @@ func (pr *ProductRepository) UpdateProductInfo(ctx context.Context, dbSession in
 	}
 	return db.Model(&domain.Product{}).Where("id = ?", product.ID).
 		Updates(map[string]interface{}{
-			"model_name":         product.ModelName,
-			"description":        product.Description,
-			"default_image_url":  product.DefaultImageUrl,
-			"images_count":       product.ImagesCount,
-			"updated_at":         time.Now(),
+			"model_name":        product.ModelName,
+			"description":       product.Description,
+			"default_image_url": product.DefaultImageUrl,
+			"images_count":      product.ImagesCount,
+			"updated_at":        time.Now(),
 		}).Error
 }
 
@@ -340,29 +341,32 @@ func (pr *ProductRepository) ListByModel(ctx context.Context, dbSession interfac
 	return
 }
 
-func (pr *ProductRepository) GetProductByID(ctx context.Context,
-	dbSession interface{}, id int64) (productVM *domain.ProductViewModel, err error) {
+func (pr *ProductRepository) GetProductByID(
+	ctx context.Context,
+	dbSession interface{},
+	id int64,
+) (*domain.ProductViewModel, error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return
+		return nil, err
 	}
 
+	vm := &domain.ProductViewModel{}
+
 	err = db.Table("product AS p").
-		Joins("LEFT JOIN product_model pm ON pm.id = p.model_id").
-		Joins("LEFT JOIN product_brand pb ON pb.id = pm.brand_id").
+		Joins("LEFT JOIN product_brand pb ON pb.id = p.brand_id").
 		Joins("LEFT JOIN product_category pc ON pc.id = pb.category_id").
 		Where("p.id = ?", id).
 		Select(
-			"p.*",
-			"pc.title AS category_title",
+			"p.*", // شامل model_name, state_c, ...
 			"pb.title AS brand_title",
-			"pm.title AS model_title",
+			"pc.title AS category_title",
 		).
-		Take(&productVM).Error
+		Take(vm).Error
 	if err != nil {
-		return
+		return nil, err
 	}
-	return productVM, nil
+	return vm, nil
 }
 
 func (pr *ProductRepository) GetProductsByFilter(
