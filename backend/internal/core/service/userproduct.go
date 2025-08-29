@@ -53,7 +53,11 @@ func RegisterUserProductService(dbms port.DBMS, repo port.UserProductRepository,
 func (ups *UserProductService) CreateUserProduct(ctx context.Context,
 	userProduct *domain.UserProduct) (id int64, err error) {
 
-	return id, ups.dbms.BeginTransaction(ctx, nil, func(txSession interface{}) error {
+	db, err := ups.dbms.NewDB(ctx)
+	if err != nil {
+		return
+	}
+	return id, ups.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
 		// 1. اعتبارسنجی ورودی‌های اولیه UserProduct
 		if err := validateNewUserProduct(ctx, userProduct); err != nil {
 			return err
@@ -98,7 +102,6 @@ func (ups *UserProductService) CreateUserProduct(ctx context.Context,
 		return err
 	})
 }
-
 
 // تابع کمکی برای اعتبارسنجی UserProduct جدید
 func validateNewUserProduct(_ context.Context, product *domain.UserProduct) (err error) {
@@ -293,7 +296,7 @@ func (ups *UserProductService) GetProductsByFilter(ctx context.Context, currentU
 	var searchProducts []*domain.SearchProductViewModel
 	var totalCount int64
 	var aggregatedData *domain.SearchProductsData
-	
+
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// فراخوانی ریپازیتوری حالا فقط استراکت فیلتر را ارسال می‌کند
@@ -308,7 +311,7 @@ func (ups *UserProductService) GetProductsByFilter(ctx context.Context, currentU
 		aggregatedData, repoErr = ups.repo.GetAggregatedFilterDataForSearch(gCtx, db, filter)
 		return repoErr
 	})
-	
+
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
@@ -331,13 +334,12 @@ func (ups *UserProductService) GetProductsByFilter(ctx context.Context, currentU
 	return results, nil
 }
 
-
 // --- توابع کمکی با پیاده‌سازی کامل ---
 
 // hydrateSearchProducts اطلاعات اضافی را به صورت بهینه به لیست محصولات اضافه می‌کند
-func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSession interface{}, 
+func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSession interface{},
 	currentUserID int64, products []*domain.SearchProductViewModel, allowedCityIDs []int64) error {
-	
+
 	if len(products) == 0 {
 		return nil
 	}
@@ -350,13 +352,13 @@ func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSess
 	// ایجاد کانال برای دریافت نتایج کوئری‌های موازی
 	type hydrationData struct {
 		imagesMap map[int64][]*domain.ProductImage
-		tagsMap map[int64][]*domain.ProductTag
-		likedMap map[int64]bool
+		tagsMap   map[int64][]*domain.ProductTag
+		likedMap  map[int64]bool
 		pricesMap map[int64]decimal.Decimal
 	}
 	dataChan := make(chan hydrationData, 1)
 	errChan := make(chan error, 1)
-	
+
 	go func() {
 		g, gCtx := errgroup.WithContext(ctx)
 		var hData hydrationData
@@ -376,7 +378,9 @@ func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSess
 			liked, err := ups.favoriteProductRepo.GetFavoriteProducts(gCtx, dbSession, currentUserID)
 			if err == nil {
 				hData.likedMap = make(map[int64]bool)
-				for _, p := range liked { hData.likedMap[p.ProductID] = true }
+				for _, p := range liked {
+					hData.likedMap[p.ProductID] = true
+				}
 			}
 			return err
 		})
@@ -385,7 +389,7 @@ func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSess
 			hData.pricesMap, err = ups.repo.GetProductsPricesMap(gCtx, dbSession, productIDs, allowedCityIDs)
 			return err
 		})
-		
+
 		if err := g.Wait(); err != nil {
 			errChan <- err
 			return
@@ -394,25 +398,33 @@ func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSess
 	}()
 
 	select {
-	case hData := <- dataChan:
+	case hData := <-dataChan:
 		for _, p := range products {
 			if images, ok := hData.imagesMap[p.ID]; ok {
 				for _, img := range images {
-					if img.IsDefault { p.DefaultImageUrl = img.Url; break }
+					if img.IsDefault {
+						p.DefaultImageUrl = img.Url
+						break
+					}
 				}
 			}
-			if tags, ok := hData.tagsMap[p.ID]; ok { p.Tags = tags }
-			if _, isLiked := hData.likedMap[p.ID]; isLiked { p.IsLiked = true }
-			if price, ok := hData.pricesMap[p.ID]; ok { p.Price = price }
+			if tags, ok := hData.tagsMap[p.ID]; ok {
+				p.Tags = tags
+			}
+			if _, isLiked := hData.likedMap[p.ID]; isLiked {
+				p.IsLiked = true
+			}
+			if price, ok := hData.pricesMap[p.ID]; ok {
+				p.Price = price
+			}
 		}
 		return nil
-	case err := <- errChan:
+	case err := <-errChan:
 		return err
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
-
 
 // validateNewUserProduct با منطق جدید
 // func validateNewUserProduct(_ context.Context, product *domain.UserProduct) (err error) {
@@ -430,7 +442,6 @@ func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSess
 // 	}
 // 	return nil
 // }
-
 
 func (ups *UserProductService) FetchRelatedShopProducts(ctx context.Context,
 	productID, currentUserID int64) (shopProductVM *domain.ProductInfoViewModel, err error) {

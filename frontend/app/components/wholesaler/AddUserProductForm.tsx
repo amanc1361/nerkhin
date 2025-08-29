@@ -1,3 +1,4 @@
+// app/components/wholesaler/AddUserProductForm.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,7 +8,34 @@ import { useBrandsByCategory } from "@/app/hooks/useBrandCategory";
 import { useProductsByBrand } from "@/app/hooks/useProductsBy‌Brand";
 import { toast } from "react-toastify";
 import SearchableSelect from "../shared/SearchableSelect";
+import MoneyInput from "../shared/MonyInput";
 
+
+/* --- helpers: digit normalize & grouping --- */
+const faToEnMap: Record<string, string> = {
+  "۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9",
+  "٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"
+};
+function toEnDigits(s: string) {
+  return s.replace(/[0-9٠-٩۰-۹]/g, (d) => faToEnMap[d] ?? d);
+}
+function formatMoneyInput(input: string) {
+  // اجازه‌ی یک اعشار؛ بقیه حذف
+  let s = toEnDigits(input)
+    .replace(/[^0-9.٫]/g, "")
+    .replace(/٫/g, ".")
+    .replace(/(\..*)\./g, "$1"); // فقط اولین نقطه
+  const endsWithDot = s.endsWith(".");
+  const [intPartRaw, decPart = ""] = s.split(".");
+  const intPart = intPartRaw.replace(/^0+(?=\d)/, ""); // پیش‌صفر اضافی
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return endsWithDot ? grouped + "." : (decPart ? `${grouped}.${decPart}` : grouped);
+}
+function parseMoney(input: string): number {
+  const clean = toEnDigits(input).replaceAll(",", "").replace(/٫/g, ".");
+  const n = parseFloat(clean);
+  return isNaN(n) ? 0 : n;
+}
 
 export default function AddUserProductForm({ subCategoryId }: { subCategoryId: number }) {
   const t = getUserProductMessages("fa");
@@ -17,30 +45,20 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
   const { items: brands } = useBrandsByCategory(subCategoryId);
   const [brandId, setBrandId] = useState<number | "">("");
 
-  // محصولاتِ همان برند (از هوک خودت)
+  // محصولاتِ برند
   const { products, loading: loadingProducts, refresh } = useProductsByBrand(brandId || 0, 1);
-
-  // جستجو روی لیست مدل‌ها
-  const [q, setQ] = useState("");
-  const filteredProducts = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return products;
-    return products.filter((p: any) => (p.modelName || "").toLowerCase().includes(s));
-  }, [products, q]);
-
   const [productId, setProductId] = useState<number | "">("");
 
   // حالت قیمت دلاری/ریالی
   const [isDollar, setIsDollar] = useState(true);
-  const [dollarPrice, setDollarPrice] = useState("");
-  const [otherCosts, setOtherCosts] = useState("");
-  const [finalPrice, setFinalPrice] = useState("");
+  const [dollarPrice, setDollarPrice] = useState(""); // formatted
+  const [otherCosts, setOtherCosts] = useState("");   // formatted
+  const [finalPrice, setFinalPrice] = useState("");   // formatted
 
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setProductId("");
-    setQ("");
     if (brandId) refresh();
   }, [brandId, refresh]);
 
@@ -61,10 +79,12 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
         url: "/user-product/create",
         body: {
           productId: Number(productId),
+          brandId: Number(brandId),  // ← اضافه شد
+          categoryId: subCategoryId,                          // ← اضافه شد
           isDollar,
-          dollarPrice: isDollar ? Number(dollarPrice || 0) : null,
-          otherCosts: isDollar ? Number(otherCosts || 0) : null,
-          finalPrice: isDollar ? null : Number(finalPrice || 0),
+          dollarPrice:dollarPrice.replace(/,/g, ""),
+          otherCosts: otherCosts.replace(/,/g, ""),
+          finalPrice: finalPrice.replace(/,/g, ""),
         },
       });
       toast.success(t.toasts.updated);
@@ -79,7 +99,7 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
 
   return (
     <div dir="rtl" className="grid gap-4">
-      {/* کشوی برند */}
+      {/* برند */}
       <div className="grid gap-1">
         <label className="text-sm text-slate-700">{t.form.brandLabel}</label>
         <select
@@ -94,25 +114,22 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
         </select>
       </div>
 
-{/* محصولات برند؛ یک کشوی قابل جستجو */}
-<div className="grid gap-1">
-  <label className="text-sm text-slate-700">{t.form.productLabel}</label>
+      {/* مدل (کمبوباکس قابل جستجو) */}
+      <div className="grid gap-1">
+        <label className="text-sm text-slate-700">{t.form.productLabel}</label>
+        <SearchableSelect
+          dir="rtl"
+          disabled={!brandId || loadingProducts}
+          value={productId}
+          onChange={(v) => setProductId(v === "" ? "" : Number(v))}
+          items={products.map((p: any) => ({ value: p.id, label: p.modelName }))}
+          placeholder={t.form.productLabel}
+          searchPlaceholder={t.form.searchPlaceholder}
+          noOptionsText={t.empty.title}
+        />
+      </div>
 
-  <SearchableSelect
-    dir="rtl"
-    disabled={!brandId || loadingProducts}
-    value={productId}
-    onChange={(v) => setProductId(v === "" ? "" : Number(v))}
-    items={products.map((p: any) => ({ value: p.id, label: p.modelName }))}
-    placeholder={t.form.productLabel}
-    searchPlaceholder={t.form.searchPlaceholder}
-    noOptionsText={t.empty.title}
-    className=""
-  />
-</div>
-
-
-      {/* سوییچ قیمت دلاری (استایل شبیه تصویر) */}
+      {/* سوییچ دلاری */}
       <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-3">
         <span className="text-sm text-slate-800">{t.form.toggleDollar}</span>
         <button
@@ -122,59 +139,43 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
             ${isDollar ? "bg-emerald-500" : "bg-slate-300"}`}
           aria-pressed={isDollar}
         >
-          <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white transition
-              ${isDollar ? "translate-x-5" : "translate-x-1"}`}
-          />
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition
+            ${isDollar ? "translate-x-5" : "translate-x-1"}`} />
         </button>
       </div>
 
-      {/* ورودی‌ها مطابق وضعیت سوییچ */}
+      {/* ورودی‌ها با فرمت سه‌رقمی */}
       {isDollar ? (
-        <div className="grid gap-3">
-          <input
-            inputMode="decimal"
-            className="rounded-2xl border border-slate-200 p-3 outline-none"
-            placeholder={t.form.dollarPriceLabel}
-            value={dollarPrice}
-            onChange={(e) => setDollarPrice(e.target.value)}
-          />
-          <input
-            inputMode="decimal"
-            className="rounded-2xl border border-slate-200 p-3 outline-none"
-            placeholder={t.form.otherCostsLabel}
-            value={otherCosts}
-            onChange={(e) => setOtherCosts(e.target.value)}
-          />
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          <input
-            inputMode="decimal"
-            className="rounded-2xl border border-slate-200 p-3 outline-none"
-            placeholder={t.form.finalPriceLabel}
-            value={finalPrice}
-            onChange={(e) => setFinalPrice(e.target.value)}
-          />
-
-          {/* نمایش باکس قیمت فروش شبیه تصویر (فقط وقتی مقدار دارد) */}
-          {finalPrice && (
-            <div className="rounded-2xl bg-teal-500 text-white text-center py-3 font-medium">
-              {t.form.priceTitle} {" "}
-              {Number(finalPrice).toLocaleString("fa-IR")} {t.form.currencySuffix}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* نکات پایین فرم */}
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] leading-6">
-        <ul className="list-disc pr-5 space-y-1">
-          <li>{t.form.notes.dailyDollar}</li>
-          <li>{t.form.notes.fees}</li>
-          <li>{t.form.notes.notFound}</li>
-        </ul>
+  <div className="grid gap-3">
+    <MoneyInput
+      placeholder={t.form.dollarPriceLabel}
+      value={dollarPrice}
+      onChange={setDollarPrice}
+      allowDecimal={true}
+    />
+    <MoneyInput
+      placeholder={t.form.otherCostsLabel}
+      value={otherCosts}
+      onChange={setOtherCosts}
+      allowDecimal={true}
+    />
+  </div>
+) : (
+  <div className="grid gap-3">
+    <MoneyInput
+      placeholder={t.form.finalPriceLabel}
+      value={finalPrice}
+      onChange={setFinalPrice}
+      allowDecimal={false}   // قیمت نهایی معمولاً بدون اعشار
+    />
+    {finalPrice && (
+      <div className="rounded-2xl bg-teal-500 text-white text-center py-3 font-medium">
+        {t.form.priceTitle} {parseMoney(finalPrice).toLocaleString("fa-IR")} {t.form.currencySuffix}
       </div>
+    )}
+  </div>
+)}
+
 
       {/* دکمه‌ها */}
       <div className="flex gap-3">
@@ -185,7 +186,6 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
         >
           {t.form.addBtn}
         </button>
-
         <button
           type="button"
           className="px-6 py-2 rounded-2xl border border-teal-500 text-teal-600"
