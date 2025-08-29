@@ -10,6 +10,7 @@ import { useProductsByBrand } from "@/app/hooks/useProductsBy‌Brand";
 import { toast } from "react-toastify";
 import SearchableSelect from "../shared/SearchableSelect";
 import MoneyInput, { formatMoneyInput, parseMoney, toEnDigits } from "../shared/MonyInput"; // ← فقط از همین‌ها استفاده می‌کنیم
+import Link from "next/link";
 
 export default function AddUserProductForm({ subCategoryId }: { subCategoryId: number }) {
   const t = getUserProductMessages("fa");
@@ -223,12 +224,14 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
         >
           {t.form.addBtn}
         </button>
-        <button
-          type="button"
-          className="px-6 py-2 rounded-2xl border border-teal-500 text-teal-600"
-        >
-          {t.form.requestBtn}
-        </button>
+        <Link href={"/wholesaler/products/request"}>
+          <button
+            type="button"
+            className="px-6 py-2 rounded-2xl border border-teal-500 text-teal-600"
+          >
+            {t.form.requestBtn}
+          </button>
+        </Link>
       </div>
     </div>
   );
