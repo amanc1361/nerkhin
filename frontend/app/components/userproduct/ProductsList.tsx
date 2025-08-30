@@ -3,7 +3,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { UserProductView, UpdateUserProductPayload, ChangeOrderPayload } from "@/app/types/userproduct/userProduct";
-import { getUserProductMessages } from "@/lib/server/texts/userProdutMessages";
+import { getUserProductMessages, type UserProductMessages } from "@/lib/server/texts/userProdutMessages";
 
 import UserProductItem from "./UserProductItem";
 import UserProductDeleteModal from "./UserProductDeleteModal";
@@ -12,13 +12,31 @@ import { useUserProductActions } from "@/app/hooks/useuserProductAction";
 
 type Props = {
   items: UserProductView[];
-  subCategoryId: number;
+  subCategoryId?: number;
   locale?: "fa" | "en";
+
+  /** ←← اضافه شد: اگر از صفحه بالا هندل می‌کنی، این‌ها اختیاری‌اند */
+  messages?: UserProductMessages;
+  onEdit?: (id: number) => void;
+  onDelete?: (id: number) => void;
+  onToggleVisible?: (id: number) => void;
+
   onRefresh?: () => void;
 };
 
-export default function UserProductList({ items, subCategoryId, locale = "fa", onRefresh }: Props) {
-  const t = getUserProductMessages(locale);
+export default function UserProductList({
+  items,
+  subCategoryId,
+  locale = "fa",
+  messages,
+  onEdit,
+  onDelete,
+  onToggleVisible,
+  onRefresh,
+}: Props) {
+  // اگر messages از بالا اومد، همونو استفاده کن؛ وگرنه از دیکشنری بساز
+  const t = messages ?? getUserProductMessages(locale);
+
   const [list, setList] = useState<UserProductView[]>(() => {
     const copied = [...items];
     copied.sort((a: any, b: any) => {
@@ -40,39 +58,36 @@ export default function UserProductList({ items, subCategoryId, locale = "fa", o
 
   const byId = useMemo(() => new Map(list.map(x => [ (x as any).id, x ])), [list]);
 
-  // نمایش/عدم‌نمایش
+  // نمایش/عدم‌نمایش (اگر از بالا هندل دادی، همونو صدا بزن)
   const handleToggleVisible = useCallback(async (id: number) => {
+    if (onToggleVisible) return onToggleVisible(id);
+
     setBusy(true);
     setList(prev => prev.map(it => {
       if ((it as any).id !== id) return it;
       const isVisible = (it as any).isVisible ?? !(it as any).isHidden;
       return { ...it as any, isVisible: !isVisible, isHidden: isVisible } as any;
     }));
-    try {
-      await changeStatus(id);
-    } finally {
-      setBusy(false);
-    }
-  }, [changeStatus]);
+    try { await changeStatus(id); } finally { setBusy(false); }
+  }, [onToggleVisible, changeStatus]);
 
-  // حذف
+  // حذف (اگر از بالا هندل دادی، همونو صدا بزن)
   const handleDelete = useCallback(async () => {
     if (!deleteId) return;
+    if (onDelete) { onDelete(deleteId); setDeleteId(null); return; }
+
     const id = deleteId;
     setBusy(true);
     setList(prev => prev.filter(x => (x as any).id !== id));
-    try {
-      await remove(id);
-    } catch {
-      onRefresh?.();
-    } finally {
-      setBusy(false);
-      setDeleteId(null);
-    }
-  }, [deleteId, remove, onRefresh]);
+    try { await remove(id); } catch { onRefresh?.(); }
+    finally { setBusy(false); setDeleteId(null); }
+  }, [deleteId, onDelete, remove, onRefresh]);
 
-  // ویرایش (فقط قیمت‌ها)
+  // ویرایش فقط قیمت‌ها
   const handleEditSubmit = useCallback(async (payload: UpdateUserProductPayload) => {
+    // اگر از بالا هندل می‌کنی، فقط کال‌بک بیرونی رو صدا بزن و برگرد
+    if (onEdit) { await onEdit(payload.id); setEditItem(null); return; }
+
     setBusy(true);
     try {
       await update(payload);
@@ -90,15 +105,10 @@ export default function UserProductList({ items, subCategoryId, locale = "fa", o
       setBusy(false);
       setEditItem(null);
     }
-  }, [update]);
+  }, [onEdit, update]);
 
-  // جابه‌جایی
-  const swap = (arr: any[], i: number, j: number) => {
-    const res = [...arr];
-    const tmp = res[i]; res[i] = res[j]; res[j] = tmp;
-    return res;
-  };
-
+  // جابه‌جایی ترتیب
+  const swap = (arr: any[], i: number, j: number) => { const r=[...arr]; const t=r[i]; r[i]=r[j]; r[j]=t; return r; };
   const handleMove = useCallback(async (id: number, direction: "up" | "down") => {
     setBusy(true);
     setList(prev => {
@@ -111,9 +121,7 @@ export default function UserProductList({ items, subCategoryId, locale = "fa", o
     try {
       const payload: ChangeOrderPayload = { userProductId: id, direction } as any;
       await changeOrder(payload);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }, [changeOrder]);
 
   return (
@@ -123,28 +131,32 @@ export default function UserProductList({ items, subCategoryId, locale = "fa", o
           key={(it as any).id}
           item={it}
           messages={t}
-          onEdit={(id) => setEditItem(byId.get(id) || null)}
-          onDelete={(id) => setDeleteId(id)}
-          onToggleVisible={handleToggleVisible}
+          onEdit={(id) => onEdit ? onEdit(id) : setEditItem(byId.get(id) || null)}
+          onDelete={(id) => onDelete ? onDelete(id) : setDeleteId(id)}
+          onToggleVisible={(id) => handleToggleVisible(id)}
           onMoveUp={(id) => handleMove(id, "up")}
           onMoveDown={(id) => handleMove(id, "down")}
           disabled={busy || isSubmitting}
         />
       ))}
 
-      <UserProductDeleteModal
-        open={deleteId != null}
-        onClose={() => setDeleteId(null)}
-        onConfirm={handleDelete}
-        messages={t}
-      />
+      {/* مودال حذف فقط وقتی کال‌بک بیرونی نداده‌ای */}
+      {!onDelete && (
+        <UserProductDeleteModal
+          open={deleteId != null}
+          onClose={() => setDeleteId(null)}
+          onConfirm={handleDelete}
+          messages={t}
+        />
+      )}
 
-      {editItem && (
+      {/* مودال ویرایش فقط وقتی کال‌بک بیرونی نداده‌ای */}
+      {!onEdit && editItem && (
         <UserProductEditModal
           open={true}
           onClose={() => setEditItem(null)}
           item={editItem}
-          subCategoryId={subCategoryId} // فعلاً بی‌استفاده
+          subCategoryId={subCategoryId}
           onSubmit={handleEditSubmit}
           messages={t}
         />

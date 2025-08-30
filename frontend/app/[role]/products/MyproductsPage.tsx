@@ -158,6 +158,7 @@ export default function MyproductsPage({
           <ProductsList
             items={initialItems ?? []}
             messages={messages}
+        
             onEdit={onEdit}
             onDelete={onDelete}
             onToggleVisible={onToggleVisible}
