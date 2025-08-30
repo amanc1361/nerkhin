@@ -78,21 +78,48 @@ function mapUserProductViewToVM(p: UserProductView): UserProductVM {
   };
 }
 
-// ---------------- Actions (names unchanged) ----------------
+// ---------------- Query type (اختیاری) ----------------
+export type ShopProductsQuery = {
+  shopId?: number;              // اگر ندهی، سرور از کاربر فعلی استفاده می‌کند
+  brandIds?: number[];          // چند برند: [1,2,5]
+  categoryId?: number;          // دستهٔ اصلی
+  subCategoryId?: number;       // زیردسته (در صورت وجود در DB)
+  isDollar?: boolean | null;    // null => هر دو | true => ارزی | false => ریالی
+  sortUpdated?: "asc" | "desc"; // پیش‌فرض: "desc"
+  search?: string;              // جستجو روی برند/مدل/توضیح/دسته
+  limit?: number;               // پیش‌فرض سرور: 100
+  offset?: number;              // پیش‌فرض سرور: 0
+};
 
-// قبلاً هم از همین روت استفاده می‌کردی؛ خروجی الان { shopInfo, products } است.
-// این تابع همچنان فقط آرایه محصولات را به فرمت UserProductVM برمی‌گرداند.
-export async function fetchMyShopProductsSSR(): Promise<UserProductVM[]> {
+function buildFetchShopQueryString(q?: ShopProductsQuery) {
+  if (!q) return "";
+  const params = new URLSearchParams();
+  if (q.shopId) params.set("shopId", String(q.shopId));
+  if (q.brandIds?.length) params.set("brandIds", q.brandIds.join(","));
+  if (q.categoryId) params.set("categoryId", String(q.categoryId));
+  if (q.subCategoryId) params.set("subCategoryId", String(q.subCategoryId));
+  if (typeof q.isDollar === "boolean") params.set("isDollar", q.isDollar ? "1" : "0");
+  if (q.search) params.set("search", q.search);
+  if (q.sortUpdated) params.set("sortUpdated", q.sortUpdated);
+  if (typeof q.limit === "number") params.set("limit", String(q.limit));
+  if (typeof q.offset === "number") params.set("offset", String(q.offset));
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+// ---------------- Actions (names unchanged) ----------------
+// نکته: امضا را توسعه دادیم تا پارامتر اختیاری بگیرد؛
+// اگر آرگیومانی ندهی مثل قبل «همهٔ محصولات» را برمی‌گرداند.
+export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<UserProductVM[]> {
   const headers = await authHeader();
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
-  const url = joinUrl(base, "/user-product/fetch-shop");
+  const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
 
   const res = await fetch(url, { headers, cache: "no-store" });
 
-  // خروجی می‌تونه مستقیم یا داخل data باشه
+  // خروجی می‌تواند مستقیم یا داخل data باشد: { shopInfo, products }
   const payload = await readJson<ShopViewModel | UserProductView[] | { products: UserProductView[] }>(res);
 
-  // حالت‌های مختلف پاسخ را ساپورت کن:
   let products: UserProductView[] = [];
   if (Array.isArray(payload)) {
     products = payload;
@@ -101,6 +128,23 @@ export async function fetchMyShopProductsSSR(): Promise<UserProductVM[]> {
   }
 
   return products.map(mapUserProductViewToVM);
+}
+
+// در صورت نیاز به ShopInfo هم، این تابع خام را هم می‌دهیم:
+export async function fetchMyShopProductsRawSSR(q?: ShopProductsQuery): Promise<ShopViewModel> {
+  const headers = await authHeader();
+  const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
+  const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
+
+  const res = await fetch(url, { headers, cache: "no-store" });
+  const payload = await readJson<ShopViewModel | { products: UserProductView[] }>(res);
+
+  // نرمال‌سازی به ShopViewModel
+  if ((payload as any)?.shopInfo) {
+    return payload as ShopViewModel;
+  }
+  const products = Array.isArray((payload as any)?.products) ? (payload as any).products : [];
+  return { shopInfo: undefined as any, products } as ShopViewModel;
 }
 
 // بدون تغییر نام: لیست قیمت دلار
@@ -112,7 +156,6 @@ export async function fetchPriceListSSR(): Promise<PriceListVM> {
   const res = await fetch(url, { headers, cache: "no-store" });
   if (!res.ok) return {};
 
-  // این ریسپانس در پروژه تو بعضی‌وقت‌ها مستقیم و بعضی‌وقت‌ها در data بوده
   const raw = await res.clone().text();
   let parsed: any;
   try {

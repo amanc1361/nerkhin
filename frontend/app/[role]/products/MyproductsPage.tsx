@@ -1,3 +1,4 @@
+// app/[role]/products/MyproductsPage.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,6 +14,9 @@ import DollarPriceModal from "@/app/components/userproduct/DollarPriceModal";
 import { useDollarPriceAction } from "@/app/hooks/useDollarPriceAction";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 import { formatMoneyInput, toEnDigits } from "@/app/components/shared/MonyInput";
+
+// ← اضافه شد: کامپوننت واحد فیلترها
+import FilterControls, { type FilterControlsValue } from "@/app/components/shared/FilterControls";
 
 type Role = "wholesaler" | "retailer";
 
@@ -97,6 +101,61 @@ export default function MyproductsPage({
     })();
   }, [status, session?.user, api]);
 
+  // --- لیست محصولات: لود اولیه از props، سپس با فیلترها از سرور ---
+  const [items, setItems] = useState<any[]>(initialItems ?? []);
+  const [loading, setLoading] = useState(false);
+
+  // (اختیاری) اگر برای برند/دسته/زیردسته API جدا داری، این‌ها را با data واقعی پر کن
+  const brandOptions = useMemo(() => {
+    // اگر فعلا brandId واقعی توی VM نداری، فقط لیست عنوان‌ها برای UI:
+    const titles = new Set<string>();
+    (initialItems ?? []).forEach((it: any) => {
+      const t =
+        it?.product?.brandTitle ??
+        (it as any)?.productBrand ??
+        (it as any)?.brandTitle ??
+        "";
+      if (t) titles.add(t);
+    });
+    return Array.from(titles).map((label, i) => ({ label, value: i + 1 }));
+  }, [initialItems]);
+
+  // فراخوانی سرور با فیلترها (همان اندپوینت قبلی، فقط با QueryString)
+  const fetchWithFilters = async (v: FilterControlsValue) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+
+      // shopId: اگر سرور از کاربر فعلی استفاده می‌کند، می‌تونی نگذاری
+      const shopId = (session?.user as any)?.id;
+      if (shopId) params.set("shopId", String(shopId));
+
+      if (v.brandIds?.length) params.set("brandIds", v.brandIds.join(","));
+      if (v.categoryId) params.set("categoryId", String(v.categoryId));
+      if (v.subCategoryId) params.set("subCategoryId", String(v.subCategoryId));
+      if (v.isDollar !== null && typeof v.isDollar === "boolean") {
+        params.set("isDollar", v.isDollar ? "1" : "0");
+      }
+      if (v.search) params.set("search", v.search);
+      params.set("sortUpdated", v.sortUpdated);
+
+      // اگر صفحه‌بندی نیاز شد:
+      // params.set("limit", "50");
+      // params.set("offset", "0");
+
+      const url = `/user-product/fetch-shop${params.toString() ? `?${params.toString()}` : ""}`;
+      const res: any = await api.get({ url });
+      const payload = res && typeof res === "object" && "data" in res ? res.data : res;
+
+      const products = Array.isArray(payload?.products) ? payload.products : Array.isArray(payload) ? payload : [];
+      setItems(products);
+    } catch (e) {
+      console.error("[FilterFetch][ERROR]", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // اشتراک‌گذاری‌ها (در صورت نیاز بعداً پر می‌شوند)
   const onShareJpg = () => {};
   const onSharePdf = () => {};
@@ -135,16 +194,31 @@ export default function MyproductsPage({
             />
           </div>
 
-          <ProductsHeader count={initialItems?.length ?? 0} messages={messages} />
+          {/* ← فیلترهای قابل استفاده مجدد (سمت سرور) */}
+          <div className="mb-3">
+            <FilterControls
+              messages={messages}
+              brands={brandOptions}
+              categories={[]}     // اگر API داری پر کن
+              subCategories={[]}  // اگر API داری پر کن
+              onChange={fetchWithFilters}
+            />
+          </div>
 
-          {/* نکتهٔ مهم: هیچ کال‌بک خالی پاس نده تا منطق داخلی ProductsList کامل کار کند
-             (ویرایش/حذف/عدم‌نمایش/جابجایی/ChangeOrder top-bottom) */}
+          <ProductsHeader count={items?.length ?? 0} messages={messages} />
+
+          {/* نکته: حالا items از سرور (بعد از فیلتر) جایگزین می‌شود */}
           <ProductsList
-            items={initialItems ?? []}
+            items={items ?? []}
             messages={messages}
-            // اگر لازم شد می‌تونی onRefresh پاس بدی تا بعد از موفقیت اکشن‌ها رفرش خارجی انجام بشه:
             // onRefresh={refetchProducts}
           />
+
+          {loading && (
+            <div className="mt-3 text-xs text-neutral-500">
+              {messages?.loading }
+            </div>
+          )}
         </main>
       </div>
 

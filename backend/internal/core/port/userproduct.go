@@ -41,7 +41,7 @@ type UserProductRepository interface {
 
 	// متد جدید برای دریافت داده‌های جمع‌آوری شده برای فیلترها
 	GetAggregatedFilterDataForSearch(ctx context.Context, dbSession interface{}, filter *domain.UserProductFilter) (*domain.SearchProductsData, error)
-
+	FetchShopProductsFiltered(ctx context.Context, dbSession interface{}, q *domain.UserProductQuery) ([]*domain.UserProductView, error)
 }
 
 type UserProductService interface {
@@ -62,4 +62,9 @@ type UserProductService interface {
 		userProduct *domain.UserProductView, err error)
 	BatchDeleteUserProduct(ctx context.Context, id int64) (err error)
 	ChangeVisibilityStatus(ctx context.Context, userProductId int64) (err error)
+	FetchShopProductsFiltered(
+		ctx context.Context,
+		currentUserID, userID, shopID int64,
+		query *domain.UserProductQuery,
+	) (*domain.ShopViewModel, error)
 }

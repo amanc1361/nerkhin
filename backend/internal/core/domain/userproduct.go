@@ -7,6 +7,32 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// internal/core/domain/userproduct_query.go
+
+type SortDir string
+
+const (
+	SortAsc  SortDir = "asc"
+	SortDesc SortDir = "desc"
+)
+
+type UserProductQuery struct {
+	ShopID int64 `json:"shopId"`
+
+	BrandIDs      []int64 `json:"brandIds"`      // فیلتر براساس چند برند
+	CategoryID    int64   `json:"categoryId"`    // دستهٔ اصلی (pb.category_id)
+	SubCategoryID int64   `json:"subCategoryId"` // اگر در اسکیمای شما روی product هست: p.sub_category_id
+
+	IsDollar *bool `json:"isDollar"`
+
+	Search string `json:"search"`
+
+	SortUpdated SortDir `json:"sortUpdated"` // asc|desc (پیش‌فرض desc)
+
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
 type UserProductView struct {
 	UserProduct
 	ProductCategory string                          `json:"productCategory"`

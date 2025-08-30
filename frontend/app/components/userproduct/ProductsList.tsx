@@ -107,24 +107,7 @@ export default function UserProductList({
     }
   }, [onEdit, update]);
 
-  // جابه‌جایی ترتیب
-  //const swap = (arr: any[], i: number, j: number) => { const r=[...arr]; const t=r[i]; r[i]=r[j]; r[j]=t; return r; };
-  // const handleMove = useCallback(async (id: number, direction: "up" | "down") => {
-  //   setBusy(true);
-  //   setList(prev => {
-  //     const idx = prev.findIndex(x => (x as any).id === id);
-  //     if (idx < 0) return prev;
-  //     const j = direction === "up" ? idx - 1 : idx + 1;
-  //     if (j < 0 || j >= prev.length) return prev;
-  //     return swap(prev, idx, j);
-  //   });
-  //   try {
-  //     const payload: ChangeOrderPayload = { userProductId: id, direction } as any;
-  //     await changeOrder(payload);
-  //   } finally { setBusy(false); }
-  // }, [changeOrder]);
-// app/components/userproduct/UserProductList.tsx
-// در UserProductList.tsx جایگزینِ نسخه فعلی کن
+
 const handleMove = useCallback(
   async (id: number, direction: "up" | "down") => {
     setBusy(true);

@@ -1,6 +1,7 @@
 // lib/texts/userProductMessages.ts
 export type UserProductMessages = {
   title: string;
+  loading: string;
   modals: {
     delete: {
       title: string;
@@ -22,6 +23,23 @@ export type UserProductMessages = {
     priceList: string;
     dollarPrice: (price: string) => string;
     addProduct: string;
+  };
+  filters: {
+    title: string
+    brand: string
+    brandAll: string
+    category: string
+    subCategory: string
+    priceType: string
+    priceAny: string
+    priceDollar: string
+    priceRial: string
+    sortUpdated: string
+    sortNewest: string
+    sortOldest: string
+    searchPlaceholder: string
+    apply: string
+    clear: string
   };
   summary: (count: number) => string;
   headers: { currency: string; sort: string; product: string };
@@ -77,7 +95,25 @@ export type UserProductMessages = {
 export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductMessages => {
   if (locale === "en") {
     return {
+      loading: "Loading...",
       title: "My Products",
+      filters:{
+        title: "Filters",
+        brand: "Brand",
+        brandAll: "All",
+        category: "Category",
+        subCategory: "Subcategory",
+        priceType: "Price type",
+        priceAny: "Any",
+        priceDollar: "Dollar",
+        priceRial: "Rial",
+        sortUpdated: "Updated",
+        sortNewest: "Newest",
+        sortOldest: "Oldest",
+        searchPlaceholder: "Search...",
+        apply: "Apply",
+        clear: "Clear",
+      },
       modals: {
         delete: {
           title: "Remove product",
@@ -86,6 +122,7 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
           cancel: "Cancel",
         },
       },
+      
       editModal: {
         title: "Edit product",
         cancelBtn: "Cancel",
@@ -156,7 +193,25 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
   }
 
   return {
+    loading: "در حال بارگزاری..",
     title: "محصولات من",
+    filters: {
+      title: "فیلترها",
+      brand: "برند",
+      brandAll: "همه",
+      category: "دسته",
+      subCategory: "زیردسته",
+      priceType: "نوع قیمت",
+      priceAny: "هر دو",
+      priceDollar: "دلار",
+      priceRial: "ریال",
+      sortUpdated: "به روز رسانی شده",
+      sortNewest: "جدیدترین",
+      sortOldest: "قدیمیترین",
+      searchPlaceholder: "جستجو...",
+      apply: "اعمال",
+      clear: "پاک کردن",
+    },
     modals: {
       delete: {
         title: "حذف محصول",

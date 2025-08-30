@@ -207,6 +207,78 @@ func (ps *UserProductService) FetchShopProducts(ctx context.Context,
 	return userProductsVM, nil
 }
 
+// internal/core/service/user_product_service.go
+func (ps *UserProductService) FetchShopProductsFiltered(
+	ctx context.Context,
+	currentUserID, userID, shopID int64,
+	query *domain.UserProductQuery,
+) (*domain.ShopViewModel, error) {
+	db, err := ps.dbms.NewDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	vm := &domain.ShopViewModel{Products: []*domain.UserProductView{}}
+
+	err = ps.dbms.BeginTransaction(ctx, db, func(tx interface{}) error {
+		shop, err := ps.userRepo.GetUserByID(ctx, tx, shopID)
+		if err != nil {
+			return err
+		}
+
+		if currentUserID != userID {
+			has, err := ps.userSubRepo.CheckUserAccessToCity(ctx, tx, currentUserID, shop.CityID)
+			if err != nil {
+				return err
+			}
+			if !has {
+				return errors.New(msg.ErrYouDoNotAccessToThisShop)
+			}
+		}
+
+		if currentUserID != shopID {
+			liked, err := ps.favoriteAccountRepo.IsShopLiked(ctx, tx, currentUserID, shopID)
+			if err != nil {
+				return err
+			}
+			shop.IsLiked = liked
+		}
+		vm.ShopInfo = shop
+
+		if query == nil {
+			query = &domain.UserProductQuery{}
+		}
+		query.ShopID = shop.ID
+
+		products, err := ps.repo.FetchShopProductsFiltered(ctx, tx, query)
+		if err != nil {
+			return err
+		}
+
+		// پر کردن لایک‌های کاربر جاری
+		likedProducts, err := ps.favoriteProductRepo.GetFavoriteProducts(ctx, tx, currentUserID)
+		if err != nil {
+			return err
+		}
+		likedMap := map[int64]bool{}
+		for _, lp := range likedProducts {
+			likedMap[lp.ProductID] = true
+		}
+		for _, p := range products {
+			if _, ok := likedMap[p.ProductID]; ok {
+				p.IsLiked = true
+			}
+		}
+
+		vm.Products = products
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return vm, nil
+}
+
 func (ups *UserProductService) ChangeOrder(ctx context.Context, userId int64, topProductId int64, bottomProductId int64) (
 	err error) {
 	db, err := ups.dbms.NewDB(ctx)
@@ -425,23 +497,6 @@ func (ups *UserProductService) hydrateSearchProducts(ctx context.Context, dbSess
 		return ctx.Err()
 	}
 }
-
-// validateNewUserProduct با منطق جدید
-// func validateNewUserProduct(_ context.Context, product *domain.UserProduct) (err error) {
-// 	if product == nil || product.UserID < 1 || product.ProductID < 1 {
-// 		return errors.New(msg.ErrDataIsNotValid)
-// 	}
-// 	// فیلدهای CategoryID و BrandID و ModelID دیگر در UserProduct نیستند و ولیدیشن آنها حذف می‌شود.
-// 	if product.IsDollar {
-// 		if !product.DollarPrice.Valid {
-// 			return errors.New(msg.ErrDollarPriceIsNotSet)
-// 		}
-// 	}
-// 	if product.FinalPrice.IsZero() {
-// 		return errors.New(msg.ErrFinalPriceIsNotSet)
-// 	}
-// 	return nil
-// }
 
 func (ups *UserProductService) FetchRelatedShopProducts(ctx context.Context,
 	productID, currentUserID int64) (shopProductVM *domain.ProductInfoViewModel, err error) {

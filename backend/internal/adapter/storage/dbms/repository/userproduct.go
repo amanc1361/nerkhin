@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/nerkhin/internal/adapter/storage/util/gormutil"
 	"github.com/nerkhin/internal/core/domain"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm/clause"
 )
 
 type UserProductRepository struct{}
@@ -344,6 +347,98 @@ func (*UserProductRepository) UpdateUserProduct(ctx context.Context, txSession i
 	}
 
 	return nil
+}
+
+// internal/adapter/repository/user_product_repo.go
+func (upr *UserProductRepository) FetchShopProductsFiltered(
+	ctx context.Context,
+	dbSession interface{},
+	q *domain.UserProductQuery,
+) ([]*domain.UserProductView, error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return nil, err
+	}
+
+	if q == nil {
+		q = &domain.UserProductQuery{}
+	}
+	limit := q.Limit
+	offset := q.Offset
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	sortDir := strings.ToLower(string(q.SortUpdated))
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc"
+	}
+
+	// COALESCE برای مواقعی که updated_at نال است
+	orderExpr := fmt.Sprintf("COALESCE(up.updated_at, up.created_at) %s, up.id %s", sortDir, sortDir)
+
+	qb := db.Table("user_product AS up").
+		Joins("JOIN product AS p ON p.id = up.product_id").
+		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
+		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
+		Where("up.user_id = ?", q.ShopID).
+		Select(`
+			up.*,
+			pb.category_id       AS category_id,
+			p.brand_id           AS brand_id,
+			p.model_name         AS model_name,
+			p.description        AS description,
+			p.default_image_url  AS default_image_url,
+			pc.title             AS product_category,
+			pb.title             AS product_brand,
+			p.model_name         AS product_model,
+			p.shops_count        AS shops_count
+		`)
+
+	// فیلتر برند (IN)
+	if len(q.BrandIDs) > 0 {
+		qb = qb.Where("pb.id IN ?", q.BrandIDs)
+	}
+
+	// دستهٔ اصلی
+	if q.CategoryID > 0 {
+		qb = qb.Where("pb.category_id = ?", q.CategoryID)
+	}
+
+	// زیر‌دسته (در صورت وجود ستون روی product)
+	if q.SubCategoryID > 0 {
+		// اگر در اسکیمای شما نام ستون چیز دیگری است، اصلاحش کن
+		qb = qb.Where("p.sub_category_id = ?", q.SubCategoryID)
+	}
+
+	// ارزی/ریالی
+	if q.IsDollar != nil {
+		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
+	}
+
+	// جستجو (ساده و سریع؛ در صورت نیاز می‌شه ایندکس/tsvector گذاشت)
+	if s := strings.TrimSpace(q.Search); s != "" {
+		like := "%" + s + "%"
+		qb = qb.Where(`
+			p.model_name ILIKE ? OR 
+			pb.title     ILIKE ? OR
+			pc.title     ILIKE ? OR
+			p.description ILIKE ?
+		`, like, like, like, like)
+	}
+
+	var out []*domain.UserProductView
+	if err := qb.
+		Order(clause.Expr{SQL: orderExpr}).
+		Limit(limit).
+		Offset(offset).
+		Find(&out).Error; err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func (upr *UserProductRepository) FetchUserProductById(

@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
 	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
@@ -105,7 +108,7 @@ func (uph *UserProductHandler) Create(c *gin.Context) {
 	handleSuccess(c, resp)
 }
 
-func (uph *UserProductHandler) FetchShopProducts(c *gin.Context) {
+func (uph *UserProductHandler) FetchShopProductsOld(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
 
@@ -240,6 +243,69 @@ type updateUserProductRequest struct {
 	DollarPrice string `json:"dollarPrice"`
 	OtherCosts  string `json:"otherCosts"`
 	FinalPrice  string `json:"finalPrice"`
+}
+
+// internal/adapter/http/handler/user_product_handler.go
+// GET /api/go/user-product/fetch-shop
+// ?shopId=...&brandIds=1,2&categoryId=...&subCategoryId=...&isDollar=1|0&sortUpdated=asc|desc&search=...&limit=...&offset=...
+func (psh *UserProductHandler) FetchShopProducts(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	currentUserID := c.GetInt64("user_id") // مثل قبل از کانتکست auth
+	userID := currentUserID
+	shopID, _ := strconv.ParseInt(c.Query("shopId"), 10, 64)
+
+	parseIDs := func(s string) []int64 {
+		if s = strings.TrimSpace(s); s == "" {
+			return nil
+		}
+		parts := strings.Split(s, ",")
+		out := make([]int64, 0, len(parts))
+		for _, p := range parts {
+			if v, err := strconv.ParseInt(strings.TrimSpace(p), 10, 64); err == nil && v > 0 {
+				out = append(out, v)
+			}
+		}
+		return out
+	}
+
+	var isDollarPtr *bool
+	if d := strings.TrimSpace(c.Query("isDollar")); d != "" {
+		switch d {
+		case "1", "true", "TRUE":
+			t := true
+			isDollarPtr = &t
+		case "0", "false", "FALSE":
+			f := false
+			isDollarPtr = &f
+		}
+	}
+
+	categoryID, _ := strconv.ParseInt(c.Query("categoryId"), 10, 64)
+	subCatID, _ := strconv.ParseInt(c.Query("subCategoryId"), 10, 64)
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	offset, _ := strconv.Atoi(c.Query("offset"))
+	sort := domain.SortDir(strings.ToLower(c.Query("sortUpdated")))
+	search := c.Query("search")
+
+	q := &domain.UserProductQuery{
+		ShopID:        shopID,
+		BrandIDs:      parseIDs(c.Query("brandIds")),
+		CategoryID:    categoryID,
+		SubCategoryID: subCatID,
+		IsDollar:      isDollarPtr,
+		Search:        search,
+		SortUpdated:   sort,
+		Limit:         limit,
+		Offset:        offset,
+	}
+
+	vm, err := psh.service.FetchShopProductsFiltered(ctx, currentUserID, shopID, userID, q)
+	if err != nil {
+		HandleError(c, err, psh.AppConfig.Lang)
+		return
+	}
+	handleSuccess(c, vm)
 }
 
 func (uph *UserProductHandler) Update(c *gin.Context) {
