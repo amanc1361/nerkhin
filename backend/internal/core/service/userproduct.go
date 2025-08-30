@@ -703,7 +703,7 @@ func (ups *UserProductService) BatchDeleteUserProduct(ctx context.Context, id in
 		// 3) گرفتن آیتم‌هایی که باید جابه‌جا شوند (با همان متد موجود)
 		userProductsIdsToChange, err := ups.repo.GetUserProductIdsByOrder(ctx, txSession, deletedOrder)
 		if err != nil {
-			return err
+			userProductsIdsToChange = []int64{}
 		}
 
 		for _, upid := range userProductsIdsToChange {
