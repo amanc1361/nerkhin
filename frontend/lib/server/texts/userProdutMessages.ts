@@ -1,6 +1,19 @@
 // lib/texts/userProductMessages.ts
 export type UserProductMessages = {
   title: string;
+  modals: {
+    delete: {
+      title: string;
+      message: string;
+      confirm: string;
+      cancel: string;
+    };
+  };
+  editModal: {
+    title: string;
+    cancelBtn: string;
+    saveBtn: string;
+  };
   toolbar: {
     share: string;
     jpg: string;
@@ -22,6 +35,9 @@ export type UserProductMessages = {
     confirmDeleteText: string;
     confirm: string;
     cancel: string;
+    moveUp: string;
+    moveDown: string;
+    hiddenBadge: string;
   };
   empty: { title: string; subtitle: string; cta: string };
   toasts: {
@@ -62,6 +78,19 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
   if (locale === "en") {
     return {
       title: "My Products",
+      modals: {
+        delete: {
+          title: "Remove product",
+          message: "Are you sure you want to delete this product?",
+          confirm: "Yes",
+          cancel: "Cancel",
+        },
+      },
+      editModal: {
+        title: "Edit product",
+        cancelBtn: "Cancel",
+        saveBtn: "Save",
+      },
       toolbar: {
         share: "Price list",
         save: "Save",
@@ -83,6 +112,9 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
         confirmDeleteText: "Are you sure you want to delete this product?",
         confirm: "Yes",
         cancel: "Cancel",
+        moveUp: "Move up",
+        moveDown: "Move down",
+        hiddenBadge: "Hidden",
       },
       empty: {
         title: "No products yet",
@@ -125,6 +157,19 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
 
   return {
     title: "محصولات من",
+    modals: {
+      delete: {
+        title: "حذف محصول",
+        message: "از حذف این محصول مطمئن هستید؟",
+        confirm: "بله",
+        cancel: "انصراف",
+      },
+    },
+    editModal: {
+      title: "ویرایش محصول",
+      cancelBtn: "انصراف",
+      saveBtn: "ذخیره",
+    },
     toolbar: {
       share: "لیست قیمت",
       save: "ذخیره",
@@ -146,6 +191,9 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
       confirmDeleteText: "از حذف این محصول مطمئن هستید؟",
       confirm: "بله",
       cancel: "انصراف",
+      moveUp: "بالا",
+      moveDown: "پایین",
+      hiddenBadge: "غیرفعال",
     },
     empty: {
       title: "محصولی ثبت نشده",

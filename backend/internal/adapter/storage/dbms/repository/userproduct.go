@@ -346,36 +346,43 @@ func (*UserProductRepository) UpdateUserProduct(ctx context.Context, txSession i
 	return nil
 }
 
-func (upr *UserProductRepository) FetchUserProductById(ctx context.Context,
-	dbSession interface{}, upId int64) (
-	userProduct *domain.UserProductView, err error) {
+func (upr *UserProductRepository) FetchUserProductById(
+	ctx context.Context,
+	dbSession interface{},
+	upId int64,
+) (*domain.UserProductView, error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return
+		return nil, err
 	}
+
+	var view domain.UserProductView
 
 	err = db.Table("user_product AS up").
 		Joins("JOIN product AS p ON p.id = up.product_id").
-		Joins("JOIN product_category AS pc ON pc.id = p.category_id").
 		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
-		Joins("JOIN product_model AS pm ON pm.id = p.model_id").
+		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
 		Where("up.id = ?", upId).
 		Select(
 			"up.*",
-			"p.category_id    AS category_id",
-			"p.brand_id    		AS brand_id",
-			"p.model_id    		AS model_id",
-			"p.description 		AS description",
-			"pc.title 				AS product_category",
-			"pb.title 				AS product_brand",
-			"pm.title 				AS product_model",
-		).Take(&userProduct).Error
+
+			"pb.category_id         AS category_id",
+			"p.brand_id             AS brand_id",
+			"p.model_name           AS model_name",
+
+			"p.description          AS description",
+			"p.default_image_url    AS default_image_url",
+			"pc.title               AS product_category",
+			"pb.title               AS product_brand",
+			"p.model_name           AS product_model",
+			"p.shops_count          AS shops_count",
+		).
+		Take(&view).Error
 
 	if err != nil {
-		return
+		return nil, err
 	}
-
-	return userProduct, nil
+	return &view, nil
 }
 
 func (upr *UserProductRepository) BatchDeleteUserProduct(ctx context.Context, dbSession interface{},
