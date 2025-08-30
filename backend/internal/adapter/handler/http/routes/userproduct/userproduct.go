@@ -21,7 +21,8 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.UserProductHandler) {
 	userProductGroup.GET("/fetch-price-list", handler.FetchPriceList)
 	userProductGroup.GET("/fetch-shop/:uid", handler.FetchShopByUserId)
 	userProductGroup.GET("/fetch/:upId", handler.Fetch)
+	userProductGroup.GET("/search", handler.Search)
 
-	  userProductGroup.DELETE("/delete/:id", handler.Delete)
+	userProductGroup.DELETE("/delete/:id", handler.Delete)
 	userProductGroup.POST("/change-status", handler.ChangeVisibilityStatus)
 }
