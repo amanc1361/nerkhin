@@ -109,20 +109,54 @@ export default function UserProductList({
 
   // جابه‌جایی ترتیب
   const swap = (arr: any[], i: number, j: number) => { const r=[...arr]; const t=r[i]; r[i]=r[j]; r[j]=t; return r; };
-  const handleMove = useCallback(async (id: number, direction: "up" | "down") => {
-    setBusy(true);
-    setList(prev => {
-      const idx = prev.findIndex(x => (x as any).id === id);
-      if (idx < 0) return prev;
-      const j = direction === "up" ? idx - 1 : idx + 1;
-      if (j < 0 || j >= prev.length) return prev;
-      return swap(prev, idx, j);
-    });
-    try {
-      const payload: ChangeOrderPayload = { userProductId: id, direction } as any;
-      await changeOrder(payload);
-    } finally { setBusy(false); }
-  }, [changeOrder]);
+  // const handleMove = useCallback(async (id: number, direction: "up" | "down") => {
+  //   setBusy(true);
+  //   setList(prev => {
+  //     const idx = prev.findIndex(x => (x as any).id === id);
+  //     if (idx < 0) return prev;
+  //     const j = direction === "up" ? idx - 1 : idx + 1;
+  //     if (j < 0 || j >= prev.length) return prev;
+  //     return swap(prev, idx, j);
+  //   });
+  //   try {
+  //     const payload: ChangeOrderPayload = { userProductId: id, direction } as any;
+  //     await changeOrder(payload);
+  //   } finally { setBusy(false); }
+  // }, [changeOrder]);
+
+ // app/components/userproduct/UserProductList.tsx
+const handleMove = useCallback(async (id: number, direction: "up" | "down") => {
+  setBusy(true);
+
+  // 1) پیدا کردن همسایه و ساخت payload
+  let payload: ChangeOrderPayload | null = null;
+
+  setList(prev => {
+    const idx = prev.findIndex(x => (x as any).id === id);
+    if (idx < 0) return prev;
+
+    const neighborIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (neighborIdx < 0 || neighborIdx >= prev.length) return prev;
+
+    const neighborId = (prev[neighborIdx] as any).id;
+
+    // زوجِ بعد از جابه‌جایی:
+    payload = direction === "up"
+      ? { topProductId: id,          bottomProductId: neighborId }
+      : { topProductId: neighborId,  bottomProductId: id };
+
+    // 2) سواپ خوش‌بینانه
+    const copy = [...prev];
+    [copy[idx], copy[neighborIdx]] = [copy[neighborIdx], copy[idx]];
+    return copy;
+  });
+
+  try {
+    if (payload) await changeOrder(payload);
+  } finally {
+    setBusy(false);
+  }
+}, [changeOrder]);
 
   return (
     <div className="grid gap-2" dir="rtl">

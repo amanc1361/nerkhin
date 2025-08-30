@@ -125,6 +125,7 @@ export default function UserProductItem({
       <div className="mt-2 flex items-center">
         {/* چپ: Up/Down (فقط ترایگر؛ جابه‌جایی در والد) */}
         <div className="flex items-center gap-4">
+     
           <button
             onClick={() => onMoveUp(item.id)}
             className="disabled:opacity-50"

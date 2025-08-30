@@ -377,7 +377,7 @@ func (upr *UserProductRepository) FetchUserProductById(
 			"p.model_name           AS product_model",
 			"p.shops_count          AS shops_count",
 		).
-		Take(&view).Error
+	Take(&view).Error
 
 	if err != nil {
 		return nil, err

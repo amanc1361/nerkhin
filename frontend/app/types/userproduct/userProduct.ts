@@ -89,6 +89,7 @@ export type CreateUserProductPayload = {
   finalPrice: DecimalString;   // decimal string
 };
 
+
 export type UpdateUserProductPayload = {
   id: number;
   isDollar?: boolean;

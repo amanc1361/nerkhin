@@ -12,15 +12,32 @@ export function useUserProductActions(onSuccess?: () => void, locale: "fa" | "en
   const [isSubmitting, setIsSubmitting] = useState(false);
   const t = getUserProductMessages(locale);
 
+  // const changeOrder = useCallback(async (payload: ChangeOrderPayload) => {
+  //   setIsSubmitting(true);
+  //   try {
+  //     const d = userProductApi.changeOrder(payload);
+  //     await api[d.method]({ url: d.url, body: d.body });
+  //     toast.success(t.toasts.orderSaved); onSuccess?.();
+  //   } catch (e: any) { toast.error(e?.message || t.toasts.error); }
+  //   finally { setIsSubmitting(false); }
+  // }, [api, onSuccess, t]);
+  
+
   const changeOrder = useCallback(async (payload: ChangeOrderPayload) => {
     setIsSubmitting(true);
     try {
-      const d = userProductApi.changeOrder(payload);
+      const d = userProductApi.changeOrder(payload); // ← body = { topProductId, bottomProductId }
       await api[d.method]({ url: d.url, body: d.body });
-      toast.success(t.toasts.orderSaved); onSuccess?.();
-    } catch (e: any) { toast.error(e?.message || t.toasts.error); }
-    finally { setIsSubmitting(false); }
+      toast.success(t.toasts.orderSaved);
+      onSuccess?.();
+    } catch (e: any) {
+      toast.error(e?.message || t.toasts.error);
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [api, onSuccess, t]);
+
+
 
   const changeStatus = useCallback(async (userProductId: number) => {
     setIsSubmitting(true);
