@@ -1,7 +1,7 @@
 // app/[role]/products/MyproductsPage.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import type { UserProductMessages } from "@/lib/server/texts/userProdutMessages";
@@ -15,7 +15,6 @@ import { useDollarPriceAction } from "@/app/hooks/useDollarPriceAction";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 import { formatMoneyInput, toEnDigits } from "@/app/components/shared/MonyInput";
 
-// ← اضافه شد: کامپوننت واحد فیلترها
 import FilterControls, { type FilterControlsValue } from "@/app/components/shared/FilterControls";
 
 type Role = "wholesaler" | "retailer";
@@ -33,7 +32,7 @@ export default function MyproductsPage({
   usdPrice,
   locale,
 }: Props) {
-  // دیکشنری متن‌ها بر اساس locale
+  // i18n
   const messages: UserProductMessages = useMemo(
     () =>
       typeof getUserProductMessages === "function"
@@ -42,43 +41,32 @@ export default function MyproductsPage({
     [locale]
   );
 
-  // مقدار خام (digits) که برای ذخیره می‌فرستیم
+  // USD modal
   const [localUsd, setLocalUsd] = useState<string>(String(usdPrice ?? ""));
-  useEffect(() => {
-    setLocalUsd(String(usdPrice ?? ""));
-  }, [usdPrice]);
-
-  // نمایش سه‌رقم‌سه‌رقم (فقط بخش صحیح)
-  const displayUsd = useMemo(
-    () => formatMoneyInput(String(localUsd ?? ""), false),
-    [localUsd]
-  );
-
+  useEffect(() => { setLocalUsd(String(usdPrice ?? "")); }, [usdPrice]);
+  const displayUsd = useMemo(() => formatMoneyInput(String(localUsd ?? ""), false), [localUsd]);
   const addHref = `/${role}/products/create`;
-
-  // مودال قیمت دلار + ذخیره
   const [openUsdModal, setOpenUsdModal] = useState(false);
   const { update, isSubmitting } = useDollarPriceAction((digits) => {
-    setLocalUsd(digits); // UI فوری آپدیت
+    setLocalUsd(digits);
     setOpenUsdModal(false);
   });
   const handleUsdSubmit = (digits: string) => update(digits);
 
-  // گرفتن نرخ دلار کاربر از بک‌اند (مثل فرم افزودن) — فقط بخش صحیح نگه داشته می‌شود
+  // session & api
   const { data: session, status } = useSession();
   const { api } = useAuthenticatedApi();
+  const canFetch = status === "authenticated" && !!(session?.user as any)?.id;
 
+  // fetch user USD
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (!canFetch) return;
     const uid = (session?.user as any)?.id;
-    if (!uid) return;
-
     (async () => {
       try {
         const res: any = await api.get({ url: `/user/dollar-price/${uid}` });
         const payload = res && typeof res === "object" && "data" in res ? res.data : res;
 
-        // فقط قسمت صحیح
         const toIntegerDigits = (v: any): string => {
           if (v == null) return "";
           if (typeof v === "number") return String(Math.trunc(v));
@@ -99,67 +87,95 @@ export default function MyproductsPage({
         console.log("[DollarPrice][ERROR] =>", e);
       }
     })();
-  }, [status, session?.user, api]);
+  }, [canFetch, session?.user, api]);
 
-  // --- لیست محصولات: لود اولیه از props، سپس با فیلترها از سرور ---
+  // products state
   const [items, setItems] = useState<any[]>(initialItems ?? []);
   const [loading, setLoading] = useState(false);
 
-  // (اختیاری) اگر برای برند/دسته/زیردسته API جدا داری، این‌ها را با data واقعی پر کن
+  // --- brand options با brandId واقعی (هر جا موجود باشد) ---
   const brandOptions = useMemo(() => {
-    // اگر فعلا brandId واقعی توی VM نداری، فقط لیست عنوان‌ها برای UI:
-    const titles = new Set<string>();
+    const map = new Map<number, string>(); // brandId -> title
     (initialItems ?? []).forEach((it: any) => {
-      const t =
+      const brandId =
+        it?.brandId ??
+        it?.product?.brandId ??
+        it?.productBrandId ??
+        it?.product?.brand_id ??
+        null;
+      const title =
         it?.product?.brandTitle ??
-        (it as any)?.productBrand ??
-        (it as any)?.brandTitle ??
+        it?.productBrand ??
+        it?.brandTitle ??
+        it?.product?.brand_title ??
         "";
-      if (t) titles.add(t);
+
+      if (brandId && title && !map.has(Number(brandId))) {
+        map.set(Number(brandId), String(title));
+      }
     });
-    return Array.from(titles).map((label, i) => ({ label, value: i + 1 }));
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
   }, [initialItems]);
 
-  // فراخوانی سرور با فیلترها (همان اندپوینت قبلی، فقط با QueryString)
-  const fetchWithFilters = async (v: FilterControlsValue) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
+  // برای جلوگیری از شلیک درخواست روی mount اولیه‌ی FilterControls
+  const firstFireRef = useRef(true);
 
-      // shopId: اگر سرور از کاربر فعلی استفاده می‌کند، می‌تونی نگذاری
-      const shopId = (session?.user as any)?.id;
-      if (shopId) params.set("shopId", String(shopId));
+  // fetch with filters (stable)
+  const fetchWithFilters = useCallback(
+    async (v: FilterControlsValue) => {
+      if (!canFetch) return;
 
-      if (v.brandIds?.length) params.set("brandIds", v.brandIds.join(","));
-      if (v.categoryId) params.set("categoryId", String(v.categoryId));
-      if (v.subCategoryId) params.set("subCategoryId", String(v.subCategoryId));
-      if (v.isDollar !== null && typeof v.isDollar === "boolean") {
-        params.set("isDollar", v.isDollar ? "1" : "0");
+      // اگر اولین بار است که FilterControls onChange را می‌زند (mount)، نادیده بگیر
+      if (firstFireRef.current) {
+        firstFireRef.current = false;
+        return;
       }
-      if (v.search) params.set("search", v.search);
-      params.set("sortUpdated", v.sortUpdated);
 
-      // اگر صفحه‌بندی نیاز شد:
-      // params.set("limit", "50");
-      // params.set("offset", "0");
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        const shopId = (session?.user as any)?.id;
+        if (shopId) params.set("shopId", String(shopId));
 
-      const url = `/user-product/fetch-shop${params.toString() ? `?${params.toString()}` : ""}`;
-      const res: any = await api.get({ url });
-      const payload = res && typeof res === "object" && "data" in res ? res.data : res;
+        if (v.brandIds?.length) params.set("brandIds", v.brandIds.join(","));
+        if (v.categoryId) params.set("categoryId", String(v.categoryId));
+        if (v.subCategoryId) params.set("subCategoryId", String(v.subCategoryId));
+        if (v.isDollar !== null && typeof v.isDollar === "boolean") {
+          params.set("isDollar", v.isDollar ? "1" : "0");
+        }
+        if (v.search) params.set("search", v.search);
+        params.set("sortUpdated", v.sortUpdated);
 
-      const products = Array.isArray(payload?.products) ? payload.products : Array.isArray(payload) ? payload : [];
-      setItems(products);
-    } catch (e) {
-      console.error("[FilterFetch][ERROR]", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+        const url = `/user-product/fetch-shop${params.toString() ? `?${params.toString()}` : ""}`;
+        const res: any = await api.get({ url });
+        const payload = (res && typeof res === "object" && "data" in res) ? res.data : res;
 
-  // اشتراک‌گذاری‌ها (در صورت نیاز بعداً پر می‌شوند)
+        const products = Array.isArray(payload?.products)
+          ? payload.products
+          : Array.isArray(payload)
+          ? payload
+          : [];
+
+        setItems(products);
+      } catch (e) {
+        console.error("[FilterFetch][ERROR]", e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [api, canFetch, session?.user]
+  );
+
+  // اشتراک‌گذاری‌ها
   const onShareJpg = () => {};
   const onSharePdf = () => {};
   const onShare = () => {};
+
+  // key برای remount کردن ProductsList وقتی ترکیب آیتم‌ها عوض می‌شود
+  const listKey = useMemo(() => {
+    const ids = (items ?? []).map((x: any) => x?.id ?? x?.productId ?? "").join("-");
+    return ids || "empty";
+  }, [items]);
 
   return (
     <div dir="rtl" className="container mx-auto px-3 py-4 lg:py-6 text-right">
@@ -179,7 +195,7 @@ export default function MyproductsPage({
           </div>
         </aside>
 
-        {/* ستون چپ: هدر و لیست محصولات */}
+        {/* ستون چپ */}
         <main className="flex-1">
           {/* موبایل: تولبار بالا */}
           <div className="lg:hidden mb-4">
@@ -194,29 +210,40 @@ export default function MyproductsPage({
             />
           </div>
 
-          {/* ← فیلترهای قابل استفاده مجدد (سمت سرور) */}
+          {/* فیلترها (سمت سرور) */}
           <div className="mb-3">
             <FilterControls
               messages={messages}
-              brands={brandOptions}
-              categories={[]}     // اگر API داری پر کن
-              subCategories={[]}  // اگر API داری پر کن
+              brands={brandOptions}     // شامل brandId واقعی
+              categories={[]}           // در صورت داشتن API پر کن
+              subCategories={[]}        // در صورت داشتن API پر کن
               onChange={fetchWithFilters}
+              visible={{
+                brand: false,
+                category: false,
+                subCategory: false,
+                priceType: true,
+                sortUpdated: true,
+                search: true,
+              }}
             />
           </div>
 
+          {/* هدر تعداد */}
           <ProductsHeader count={items?.length ?? 0} messages={messages} />
 
-          {/* نکته: حالا items از سرور (بعد از فیلتر) جایگزین می‌شود */}
+          {/* لیست محصولات — با key برای remount در تغییر داده‌ها */}
           <ProductsList
+            key={listKey}
             items={items ?? []}
             messages={messages}
             // onRefresh={refetchProducts}
           />
 
+          {/* نمایش وضعیت بارگذاری فقط زمانی که واقعاً درخواست در جریانه */}
           {loading && (
             <div className="mt-3 text-xs text-neutral-500">
-              {messages?.loading }
+              {messages?.loading ?? "در حال بارگذاری..."}
             </div>
           )}
         </main>
