@@ -258,7 +258,9 @@ export async function searchMarketSSR(q: MarketSearchQuery, locale: "fa" | "en" 
   const url = joinUrl(base, "/user-product/search") + buildMarketSearchQS(q);
 
   const res = await fetch(url, { headers, cache: "no-store" });
+  console.log("RAW RESPONSE:", await res.clone().text());
   const payload = await readJson<MarketSearchResult>(res);
+  console.log("PAYLOAD:", payload);
 
   const items = Array.isArray(payload?.items) ? payload.items : [];
   const total = Number(payload?.total ?? 0);

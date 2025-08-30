@@ -67,8 +67,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			up.user_id,
 			up.product_id,
 			up.is_dollar,
-			up.final_price::text            AS final_price,
-			CASE WHEN up.dollar_price IS NULL THEN NULL ELSE up.dollar_price::text END AS dollar_price,
+			up.final_price,
 			up.order_c,
 			p.model_name,
 			p.brand_id,
@@ -87,11 +86,6 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	// نمایش/نقش
 	if onlyVisible {
 		qb = qb.Where("up.is_hidden = FALSE")
-	}
-	if q.RequireWholesalerRole {
-		// مقدار enum نقش عمده‌فروش را با مقدار پروژهٔ خودت جایگزین کن
-		// مثلاً: u.role = 2
-		qb = qb.Where("u.role = ?" /*UserRoleWholesaler*/, 2)
 	}
 
 	// فیلتر دستهٔ اصلی
