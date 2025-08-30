@@ -344,7 +344,8 @@ type deleteUserProductByIdRequest struct {
 
 func (uph *UserProductHandler) Delete(c *gin.Context) {
 	var req deleteUserProductByIdRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	if err := c.ShouldBindUri(&req); err != nil {
 		validationError(c, err, uph.AppConfig.Lang)
 		return
 	}

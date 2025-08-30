@@ -14,13 +14,11 @@ import { useDollarPriceAction } from "@/app/hooks/useDollarPriceAction";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 import { formatMoneyInput, toEnDigits } from "@/app/components/shared/MonyInput";
 
-
-
 type Role = "wholesaler" | "retailer";
 
 type Props = {
   role: Role;
-  initialItems: any[];           // UserProductVM[]
+  initialItems: any[]; // UserProductVM[]
   usdPrice: string | number;
   locale: string;
 };
@@ -31,17 +29,20 @@ export default function MyproductsPage({
   usdPrice,
   locale,
 }: Props) {
+  // دیکشنری متن‌ها بر اساس locale
   const messages: UserProductMessages = useMemo(
     () =>
-      (typeof getUserProductMessages === "function"
-        ? getUserProductMessages("fa")
-        : ({} as any)),
+      typeof getUserProductMessages === "function"
+        ? getUserProductMessages((locale as "fa" | "en") || "fa")
+        : ({} as any),
     [locale]
   );
 
   // مقدار خام (digits) که برای ذخیره می‌فرستیم
   const [localUsd, setLocalUsd] = useState<string>(String(usdPrice ?? ""));
-  useEffect(() => { setLocalUsd(String(usdPrice ?? "")); }, [usdPrice]);
+  useEffect(() => {
+    setLocalUsd(String(usdPrice ?? ""));
+  }, [usdPrice]);
 
   // نمایش سه‌رقم‌سه‌رقم (فقط بخش صحیح)
   const displayUsd = useMemo(
@@ -54,12 +55,12 @@ export default function MyproductsPage({
   // مودال قیمت دلار + ذخیره
   const [openUsdModal, setOpenUsdModal] = useState(false);
   const { update, isSubmitting } = useDollarPriceAction((digits) => {
-    setLocalUsd(digits);             // UI فوری آپدیت
+    setLocalUsd(digits); // UI فوری آپدیت
     setOpenUsdModal(false);
   });
   const handleUsdSubmit = (digits: string) => update(digits);
 
-  // ← لاگ و گرفتن قیمت از بک‌اند (اعشار را حذف می‌کنیم)
+  // گرفتن نرخ دلار کاربر از بک‌اند (مثل فرم افزودن) — فقط بخش صحیح نگه داشته می‌شود
   const { data: session, status } = useSession();
   const { api } = useAuthenticatedApi();
 
@@ -71,25 +72,15 @@ export default function MyproductsPage({
     (async () => {
       try {
         const res: any = await api.get({ url: `/user/dollar-price/${uid}` });
-         const payload = res && typeof res === "object" && "data" in res ? res.data : res;
+        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
 
-
-        // ---- فقط بخش صحیح را نگه می‌داریم (اعشار حذف) ----
+        // فقط قسمت صحیح
         const toIntegerDigits = (v: any): string => {
           if (v == null) return "";
-          if (typeof v === "number") {
-            // عدد اعشاری → فقط قسمت صحیح
-            return String(Math.trunc(v));
-          }
+          if (typeof v === "number") return String(Math.trunc(v));
           if (typeof v === "string") {
-            // تبدیل ارقام فارسی/عربی به انگلیسی و حذف جداکننده‌ها
-            const s = toEnDigits(v)
-              .replace(/,/g, "")
-              .replace(/\s+/g, "")
-              .replace(/٫/g, "."); // نقطه فارسی
-            // فقط بخش قبل از .
+            const s = toEnDigits(v).replace(/,/g, "").replace(/\s+/g, "").replace(/٫/g, ".");
             const intPart = s.split(".")[0];
-            // حذف هر کاراکتر غیر عددی باقی‌مانده
             return intPart.replace(/[^0-9]/g, "");
           }
           if (typeof v === "object" && "value" in (v as any)) {
@@ -99,8 +90,6 @@ export default function MyproductsPage({
         };
 
         const digits = toIntegerDigits(payload);
-        console.log("[DollarPrice][INTEGER_DIGITS] =>", digits);
-
         if (digits !== "") setLocalUsd(digits);
       } catch (e) {
         console.log("[DollarPrice][ERROR] =>", e);
@@ -108,13 +97,10 @@ export default function MyproductsPage({
     })();
   }, [status, session?.user, api]);
 
-  // اکشن‌های دیگر
+  // اشتراک‌گذاری‌ها (در صورت نیاز بعداً پر می‌شوند)
   const onShareJpg = () => {};
   const onSharePdf = () => {};
-  const onShare    = () => {};
-  const onEdit = (_id: number) => {};
-  const onDelete = (_id: number) => {};
-  const onToggleVisible = (_id: number) => {};
+  const onShare = () => {};
 
   return (
     <div dir="rtl" className="container mx-auto px-3 py-4 lg:py-6 text-right">
@@ -123,7 +109,7 @@ export default function MyproductsPage({
         <aside className="hidden lg:block lg:w-80 lg:shrink-0 lg:sticky lg:top-20">
           <div className="rounded-2xl border bg-white p-3 space-y-4 shadow-sm text-right">
             <ProductsToolbar
-              usdPrice={displayUsd}                // ← نمایش سه‌رقم‌سه‌رقم
+              usdPrice={displayUsd}
               addHref={addHref}
               onShareJpg={onShareJpg}
               onSharePdf={onSharePdf}
@@ -139,7 +125,7 @@ export default function MyproductsPage({
           {/* موبایل: تولبار بالا */}
           <div className="lg:hidden mb-4">
             <ProductsToolbar
-              usdPrice={displayUsd}                // ← موبایل هم فرمت‌شده
+              usdPrice={displayUsd}
               addHref={addHref}
               onShareJpg={onShareJpg}
               onSharePdf={onSharePdf}
@@ -149,19 +135,15 @@ export default function MyproductsPage({
             />
           </div>
 
-          <ProductsHeader
-            count={initialItems?.length ?? 0}
-            messages={messages}
-          />
-     
+          <ProductsHeader count={initialItems?.length ?? 0} messages={messages} />
 
+          {/* نکتهٔ مهم: هیچ کال‌بک خالی پاس نده تا منطق داخلی ProductsList کامل کار کند
+             (ویرایش/حذف/عدم‌نمایش/جابجایی/ChangeOrder top-bottom) */}
           <ProductsList
             items={initialItems ?? []}
             messages={messages}
-        
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onToggleVisible={onToggleVisible}
+            // اگر لازم شد می‌تونی onRefresh پاس بدی تا بعد از موفقیت اکشن‌ها رفرش خارجی انجام بشه:
+            // onRefresh={refetchProducts}
           />
         </main>
       </div>
@@ -169,7 +151,7 @@ export default function MyproductsPage({
       {/* مودال قیمت دلار */}
       <DollarPriceModal
         open={openUsdModal}
-        initialValue={localUsd}       // ← مودال مقدار خام (فقط بخش صحیح) را ویرایش می‌کند
+        initialValue={localUsd}
         onClose={() => setOpenUsdModal(false)}
         onSubmit={handleUsdSubmit}
         loading={isSubmitting}

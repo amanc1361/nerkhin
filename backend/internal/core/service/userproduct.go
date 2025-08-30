@@ -681,49 +681,44 @@ func (ups *UserProductService) FetchUserProductById(ctx context.Context, upId in
 	return userProduct, nil
 }
 
-func (ups *UserProductService) BatchDeleteUserProduct(ctx context.Context, id int64) (
-	err error) {
+func (ups *UserProductService) BatchDeleteUserProduct(ctx context.Context, id int64) error {
 	db, err := ups.dbms.NewDB(ctx)
 	if err != nil {
-		return
+		return err
 	}
 
-	err = ups.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-
-		err = ups.repo.BatchDeleteUserProduct(ctx, txSession, id)
+	return ups.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		// 1) قبل از حذف، آیتم را بگیر تا مقدار Order داشته باشیم
+		item, err := ups.repo.GetUserProductByID(ctx, txSession, id)
 		if err != nil {
 			return err
 		}
+		deletedOrder := item.Order
 
-		deletedUserProduct, err := ups.repo.GetUserProductByID(ctx, txSession, id)
-		if err != nil {
+		// 2) حذف آیتم
+		if err := ups.repo.BatchDeleteUserProduct(ctx, txSession, id); err != nil {
 			return err
 		}
-		order := deletedUserProduct.Order
-		userProductsIdsToChange, err := ups.repo.GetUserProductIdsByOrder(ctx, txSession, order)
+
+		// 3) گرفتن آیتم‌هایی که باید جابه‌جا شوند (با همان متد موجود)
+		userProductsIdsToChange, err := ups.repo.GetUserProductIdsByOrder(ctx, txSession, deletedOrder)
 		if err != nil {
 			return err
 		}
 
 		for _, upid := range userProductsIdsToChange {
-			userProductItem, err := ups.repo.GetUserProductByID(ctx, txSession, upid)
+			up, err := ups.repo.GetUserProductByID(ctx, txSession, upid)
 			if err != nil {
 				return err
 			}
-			userProductItem.Order = userProductItem.Order + 1
-			err = ups.repo.UpdateUserProduct(ctx, txSession, userProductItem)
-			if err != nil {
+			up.Order = up.Order + 1 // ← مطابق کد قبلی تو
+			if err := ups.repo.UpdateUserProduct(ctx, txSession, up); err != nil {
 				return err
 			}
 		}
 
 		return nil
 	})
-	if err != nil {
-		return
-	}
-
-	return nil
 }
 
 func (ups *UserProductService) ChangeVisibilityStatus(ctx context.Context, userProductId int64) (err error) {

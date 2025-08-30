@@ -108,7 +108,7 @@ export default function UserProductList({
   }, [onEdit, update]);
 
   // جابه‌جایی ترتیب
-  const swap = (arr: any[], i: number, j: number) => { const r=[...arr]; const t=r[i]; r[i]=r[j]; r[j]=t; return r; };
+  //const swap = (arr: any[], i: number, j: number) => { const r=[...arr]; const t=r[i]; r[i]=r[j]; r[j]=t; return r; };
   // const handleMove = useCallback(async (id: number, direction: "up" | "down") => {
   //   setBusy(true);
   //   setList(prev => {
@@ -123,40 +123,48 @@ export default function UserProductList({
   //     await changeOrder(payload);
   //   } finally { setBusy(false); }
   // }, [changeOrder]);
+// app/components/userproduct/UserProductList.tsx
+// در UserProductList.tsx جایگزینِ نسخه فعلی کن
+const handleMove = useCallback(
+  async (id: number, direction: "up" | "down") => {
+    setBusy(true);
 
- // app/components/userproduct/UserProductList.tsx
-const handleMove = useCallback(async (id: number, direction: "up" | "down") => {
-  setBusy(true);
-
-  // 1) پیدا کردن همسایه و ساخت payload
-  let payload: ChangeOrderPayload | null = null;
-
-  setList(prev => {
-    const idx = prev.findIndex(x => (x as any).id === id);
-    if (idx < 0) return prev;
-
+    // 1) از state فعلی محاسبه کن (نه داخل setList)
+    const idx = list.findIndex((x: any) => x.id === id);
     const neighborIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (neighborIdx < 0 || neighborIdx >= prev.length) return prev;
 
-    const neighborId = (prev[neighborIdx] as any).id;
+    // اگر مرزی بود، کاری نکن
+    if (idx < 0 || neighborIdx < 0 || neighborIdx >= list.length) {
+      setBusy(false);
+      return;
+    }
 
-    // زوجِ بعد از جابه‌جایی:
-    payload = direction === "up"
-      ? { topProductId: id,          bottomProductId: neighborId }
-      : { topProductId: neighborId,  bottomProductId: id };
+    const neighborId = (list[neighborIdx] as any).id;
 
-    // 2) سواپ خوش‌بینانه
-    const copy = [...prev];
-    [copy[idx], copy[neighborIdx]] = [copy[neighborIdx], copy[idx]];
-    return copy;
-  });
+    // 2) payload سازگار با بک‌اند: top/bottom
+    const payload =
+      direction === "up"
+        ? { topProductId: id,         bottomProductId: neighborId }
+        : { topProductId: neighborId, bottomProductId: id };
 
-  try {
-    if (payload) await changeOrder(payload);
-  } finally {
-    setBusy(false);
-  }
-}, [changeOrder]);
+    // 3) سواپ خوش‌بینانهٔ UI
+    setList((prev) => {
+      // برای اطمینان، با ایندکس‌های از قبل محاسبه‌شده کار کن
+      const copy = [...prev];
+      [copy[idx], copy[neighborIdx]] = [copy[neighborIdx], copy[idx]];
+      return copy;
+    });
+
+    // 4) درخواست به سرور
+    try {
+      await changeOrder(payload);
+    } finally {
+      setBusy(false);
+    }
+  },
+  [list, changeOrder]
+);
+
 
   return (
     <div className="grid gap-2" dir="rtl">
