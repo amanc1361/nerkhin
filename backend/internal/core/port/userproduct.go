@@ -42,6 +42,16 @@ type UserProductRepository interface {
 	// متد جدید برای دریافت داده‌های جمع‌آوری شده برای فیلترها
 	GetAggregatedFilterDataForSearch(ctx context.Context, dbSession interface{}, filter *domain.UserProductFilter) (*domain.SearchProductsData, error)
 	FetchShopProductsFiltered(ctx context.Context, dbSession interface{}, q *domain.UserProductQuery) ([]*domain.UserProductView, error)
+	FetchMarketProductsFiltered(
+		ctx context.Context,
+		dbSession interface{},
+		q *domain.UserProductSearchQuery,
+	) ([]*domain.UserProductMarketView, error)
+	CountMarketProductsFiltered(
+		ctx context.Context,
+		dbSession interface{},
+		q *domain.UserProductSearchQuery,
+	) (int64, error)
 }
 
 type UserProductService interface {
@@ -67,4 +77,9 @@ type UserProductService interface {
 		currentUserID, userID, shopID int64,
 		query *domain.UserProductQuery,
 	) (*domain.ShopViewModel, error)
+	SearchPaged(
+		ctx context.Context,
+		dbSession interface{},
+		q *domain.UserProductSearchQuery,
+	) (*domain.MarketSearchResult, error)
 }

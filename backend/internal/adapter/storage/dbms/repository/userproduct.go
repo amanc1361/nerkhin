@@ -12,6 +12,288 @@ import (
 )
 
 type UserProductRepository struct{}
+func (upr *UserProductRepository) FetchMarketProductsFiltered(
+	ctx context.Context,
+	dbSession interface{},
+	q *domain.UserProductSearchQuery,
+) ([]*domain.UserProductMarketView, error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return nil, err
+	}
+	if q == nil {
+		q = &domain.UserProductSearchQuery{}
+	}
+
+	// صفحه‌بندی
+	limit := q.Limit
+	offset := q.Offset
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	// سورت
+	sortDir := strings.ToLower(string(q.SortUpdated))
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc"
+	}
+	sortBy := strings.ToLower(strings.TrimSpace(q.SortBy))
+	if sortBy == "" {
+		sortBy = "updated"
+	}
+	orderExpr := fmt.Sprintf("COALESCE(up.updated_at, up.created_at) %s, up.id %s", sortDir, sortDir)
+	if sortBy == "order" {
+		orderExpr = fmt.Sprintf("up.order_c %s, up.id %s", sortDir, sortDir)
+	}
+
+	// فقط محصولات قابل نمایش
+	onlyVisible := true
+	if q.OnlyVisible != nil {
+		onlyVisible = *q.OnlyVisible
+	}
+
+	qb := db.Table("user_product AS up").
+		Joins("JOIN user_t AS u  ON u.id = up.user_id").
+		Joins("JOIN product AS p ON p.id = up.product_id").
+		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
+		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
+		Joins("LEFT JOIN city AS c ON c.id = u.city_id"). // ← اضافه شد
+		Select(`
+			up.id,
+			up.user_id,
+			up.product_id,
+			up.is_dollar,
+			up.final_price::text            AS final_price,
+			CASE WHEN up.dollar_price IS NULL THEN NULL ELSE up.dollar_price::text END AS dollar_price,
+			up.order_c,
+			p.model_name,
+			p.brand_id,
+			p.default_image_url,
+			p.images_count,
+			p.description,
+			pb.category_id,
+			pc.title                        AS category_title,
+			pb.title                        AS brand_title,
+			u.shop_name,
+			u.city_id,
+			c.title                         AS city_name,   -- ← اضافه شد
+			COALESCE(up.updated_at, up.created_at)::text AS updated_at
+		`)
+
+	// نمایش/نقش
+	if onlyVisible {
+		qb = qb.Where("up.is_hidden = FALSE")
+	}
+	if q.RequireWholesalerRole {
+		// مقدار enum نقش عمده‌فروش را با مقدار پروژهٔ خودت جایگزین کن
+		// مثلاً: u.role = 2
+		qb = qb.Where("u.role = ?" /*UserRoleWholesaler*/, 2)
+	}
+
+	// فیلتر دستهٔ اصلی
+	if q.CategoryID > 0 {
+		qb = qb.Where("pb.category_id = ?", q.CategoryID)
+	}
+
+	// فیلتر زیر‌دسته (اگر ستون روی product دارید، نام ستون را اصلاح کن)
+	if q.SubCategoryID > 0 {
+		qb = qb.Where("p.sub_category_id = ?", q.SubCategoryID)
+	}
+
+	// فیلتر برندها
+	if len(q.BrandIDs) > 0 {
+		qb = qb.Where("pb.id IN ?", q.BrandIDs)
+	}
+
+	// فیلتر ارزی/ریالی
+	if q.IsDollar != nil {
+		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
+	}
+
+	// فیلتر شهر فروشنده
+	if q.CityID != nil && *q.CityID > 0 {
+		qb = qb.Where("u.city_id = ?", *q.CityID)
+	}
+
+	// محدودسازی به سابسکرایب‌های کاربر بیننده (اختیاری)
+	if q.EnforceSubscription && q.ViewerID > 0 {
+		qb = qb.Joins(`
+			JOIN user_subscription uss
+			  ON uss.user_id = ?
+			 AND uss.city_id = u.city_id
+			 AND uss.expires_at > NOW()
+		`, q.ViewerID)
+	}
+
+	// فیلتر تگ‌ها (ANY)
+	if len(q.TagList) > 0 {
+		qb = qb.Where(`
+			EXISTS (
+				SELECT 1 FROM product_tag pt
+				WHERE pt.product_id = up.product_id AND pt.tag IN ?
+			)
+		`, q.TagList)
+	}
+
+	// فیلتر فیلترها/آپشن‌ها (ANY)
+	if len(q.FilterIDs) > 0 {
+		qb = qb.Where(`
+			EXISTS (
+				SELECT 1 FROM product_filter_relation pfr
+				WHERE pfr.product_id = up.product_id AND pfr.filter_id IN ?
+			)
+		`, q.FilterIDs)
+	}
+	if len(q.OptionIDs) > 0 {
+		qb = qb.Where(`
+			EXISTS (
+				SELECT 1 FROM product_filter_relation pfr2
+				WHERE pfr2.product_id = up.product_id AND pfr2.filter_option_id IN ?
+			)
+		`, q.OptionIDs)
+	}
+
+	// جستجوی متنی (روی چند فیلد + وجود در تگ/فیلتر/آپشن)
+	if s := strings.TrimSpace(q.Search); s != "" {
+		like := "%" + s + "%"
+		qb = qb.Where(`
+			p.model_name ILIKE ? OR
+			p.description ILIKE ? OR
+			pb.title      ILIKE ? OR
+			pc.title      ILIKE ? OR
+			u.shop_name   ILIKE ? OR
+			EXISTS (SELECT 1 FROM product_tag pt2 WHERE pt2.product_id = up.product_id AND pt2.tag ILIKE ?) OR
+			EXISTS (
+				SELECT 1
+				FROM product_filter_relation pfr3
+				JOIN product_filter pf   ON pf.id  = pfr3.filter_id
+				JOIN product_filter_option pfo ON pfo.id = pfr3.filter_option_id
+				WHERE pfr3.product_id = up.product_id
+				  AND (pf.display_name ILIKE ? OR pfo.name ILIKE ?)
+			)
+		`, like, like, like, like, like, like, like)
+	}
+
+	var out []*domain.UserProductMarketView
+	if err := qb.
+		Order(clause.Expr{SQL: orderExpr}).
+		Limit(limit).
+		Offset(offset).
+		Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// نسخهٔ Count برای صفحه‌بندی
+func (upr *UserProductRepository) CountMarketProductsFiltered(
+	ctx context.Context,
+	dbSession interface{},
+	q *domain.UserProductSearchQuery,
+) (int64, error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return 0, err
+	}
+	if q == nil {
+		q = &domain.UserProductSearchQuery{}
+	}
+
+	qb := db.Table("user_product AS up").
+		Joins("JOIN user_t AS u  ON u.id = up.user_id").
+		Joins("JOIN product AS p ON p.id = up.product_id").
+		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
+		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
+		Select("up.id")
+
+	// همان قیود بالا را اعمال می‌کنیم (بدون Select جزئیات)
+	onlyVisible := true
+	if q.OnlyVisible != nil {
+		onlyVisible = *q.OnlyVisible
+	}
+	if onlyVisible {
+		qb = qb.Where("up.is_hidden = FALSE")
+	}
+	if q.RequireWholesalerRole {
+		qb = qb.Where("u.role = ?" /*UserRoleWholesaler*/, 2)
+	}
+	if q.CategoryID > 0 {
+		qb = qb.Where("pb.category_id = ?", q.CategoryID)
+	}
+	if q.SubCategoryID > 0 {
+		qb = qb.Where("p.sub_category_id = ?", q.SubCategoryID)
+	}
+	if len(q.BrandIDs) > 0 {
+		qb = qb.Where("pb.id IN ?", q.BrandIDs)
+	}
+	if q.IsDollar != nil {
+		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
+	}
+	if q.CityID != nil && *q.CityID > 0 {
+		qb = qb.Where("u.city_id = ?", *q.CityID)
+	}
+	if q.EnforceSubscription && q.ViewerID > 0 {
+		qb = qb.Joins(`
+			JOIN user_subscription uss
+			  ON uss.user_id = ?
+			 AND uss.city_id = u.city_id
+			 AND uss.expires_at > NOW()
+		`, q.ViewerID)
+	}
+	if len(q.TagList) > 0 {
+		qb = qb.Where(`
+			EXISTS (
+				SELECT 1 FROM product_tag pt
+				WHERE pt.product_id = up.product_id AND pt.tag IN ?
+			)
+		`, q.TagList)
+	}
+	if len(q.FilterIDs) > 0 {
+		qb = qb.Where(`
+			EXISTS (
+				SELECT 1 FROM product_filter_relation pfr
+				WHERE pfr.product_id = up.product_id AND pfr.filter_id IN ?
+			)
+		`, q.FilterIDs)
+	}
+	if len(q.OptionIDs) > 0 {
+		qb = qb.Where(`
+			EXISTS (
+				SELECT 1 FROM product_filter_relation pfr2
+				WHERE pfr2.product_id = up.product_id AND pfr2.filter_option_id IN ?
+			)
+		`, q.OptionIDs)
+	}
+	if s := strings.TrimSpace(q.Search); s != "" {
+		like := "%" + s + "%"
+		qb = qb.Where(`
+			p.model_name ILIKE ? OR
+			p.description ILIKE ? OR
+			pb.title      ILIKE ? OR
+			pc.title      ILIKE ? OR
+			u.shop_name   ILIKE ? OR
+			EXISTS (SELECT 1 FROM product_tag pt2 WHERE pt2.product_id = up.product_id AND pt2.tag ILIKE ?) OR
+			EXISTS (
+				SELECT 1
+				FROM product_filter_relation pfr3
+				JOIN product_filter pf   ON pf.id  = pfr3.filter_id
+				JOIN product_filter_option pfo ON pfo.id = pfr3.filter_option_id
+				WHERE pfr3.product_id = up.product_id
+				  AND (pf.display_name ILIKE ? OR pfo.name ILIKE ?)
+			)
+		`, like, like, like, like, like, like, like)
+	}
+
+	var total int64
+	if err := qb.Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
 
 func (upr *UserProductRepository) CreateUserProduct(ctx context.Context, dbSession interface{},
 	userProduct *domain.UserProduct) (id int64, err error) {

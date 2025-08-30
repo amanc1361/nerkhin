@@ -206,6 +206,27 @@ func (ps *UserProductService) FetchShopProducts(ctx context.Context,
 
 	return userProductsVM, nil
 }
+func (ps *UserProductService) SearchPaged(
+	ctx context.Context,
+	dbSession interface{},
+	q *domain.UserProductSearchQuery,
+) (*domain.MarketSearchResult, error) {
+	// session معتبر
+	db, err := ps.dbms.NewDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items, err := ps.repo.FetchMarketProductsFiltered(ctx, db, q)
+	if err != nil {
+		return nil, err
+	}
+	total, err := ps.repo.CountMarketProductsFiltered(ctx, db, q)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.MarketSearchResult{Items: items, Total: total}, nil
+}
 
 // internal/core/service/user_product_service.go
 func (ps *UserProductService) FetchShopProductsFiltered(

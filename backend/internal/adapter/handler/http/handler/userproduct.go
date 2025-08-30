@@ -41,6 +41,136 @@ type createUserProductRequest struct {
 type createUserProductResponse struct {
 	ID int64 `json:"id" example:"1"`
 }
+func (h *UserProductHandler) Search(c *gin.Context) {
+	// اگر محدودسازی به سابسکرایب لازم است از کانتکست کاربر احراز هویت‌شده بخوان:
+	viewerID := currentUserIDOrZero(c) // با منطق auth خودت عوض کن
+
+	limit := atoiDefault(c.Query("limit"), 100)
+	offset := atoiDefault(c.Query("offset"), 0)
+
+	sortBy := strings.TrimSpace(c.Query("sortBy")) // "updated" | "order"
+	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir")))) // asc|desc
+
+	categoryID := int64(atoiDefault(c.Query("categoryId"), 0))
+	subCategoryID := int64(atoiDefault(c.Query("subCategoryId"), 0))
+
+	brandIDs := parseInt64Multi(c.QueryArray("brandId"))
+	optionIDs := parseInt64Multi(c.QueryArray("optionId"))
+	filterIDs := parseInt64Multi(c.QueryArray("filterId"))
+	tags := uniqueNonEmpty(c.QueryArray("tag"))
+	search := strings.TrimSpace(c.Query("search"))
+
+	var isDollarPtr *bool
+	if v := strings.TrimSpace(c.Query("isDollar")); v != "" {
+		if v == "true" || v == "1" {
+			t := true
+			isDollarPtr = &t
+		} else if v == "false" || v == "0" {
+			f := false
+			isDollarPtr = &f
+		}
+	}
+
+	var cityIDPtr *int64
+	if v := strings.TrimSpace(c.Query("cityId")); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil && id > 0 {
+			cityIDPtr = &id
+		}
+	}
+
+	// enforceSubscription را بر اساس سناریوت فعال/غیرفعال کن.
+	// اگر همیشه باید فقط شهرهای سابسکرایب‌شده دیده شوند، این را true کن.
+	enforceSubscription := c.Query("enforceSubscription") == "1"
+
+	onlyVisible := true
+	if v := c.Query("onlyVisible"); v == "0" {
+		onlyVisible = false
+	}
+
+	q := &domain.UserProductSearchQuery{
+		Limit:     limit,
+		Offset:    offset,
+		SortBy:    sortBy,
+		SortUpdated: sortUpdated,
+
+		CategoryID:    categoryID,
+		SubCategoryID: subCategoryID,
+		BrandIDs:      brandIDs,
+		IsDollar:      isDollarPtr,
+		Search:        search,
+		TagList:       tags,
+		FilterIDs:     filterIDs,
+		OptionIDs:     optionIDs,
+		CityID:        cityIDPtr,
+
+		OnlyVisible:           &onlyVisible,
+		EnforceSubscription:   enforceSubscription,
+		ViewerID:              viewerID,
+		RequireWholesalerRole: true, // محصولات عمده‌فروش‌ها
+	}
+
+	// dbSession را از DI یا کانتکست پروژه‌ات پاس بده
+	dbSession := c.MustGet("DB") // نمونه؛ با پروژه‌ات هماهنگ کن
+
+	res, err := h.service.SearchPaged(c.Request.Context(), dbSession, q)
+	if err != nil {
+		
+		validationError(c,err,h.AppConfig.Lang)
+		return
+	}
+	handleSuccess(c,res)
+}
+
+func atoiDefault(s string, def int) int {
+	if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v >= 0 {
+		return v
+	}
+	return def
+}
+
+func parseInt64Multi(arr []string) []int64 {
+	out := make([]int64, 0, len(arr))
+	seen := map[int64]struct{}{}
+	for _, s := range arr {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if v, err := strconv.ParseInt(s, 10, 64); err == nil && v > 0 {
+			if _, ok := seen[v]; !ok {
+				seen[v] = struct{}{}
+				out = append(out, v)
+			}
+		}
+	}
+	return out
+}
+
+func uniqueNonEmpty(arr []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(arr))
+	for _, s := range arr {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; !ok {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+
+func currentUserIDOrZero(c *gin.Context) int64 {
+	if v, ok := c.Get("userId"); ok {
+		if id, ok2 := v.(int64); ok2 && id > 0 {
+			return id
+		}
+	}
+	return 0
+}
 
 func (uph *UserProductHandler) Create(c *gin.Context) {
 	var req createUserProductRequest
