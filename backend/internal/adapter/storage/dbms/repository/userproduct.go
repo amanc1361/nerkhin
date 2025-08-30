@@ -12,6 +12,7 @@ import (
 )
 
 type UserProductRepository struct{}
+
 func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	ctx context.Context,
 	dbSession interface{},
@@ -99,9 +100,6 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	}
 
 	// فیلتر زیر‌دسته (اگر ستون روی product دارید، نام ستون را اصلاح کن)
-	if q.SubCategoryID > 0 {
-		qb = qb.Where("p.sub_category_id = ?", q.SubCategoryID)
-	}
 
 	// فیلتر برندها
 	if len(q.BrandIDs) > 0 {
@@ -174,7 +172,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 				WHERE pfr3.product_id = up.product_id
 				  AND (pf.display_name ILIKE ? OR pfo.name ILIKE ?)
 			)
-		`, like, like, like, like, like, like, like)
+		`, like, like, like, like, like, like, like, like)
 	}
 
 	var out []*domain.UserProductMarketView
@@ -223,9 +221,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 	if q.CategoryID > 0 {
 		qb = qb.Where("pb.category_id = ?", q.CategoryID)
 	}
-	if q.SubCategoryID > 0 {
-		qb = qb.Where("p.sub_category_id = ?", q.SubCategoryID)
-	}
+
 	if len(q.BrandIDs) > 0 {
 		qb = qb.Where("pb.id IN ?", q.BrandIDs)
 	}
@@ -284,7 +280,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 				WHERE pfr3.product_id = up.product_id
 				  AND (pf.display_name ILIKE ? OR pfo.name ILIKE ?)
 			)
-		`, like, like, like, like, like, like, like)
+		`, like, like, like, like, like, like, like, like)
 	}
 
 	var total int64
@@ -293,7 +289,6 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 	}
 	return total, nil
 }
-
 
 func (upr *UserProductRepository) CreateUserProduct(ctx context.Context, dbSession interface{},
 	userProduct *domain.UserProduct) (id int64, err error) {
