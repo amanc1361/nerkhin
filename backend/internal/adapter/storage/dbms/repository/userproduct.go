@@ -377,7 +377,7 @@ func (upr *UserProductRepository) FetchUserProductById(
 			"p.model_name           AS product_model",
 			"p.shops_count          AS shops_count",
 		).
-	Take(&view).Error
+		Take(&view).Error
 
 	if err != nil {
 		return nil, err
@@ -410,7 +410,7 @@ func (upr *UserProductRepository) GetUserProductIdsByOrder(ctx context.Context, 
 	}
 
 	err = db.Table("user_product AS up").
-		Where("up.order > ?", order).
+		Where("up.order_c > ?", order).
 		Select(
 			"up.id",
 		).Take(&ids).Error
