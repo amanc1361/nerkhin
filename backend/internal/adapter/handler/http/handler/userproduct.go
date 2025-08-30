@@ -41,6 +41,7 @@ type createUserProductRequest struct {
 type createUserProductResponse struct {
 	ID int64 `json:"id" example:"1"`
 }
+
 func (h *UserProductHandler) Search(c *gin.Context) {
 	// اگر محدودسازی به سابسکرایب لازم است از کانتکست کاربر احراز هویت‌شده بخوان:
 	viewerID := currentUserIDOrZero(c) // با منطق auth خودت عوض کن
@@ -48,7 +49,7 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 	limit := atoiDefault(c.Query("limit"), 100)
 	offset := atoiDefault(c.Query("offset"), 0)
 
-	sortBy := strings.TrimSpace(c.Query("sortBy")) // "updated" | "order"
+	sortBy := strings.TrimSpace(c.Query("sortBy"))                                            // "updated" | "order"
 	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir")))) // asc|desc
 
 	categoryID := int64(atoiDefault(c.Query("categoryId"), 0))
@@ -88,9 +89,9 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 	}
 
 	q := &domain.UserProductSearchQuery{
-		Limit:     limit,
-		Offset:    offset,
-		SortBy:    sortBy,
+		Limit:       limit,
+		Offset:      offset,
+		SortBy:      sortBy,
 		SortUpdated: sortUpdated,
 
 		CategoryID:    categoryID,
@@ -109,16 +110,13 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 		RequireWholesalerRole: true, // محصولات عمده‌فروش‌ها
 	}
 
-	// dbSession را از DI یا کانتکست پروژه‌ات پاس بده
-	dbSession := c.MustGet("DB") // نمونه؛ با پروژه‌ات هماهنگ کن
-
-	res, err := h.service.SearchPaged(c.Request.Context(), dbSession, q)
+	res, err := h.service.SearchPaged(c.Request.Context(), q)
 	if err != nil {
-		
-		validationError(c,err,h.AppConfig.Lang)
+
+		validationError(c, err, h.AppConfig.Lang)
 		return
 	}
-	handleSuccess(c,res)
+	handleSuccess(c, res)
 }
 
 func atoiDefault(s string, def int) int {
@@ -161,7 +159,6 @@ func uniqueNonEmpty(arr []string) []string {
 	}
 	return out
 }
-
 
 func currentUserIDOrZero(c *gin.Context) int64 {
 	if v, ok := c.Get("userId"); ok {

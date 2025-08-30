@@ -10,6 +10,8 @@ import type {
   UserProductVM,
   UserProductView,
 } from "@/app/types/userproduct/userProduct";
+import { MarketItemVM, MarketSearchQuery, MarketSearchResult, MarketSearchVM, UserProductMarketView } from "@/app/types/userproduct/market";
+import { getUserProductMessages } from "./texts/userProdutMessages";
 
 // ---------------- URL helpers ----------------
 const clean = (s: string) => (s || "").replace(/\/+$/, "");
@@ -174,4 +176,98 @@ export async function fetchPriceListSSR(): Promise<PriceListVM> {
     null;
 
   return { usdPrice: usd ?? null };
+}
+function absolutizeUploads(imageUrl?: string | null) {
+  if (!imageUrl) return null;
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+  const prefix = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "");
+  const clean = imageUrl.replace(/^\/+/, "");
+  return clean.startsWith("uploads/") ? `${host}/${clean}` : `${host}${prefix}/${clean}`;
+}
+
+function setMulti(params: URLSearchParams, key: string, values?: Array<string | number>) {
+  if (!values?.length) return;
+  for (const v of values) params.append(key, String(v));
+}
+
+function buildMarketSearchQS(q?: MarketSearchQuery) {
+  if (!q) return "";
+  const p = new URLSearchParams();
+  if (typeof q.limit === "number") p.set("limit", String(q.limit));
+  if (typeof q.offset === "number") p.set("offset", String(q.offset));
+  if (q.sortBy) p.set("sortBy", q.sortBy);
+  if (q.sortUpdated) p.set("sortDir", q.sortUpdated);
+
+  if (q.categoryId) p.set("categoryId", String(q.categoryId));
+  if (q.subCategoryId) p.set("subCategoryId", String(q.subCategoryId));
+  setMulti(p, "brandId", q.brandId);
+  setMulti(p, "optionId", q.optionId);
+  setMulti(p, "filterId", q.filterId);
+  setMulti(p, "tag", q.tag);
+  if (q.search) p.set("search", q.search);
+
+  if (q.isDollar === true) p.set("isDollar", "1");
+  else if (q.isDollar === false) p.set("isDollar", "0");
+
+  if (q.cityId) p.set("cityId", String(q.cityId));
+  if (q.enforceSubscription) p.set("enforceSubscription", "1");
+  if (q.onlyVisible === false) p.set("onlyVisible", "0");
+  const qs = p.toString();
+  return qs ? `?${qs}` : "";
+}
+
+function mapMarketItemToVM(p: UserProductMarketView): MarketItemVM {
+  const dollar =
+    (p as any).dollarPrice?.String ??
+    (p as any).dollarPrice ??
+    null;
+
+  return {
+    id: p.id,
+    productId: p.productId,
+    userId: p.userId,
+    isDollar: !!p.isDollar,
+    finalPrice: String((p as any).finalPrice?.String ?? p.finalPrice ?? ""),
+    dollarPrice: dollar === null || dollar === undefined ? null : String(dollar),
+    order: p.order,
+
+    modelName: p.modelName,
+    brandId: p.brandId,
+    brandTitle: p.brandTitle,
+    categoryId: p.categoryId,
+    categoryTitle: p.categoryTitle,
+
+    imageUrl: absolutizeUploads(p.defaultImageUrl),
+    imagesCount: p.imagesCount,
+    description: p.description,
+
+    shopName: p.shopName,
+    cityId: p.cityId,
+    cityName: p.cityName,
+
+    updatedAt: p.updatedAt,
+  };
+}
+
+// --------- اکشن SSR: جستجوی بازار عمده‌فروشان ---------
+export async function searchMarketSSR(q: MarketSearchQuery, locale: "fa" | "en" = "fa"): Promise<MarketSearchVM> {
+  const headers = await authHeader(); // در صورت نیاز به enforceSubscription یا viewerID
+  const t = getUserProductMessages(locale);
+  const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
+  const url = joinUrl(base, "/user-product/search") + buildMarketSearchQS(q);
+
+  const res = await fetch(url, { headers, cache: "no-store" });
+  const payload = await readJson<MarketSearchResult>(res);
+
+  const items = Array.isArray(payload?.items) ? payload.items : [];
+  const total = Number(payload?.total ?? 0);
+
+  // مپ به VM
+  const mapped: MarketItemVM[] = items.map(mapMarketItemToVM);
+
+  // (بدون هاردکد) اگر خواستی پیام خالی بودن را در UI استفاده کنی:
+  // if (!mapped.length) console.info(t.list.empty);  // فقط مثال
+
+  return { items: mapped, total };
 }

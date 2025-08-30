@@ -208,7 +208,6 @@ func (ps *UserProductService) FetchShopProducts(ctx context.Context,
 }
 func (ps *UserProductService) SearchPaged(
 	ctx context.Context,
-	dbSession interface{},
 	q *domain.UserProductSearchQuery,
 ) (*domain.MarketSearchResult, error) {
 	// session معتبر

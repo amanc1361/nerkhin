@@ -79,7 +79,7 @@ type UserProductService interface {
 	) (*domain.ShopViewModel, error)
 	SearchPaged(
 		ctx context.Context,
-		dbSession interface{},
+
 		q *domain.UserProductSearchQuery,
 	) (*domain.MarketSearchResult, error)
 }

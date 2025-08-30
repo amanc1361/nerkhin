@@ -1,6 +1,6 @@
 "use client";
 import { MarketMessages } from "@/lib/server/texts/marketMessages";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 function IconSearch({ className = "" }) {
   return (
@@ -15,32 +15,50 @@ export default function SearchBar({
   t,
   role,
   initialQuery = "",
+  persistFilters = true, // ← اگر false کنی فقط q ست می‌شود
 }: {
   t: MarketMessages;
   role: "wholesaler" | "retailer";
   initialQuery?: string;
+  /** حفظ سایر فیلترهای URL هنگام جستجو (categoryId, brandId, ...) */
+  persistFilters?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const base = role === "wholesaler" ? "/wholesaler/search" : "/retailer/search";
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const q = (new FormData(e.currentTarget).get("q") as string)?.trim() ?? "";
-    router.push(`${base}?q=${encodeURIComponent(q)}`);
+
+    const q = ((new FormData(e.currentTarget).get("q") as string) || "").trim();
+
+    // اگر بخوای پارامترهای فعلی (مثل categoryId, brandId...) حفظ بشن:
+    const params = new URLSearchParams(persistFilters ? searchParams.toString() : "");
+
+    if (q) params.set("q", q);
+    else params.delete("q");
+
+    const qs = params.toString();
+    const href = qs ? `${base}?${qs}` : base;
+
+    const onResultsPage = pathname?.startsWith(base);
+    (onResultsPage ? router.replace : router.push)(href);
   };
 
   return (
-    <form dir="rtl" onSubmit={onSubmit}>
+    <form dir="rtl" onSubmit={onSubmit} className="w-full">
       <div className="mx-auto max-w-3xl">
         <div className="relative rounded-2xl bg-white border border-slate-200 shadow-sm">
-          {/* ورودی جستجو */}
           <input
             name="q"
             defaultValue={initialQuery}
             placeholder={t.searchCta}
+            autoComplete="off"
+            inputMode="search"
             className="w-full bg-transparent outline-none rounded-2xl py-3.5 md:py-4 pr-3 pl-12 text-right text-slate-800 placeholder:text-slate-400"
           />
-          {/* آیکن ذره‌بین به‌عنوان دکمهٔ ارسال */}
           <button
             type="submit"
             aria-label={t.menu.search}

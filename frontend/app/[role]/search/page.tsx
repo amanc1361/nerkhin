@@ -1,18 +1,15 @@
-
-import SearchHero from "@/app/components/layout/SearchHero";
-import CategoryGrid from "@/app/components/shared/CategoryGrid";
-import { SearchParamsPromise } from "@/app/types/searchparam";
-import { getAllCategories } from "@/lib/server/server-api";
+// app/[role]/search/page.tsx
 import { getMarketMessages } from "@/lib/server/texts/marketMessages";
 
-
 export const revalidate = 0;
+
+type Role = "wholesaler" | "retailer";
 
 export default async function SearchPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ role: "wholesaler" | "retailer" }>;
+  params: Promise<{ role: Role }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { role } = await params;
@@ -21,16 +18,15 @@ export default async function SearchPage({
   const q = Array.isArray(raw) ? raw[0] : raw ?? "";
 
   const t = getMarketMessages("fa");
-  const categories = await getAllCategories().catch(() => []);
 
+  // صفحهٔ کلاینتی برای مصرف useMarketSearch
   return (
-    <main className="bg-white">
-      <SearchHero t={t} role={role} initialQuery={q} />
-      <CategoryGrid
-        categories={categories}
-        linkFor={(c) => `/${role}/categories/${c.id}`}
-      />
-    </main>
+    <div className="bg-white">
+   
+      <SearchResultsClient role={role} initialQuery={q} t={t} />
+    </div>
   );
 }
 
+// چون این فایل Server است، ایمپورت کلاینتی را پایین می‌آوریم تا Tree-shake شود
+import SearchResultsClient from "@/app/components/market/SearchResultsClient";
