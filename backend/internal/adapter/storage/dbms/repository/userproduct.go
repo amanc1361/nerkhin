@@ -80,7 +80,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			pb.title                        AS brand_title,
 			u.shop_name,
 			u.city_id,
-			c.title                         AS city_name,   -- ← اضافه شد
+			c.name                         AS city_name,   -- ← اضافه شد
 			COALESCE(up.updated_at, up.created_at)::text AS updated_at
 		`)
 
