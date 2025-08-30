@@ -59,6 +59,7 @@ func AuthMiddleware(token port.TokenService, appConfig config.App) gin.HandlerFu
 		}
 
 		c.Set(httputil.AuthPayloadKey, payload)
+		c.Set("user_id", payload.UserID)
 
 		c.Next()
 	}

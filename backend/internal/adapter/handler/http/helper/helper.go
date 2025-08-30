@@ -31,3 +31,30 @@ func GetAuthPayload(ctx *gin.Context) *domain.TokenPayload {
 	}
 	return payload
 }
+func GetUserID(c *gin.Context) (int64, bool) {
+	// اول از همون کلیدهایی که در میدلور ست کردیم
+	if id := c.GetInt64("user_id"); id > 0 {
+		return id, true
+	}
+	if v, ok := c.Get("userId"); ok {
+		switch t := v.(type) {
+		case int64:
+			if t > 0 {
+				return t, true
+			}
+		case int:
+			if t > 0 {
+				return int64(t), true
+			}
+		case string:
+			if n, err := strconv.ParseInt(t, 10, 64); err == nil && n > 0 {
+				return n, true
+			}
+		}
+	}
+	// در نهایت از خود payload
+	if p := GetAuthPayload(c); p != nil && p.UserID > 0 {
+		return p.UserID, true
+	}
+	return 0, false
+}

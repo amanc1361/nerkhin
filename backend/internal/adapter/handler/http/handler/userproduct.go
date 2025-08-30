@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
+
 	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
 	"github.com/nerkhin/internal/core/domain"
 	"github.com/nerkhin/internal/core/port"
@@ -251,7 +252,8 @@ type updateUserProductRequest struct {
 func (psh *UserProductHandler) FetchShopProducts(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	currentUserID := c.GetInt64("user_id") // مثل قبل از کانتکست auth
+	authPayload := httputil.GetAuthPayload(c)
+	currentUserID := authPayload.UserID
 	userID := currentUserID
 	shopID, _ := strconv.ParseInt(c.Query("shopId"), 10, 64)
 
