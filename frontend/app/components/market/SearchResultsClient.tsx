@@ -9,8 +9,10 @@ import type { MarketMessages } from "@/lib/server/texts/marketMessages";
 import Pagination from "@/app/components/shared/Pagination";
 import { useIntersection } from "@/app/hooks/useIntersection";
 import MarketProductItem from "./MarketProductItem";
-import { Search } from "lucide-react";
-import Link from "next/link";
+import { Filter, Search } from "lucide-react";
+import FiltersModal, { FiltersValue } from "./FilterModal";
+// 👇 اضافه شد
+
 
 type Role = "wholesaler" | "retailer";
 
@@ -36,7 +38,10 @@ export default function SearchResultsClient({
     return Number.isFinite(n) && n > 0 ? n : undefined;
   }, [sp]);
 
-  // جستجو (CSR) — بدون تغییر در شکل پارامترهای قبلی
+  // 👇 اضافه شد: وضعیت باز/بسته بودن پنل فیلتر
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // جستجو (CSR)
   const { data, loading, setPage, page, setQuery, query } = useMarketSearch(
     {
       limit: 20,
@@ -44,7 +49,7 @@ export default function SearchResultsClient({
       sortUpdated: "desc",
       onlyVisible: true,
       search: initialQuery || "",
-      categoryId: catId, // ⬅️ فقط این را اضافه کردیم
+      categoryId: catId, // ⬅️
     },
     "fa"
   );
@@ -74,7 +79,7 @@ export default function SearchResultsClient({
     setQuery((prev) => ({
       ...prev,
       search: q,
-      categoryId: n && n > 0 ? n : undefined, // ⬅️ فقط همین
+      categoryId: n && n > 0 ? n : undefined,
       offset: 0,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,11 +87,37 @@ export default function SearchResultsClient({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    // هنگام جستجوی جدید، categoryId فعلی URL حفظ شود
     const params = new URLSearchParams();
     if (text) params.set("q", text);
     if (catId) params.set("categoryId", String(catId));
     router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
+  };
+
+  // 👇 اضافه شد: اعمال فیلترهای برگشتی از مودال
+  const applyFilters = (f: FiltersValue) => {
+    setQuery((prev) => ({
+      ...prev,
+      offset: 0,
+      categoryId: f.categoryId ?? prev.categoryId,
+      isDollar: typeof f.isDollar === "boolean" ? f.isDollar : undefined,
+      priceMin: f.priceMin,
+      priceMax: f.priceMax,
+      cityId: f.cityId,
+      brandIds: f.brandIds?.length ? f.brandIds : undefined,
+    }));
+
+    const params = new URLSearchParams();
+    const qUrl = (sp.get("q") || "").trim();
+    if (qUrl) params.set("q", qUrl);
+    if (f.categoryId ?? catId) params.set("categoryId", String(f.categoryId ?? catId));
+    if (typeof f.isDollar === "boolean") params.set("isDollar", f.isDollar ? "1" : "0");
+    if (f.priceMin != null) params.set("min", String(f.priceMin));
+    if (f.priceMax != null) params.set("max", String(f.priceMax));
+    if (f.cityId != null) params.set("cityId", String(f.cityId));
+    if (f.brandIds?.length) params.set("brandIds", f.brandIds.join(","));
+    router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
+
+    setFiltersOpen(false);
   };
 
   const limit = query.limit || 20;
@@ -107,17 +138,30 @@ export default function SearchResultsClient({
       {/* Header + Search */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
         <div className="flex  items-center gap-2 py-3">
-        
-          <form onSubmit={submit} className="flex w-full">
+          <form onSubmit={submit} className="flex w-full gap-2">
             <div className="flex w-full items-center gap-2 rounded-2xl border px-3 py-2 bg-white shadow-sm">
-               
-              <input value={text} onChange={(e) => setText(e.target.value)} className="w-full outline-none bg-transparent text-sm" placeholder={t.search.placeholder} dir="rtl" />
-              <Search></Search>
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full outline-none bg-transparent text-sm"
+                placeholder={t.search.placeholder}
+                dir="rtl"
+              />
+              <button aria-label={t.action.search} className="p-1 rounded-md hover:bg-gray-100">
+                <Search className="w-5 h-5" />
+              </button>
             </div>
-            <Link href="#" className="text-blue-500 w-40 px-4 py-2">فیلتر نتایج</Link>
+            {/* 👇 دکمهٔ باز کردن مودال فیلتر */}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(true)}
+              className="border rounded-md justify-center flex items-center gap-2 py-2 px-3 w-40 hover:bg-gray-50"
+            >
+              <Filter className="w-5 h-5" />
+              <span>فیلتر نتایج</span>
+            </button>
           </form>
         </div>
-      
       </header>
 
       {/* موبایل: اسکرول بی‌نهایت */}
@@ -143,6 +187,33 @@ export default function SearchResultsClient({
           <Pagination currentPage={page} totalPages={totalPages} />
         </div>
       </section>
+
+      {/* 👇 فقط صدا زدن کامپوننت مودال (کامپوننت جداست) */}
+      <FiltersModal
+  open={filtersOpen}
+  onClose={() => setFiltersOpen(false)}
+  onApply={applyFilters}
+  initial={{
+    categoryId: catId,
+    isDollar:
+      sp.get("isDollar") === "1"
+        ? true
+        : sp.get("isDollar") === "0"
+        ? false
+        : null,
+    priceMin: sp.get("min") ? Number(sp.get("min")) : undefined,
+    priceMax: sp.get("max") ? Number(sp.get("max")) : undefined,
+    cityId: sp.get("cityId") ? Number(sp.get("cityId")) : undefined,
+    brandIds: sp.get("brandIds")
+      ? sp.get("brandIds")!.split(",").map(Number).filter((n) => Number.isFinite(n) && n > 0)
+      : [],
+  }}
+  categoryId={catId??0}  
+  cities={[]}
+  title="فیلترها"
+  dir="rtl"
+/>
+
     </main>
   );
 }
