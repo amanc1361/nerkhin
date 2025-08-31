@@ -47,7 +47,7 @@ export default function TopNav({
   const items =
     role === "wholesaler"
       ? ([
-          { key: "search" as const,   href: `${base}/search`,   label: t.menu.search,      Icon: IconSearch },
+          { key: "search" as const,   href: `${base}`,   label: t.menu.search,      Icon: IconSearch },
           { key: "account" as const,  href: `${base}/account`,  label: t.menu.myAccount,   Icon: IconUser },
           { key: "products" as const, href: `${base}/products`, label: t.menu.myProducts,  Icon: IconBox },
         ])
