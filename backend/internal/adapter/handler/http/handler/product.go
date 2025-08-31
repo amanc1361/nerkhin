@@ -278,7 +278,7 @@ func (h *ProductHandler) GetByBrand(c *gin.Context) {
 
 	// کوئری‌استرینگ page و page_size
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "200"))
 
 	result, err := h.service.GetProductsByBrandIDPaginated(
 		c.Request.Context(),

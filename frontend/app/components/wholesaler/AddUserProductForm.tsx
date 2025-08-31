@@ -11,6 +11,7 @@ import { toast } from "react-toastify";
 import SearchableSelect from "../shared/SearchableSelect";
 import MoneyInput, { formatMoneyInput, parseMoney, toEnDigits } from "../shared/MonyInput"; // ← فقط از همین‌ها استفاده می‌کنیم
 import Link from "next/link";
+import { useRouter } from "next/navigation"; 
 
 export default function AddUserProductForm({ subCategoryId }: { subCategoryId: number }) {
   const t = getUserProductMessages("fa");
@@ -35,7 +36,7 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
   const [finalPrice, setFinalPrice] = useState("");   // formatted (تومان)
 
   const [submitting, setSubmitting] = useState(false);
-
+  const router = useRouter();
   useEffect(() => {
     setProductId("");
     if (brandId) refresh();
@@ -114,8 +115,10 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
       });
       toast.success(t.toasts.updated);
       // پاک‌سازی قیمت‌ها
-      setDollarPrice(""); setOtherCosts(""); setFinalPrice("");
-    } catch {
+      //setDollarPrice(""); setOtherCosts(""); setFinalPrice("");
+      // هدایت به صفحه محصولات
+      router.push('/wholesaler/products');
+      } catch {
       toast.error(t.toasts.error);
     } finally {
       setSubmitting(false);

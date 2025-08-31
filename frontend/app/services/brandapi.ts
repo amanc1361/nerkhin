@@ -19,7 +19,7 @@ export const modelApi = {
 
 export const productApi = {
   create: (data: FormData) => ({ url: '/product/create', method: 'post' as const, body: data }),
-getByBrand: (brandId: string | number, page = 1, pageSize = 10) => ({
+getByBrand: (brandId: string | number, page = 1, pageSize = 200) => ({
   url: `/product/by-brand/${brandId}?page=${page}&page_size=${pageSize}`,
   method: "get" as const,
 }),

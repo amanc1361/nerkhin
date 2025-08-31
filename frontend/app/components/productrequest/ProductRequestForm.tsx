@@ -9,7 +9,7 @@ import type {
   CreateProductRequestResponse,
   ProductRequestMessages,
 } from "@/app/types/productRequest/product-request"
-
+import { useRouter } from "next/navigation";
 type Props = {
   messages: ProductRequestMessages;
 };
@@ -18,7 +18,7 @@ export default function ProductRequestForm({ messages }: Props) {
   const { api } = useAuthenticatedApi();
   const [desc, setDesc] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const router=useRouter();
   const submit = async () => {
     if (!desc.trim()) {
       toast.error("لطفاً توضیحات را وارد کنید");
@@ -35,7 +35,7 @@ export default function ProductRequestForm({ messages }: Props) {
       setDesc("");
       // اگر نیاز دارید به صفحه‌ی دیگری بروید، اینجا هدایت کنید
       // router.push(...);
-      console.log("[ProductRequest][Create][Response] =>", res);
+      router.push('/wholesaler/products');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "ارسال درخواست ناموفق بود");
     } finally {

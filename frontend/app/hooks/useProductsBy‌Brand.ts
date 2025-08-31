@@ -6,7 +6,7 @@ import { productApi } from "@/app/services/brandapi";
 import { ProductViewModel } from "@/app/types/product/product";
 import { PaginatedResult } from "@/app/types/paginate/pagination";
 
-const PAGE_SIZE = 10; // می‌تونی تغییر بدی یا از بیرون بفرستی
+const PAGE_SIZE = 100; // می‌تونی تغییر بدی یا از بیرون بفرستی
 
 export function useProductsByBrand(brandId: string | number, page: number = 1) {
   const { api } = useAuthenticatedApi();
