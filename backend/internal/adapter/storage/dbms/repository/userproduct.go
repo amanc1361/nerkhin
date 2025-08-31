@@ -81,7 +81,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			u.city_id,
 			c.name                         AS city_name,   -- ← اضافه شد
 			up.updated_at AS updated_at
-		`)
+		`).Distinct("up.product_id")
 
 	// نمایش/نقش
 	if onlyVisible {
