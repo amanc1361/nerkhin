@@ -42,7 +42,7 @@ export async function middleware(req: NextRequest) {
     (session as any)?.role ??
     (session as any)?.user?.role ??
     (session as any)?.userRole ??
-    (session as any)?.user?.userRole ??
+    (session as any)?.user?.userRole ?? 
     (session as any)?.claims?.role ??
     null;
 
