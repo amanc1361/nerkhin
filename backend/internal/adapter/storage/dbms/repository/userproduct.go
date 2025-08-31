@@ -36,18 +36,19 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		offset = 0
 	}
 
-	// سورت
+	// جهت سورت نهایی (روی خروجیِ dedup)
 	sortDir := strings.ToLower(string(q.SortUpdated))
 	if sortDir != "asc" && sortDir != "desc" {
 		sortDir = "desc"
 	}
+	// فیلد سورت نهایی
 	sortBy := strings.ToLower(strings.TrimSpace(q.SortBy))
 	if sortBy == "" {
-		sortBy = "updated"
+		sortBy = "updated" // بر اساس updated/created
 	}
-	orderExpr := fmt.Sprintf("COALESCE(up.updated_at, up.created_at) %s, up.final_price %s", sortDir, sortDir)
+	finalOrder := fmt.Sprintf("COALESCE(x.updated_at, x.created_at) %s, x.final_price ASC", sortDir)
 	if sortBy == "order" {
-		orderExpr = fmt.Sprintf("up.order_c %s, up.id %s", sortDir, sortDir)
+		finalOrder = fmt.Sprintf("x.order_c %s, x.id %s", sortDir, sortDir)
 	}
 
 	// فقط محصولات قابل نمایش
@@ -56,126 +57,121 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		onlyVisible = *q.OnlyVisible
 	}
 
-	qb := db.Table("user_product AS up").
+	// -----------------------------
+	// ۱) ساختن کوئریِ پایه با همهٔ فیلترها
+	// -----------------------------
+	base := db.Table("user_product AS up").
 		Joins("JOIN user_t AS u  ON u.id = up.user_id").
 		Joins("JOIN product AS p ON p.id = up.product_id").
 		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
 		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
-		Joins("LEFT JOIN city AS c ON c.id = u.city_id"). // ← اضافه شد
-		Select(`
-			up.id,
-			up.user_id,
-			up.product_id,
-			up.is_dollar,
-			up.final_price,
-			up.order_c,
-			p.model_name,
-			p.brand_id,
-			p.default_image_url,
-			p.images_count,
-			p.description,
-			pb.category_id,
-			pc.title                        AS category_title,
-			pb.title                        AS brand_title,
-			u.shop_name,
-			u.city_id,
-			c.name                         AS city_name,   -- ← اضافه شد
-			up.updated_at AS updated_at
-		`)
+		Joins("LEFT JOIN city AS c ON c.id = u.city_id")
 
-	// نمایش/نقش
+	// فیلترها
 	if onlyVisible {
-		qb = qb.Where("up.is_hidden = FALSE")
+		base = base.Where("up.is_hidden = FALSE")
 	}
-
-	// فیلتر دستهٔ اصلی
 	if q.CategoryID > 0 {
-		qb = qb.Where("pb.category_id = ?", q.CategoryID)
+		base = base.Where("pb.category_id = ?", q.CategoryID)
 	}
-
-	// فیلتر زیر‌دسته (اگر ستون روی product دارید، نام ستون را اصلاح کن)
-
-	// فیلتر برندها
 	if len(q.BrandIDs) > 0 {
-		qb = qb.Where("pb.id IN ?", q.BrandIDs)
+		base = base.Where("pb.id IN ?", q.BrandIDs)
 	}
-
-	// فیلتر ارزی/ریالی
 	if q.IsDollar != nil {
-		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
+		base = base.Where("up.is_dollar = ?", *q.IsDollar)
 	}
-
-	// فیلتر شهر فروشنده
 	if q.CityID != nil && *q.CityID > 0 {
-		qb = qb.Where("u.city_id = ?", *q.CityID)
+		base = base.Where("u.city_id = ?", *q.CityID)
 	}
-
-	// محدودسازی به سابسکرایب‌های کاربر بیننده (اختیاری)
 	if q.EnforceSubscription && q.ViewerID > 0 {
-		qb = qb.Joins(`
+		base = base.Joins(`
 			JOIN user_subscription uss
 			  ON uss.user_id = ?
 			 AND uss.city_id = u.city_id
 			 AND uss.expires_at > NOW()
 		`, q.ViewerID)
 	}
-
-	// فیلتر تگ‌ها (ANY)
 	if len(q.TagList) > 0 {
-		qb = qb.Where(`
+		base = base.Where(`
 			EXISTS (
 				SELECT 1 FROM product_tag pt
 				WHERE pt.product_id = up.product_id AND pt.tag IN ?
 			)
 		`, q.TagList)
 	}
-
-	// فیلتر فیلترها/آپشن‌ها (ANY)
 	if len(q.FilterIDs) > 0 {
-		qb = qb.Where(`
+		base = base.Where(`
 			EXISTS (
-				SELECT 1 FROM product_filter_relation pfr
-				WHERE pfr.product_id = up.product_id AND pfr.filter_id IN ?
+				SELECT 1
+				FROM product_filter_relation pfr
+				WHERE pfr.product_id = up.product_id
+				  AND pfr.filter_id IN ?
 			)
 		`, q.FilterIDs)
 	}
 	if len(q.OptionIDs) > 0 {
-		qb = qb.Where(`
+		base = base.Where(`
 			EXISTS (
-				SELECT 1 FROM product_filter_relation pfr2
-				WHERE pfr2.product_id = up.product_id AND pfr2.filter_option_id IN ?
+				SELECT 1
+				FROM product_filter_relation pfr2
+				WHERE pfr2.product_id = up.product_id
+				  AND pfr2.filter_option_id IN ?
 			)
 		`, q.OptionIDs)
 	}
 
-	// جستجوی متنی (روی چند فیلد + وجود در تگ/فیلتر/آپشن)
-	if s := strings.TrimSpace(q.Search); s != "" {
-		like := "%" + s + "%"
-		qb = qb.Where(`
-			p.model_name ILIKE ? OR
-			p.description ILIKE ? OR
-			pb.title      ILIKE ? OR
-			pc.title      ILIKE ? OR
-			u.shop_name   ILIKE ? OR
-			EXISTS (SELECT 1 FROM product_tag pt2 WHERE pt2.product_id = up.product_id AND pt2.tag ILIKE ?) OR
-			EXISTS (
-				SELECT 1
-				FROM product_filter_relation pfr3
-				JOIN product_filter pf   ON pf.id  = pfr3.filter_id
-				JOIN product_filter_option pfo ON pfo.id = pfr3.filter_option_id
-				WHERE pfr3.product_id = up.product_id
-				  AND (pf.display_name ILIKE ? OR pfo.name ILIKE ?)
-			)
-		`, like, like, like, like, like, like, like, like)
-	}
+	// -----------------------------
+	// ۲) DISTINCT ON (up.product_id)
+	//    انتخاب یک ردیف برای هر محصول:
+	//    آخرین به‌روزرسانی → اگر مساوی بود، کمترین قیمت
+	// -----------------------------
+	// نکته: در PostgreSQL باید ORDER BY با ستون DISTINCT ON شروع شود.
+	distinctOnSelect := `
+		DISTINCT ON (up.product_id)
+		up.id,
+		up.user_id,
+		up.product_id,
+		up.is_dollar,
+		up.final_price,
+		up.order_c,
+		p.model_name,
+		p.brand_id,
+		p.default_image_url,
+		p.images_count,
+		p.description,
+		pb.category_id,
+		pc.title                      AS category_title,
+		pb.title                      AS brand_title,
+		u.shop_name,
+		u.city_id,
+		c.name                        AS city_name,
+		up.updated_at                 AS updated_at,
+		up.created_at                 AS created_at,
+		MIN(up.final_price) OVER (PARTITION BY up.product_id) AS min_final_price  -- اختیاری: نمایش کمترین قیمت در کل آگهی‌های این محصول
+	`
+
+	// ترتیب انتخاب برای DISTINCT ON:
+	//   1) گروه‌بندی بر اساس product_id
+	//   2) جدیدترین آپدیت/ایجاد
+	//   3) در صورت تساوی، کمترین قیمت
+	distinctPicker := base.
+		Select(distinctOnSelect).
+		Order(`
+			up.product_id,
+			COALESCE(up.updated_at, up.created_at) DESC,
+			up.final_price ASC
+		`)
+
+	// -----------------------------
+	// ۳) پیچیدن در ساب‌کوئری برای سورت و صفحه‌بندی نهایی
+	// -----------------------------
+	rows := db.Table("(?) AS x", distinctPicker).
+		Order(clause.Expr{SQL: finalOrder}).
+		Limit(limit).
+		Offset(offset)
 
 	var out []*domain.UserProductMarketView
-	if err := qb.
-		Order(clause.Expr{SQL: orderExpr}).
-		Limit(limit).
-		Offset(offset).
-		Distinct("up.product_id").
-		Find(&out).Error; err != nil {
+	if err := rows.Find(&out).Error; err != nil {
 		return nil, err
 	}
 	return out, nil
