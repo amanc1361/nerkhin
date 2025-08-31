@@ -37,12 +37,14 @@ export default async function SubCategoriesPage({
         <CategoryGrid
           categories={subs}
           linkFor={(c) => {
-            // اگر از فلو «افزودن محصول» آمده‌ایم، بفرست به صفحهٔ ساخت محصول
+            // اگر از فلو «افزودن محصول» آمده‌ایم، همچنان به صفحهٔ ساخت محصول برو
             if (from === "add") {
               return `/${role}/products/create?subCategoryId=${c.id}`;
             }
-            // در غیر این صورت، لینک قبلی پروژه‌ات (مثلاً لیست برندها) را حفظ کن
-            return `/${role}/brands?categoryId=${c.id}`;
+            // ⬅️ تغییر اصلی: برو به صفحهٔ جستجو و categoryId را بده
+            // (SearchPage شما باید از query param با نام `categoryId` بخواند)
+            const base = role === "wholesaler" ? "/wholesaler/search" : "/retailer/search";
+            return `${base}?categoryId=${c.id}&page=1`;
           }}
         />
 

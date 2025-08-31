@@ -23,10 +23,7 @@ export default function MarketProductItem({ item, t }: { item: MarketItemVM; t: 
             </div>
             <div className="flex flex-col">
 
-              <div className="font-bold text-gray-900">
-                {Number.isFinite(Number(item.finalPrice)) ? Number(item.finalPrice).toLocaleString("fa-IR") : item.finalPrice}
-                <span> تومان  </span>
-              </div>
+             
               <div  className="text-gray-700 truncate">
                 {item.categoryTitle} {" "}{item.brandTitle} 
                     <span className="[direction:ltr] [unicode-bidi:isolate] px-1 inline-block">
@@ -35,6 +32,10 @@ export default function MarketProductItem({ item, t }: { item: MarketItemVM; t: 
                  </span>
                   
                   
+              </div>
+              <div className="font-bold text-gray-900">
+                {Number.isFinite(Number(item.finalPrice)) ? Number(item.finalPrice).toLocaleString("fa-IR") : item.finalPrice}
+                <span> تومان  </span>
               </div>
               <div className="text-xs text-gray-500 mt-2">{item.shopName} • {item.cityName}</div>
             </div>

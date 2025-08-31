@@ -6,11 +6,11 @@ import { useMarketSearch } from "@/app/hooks/useMarketSearch";
 import type { MarketItemVM } from "@/app/types/userproduct/market";
 import type { MarketMessages } from "@/lib/server/texts/marketMessages";
 
-
-// ⚠️ همونی که از قبل داری:
 import Pagination from "@/app/components/shared/Pagination";
 import { useIntersection } from "@/app/hooks/useIntersection";
 import MarketProductItem from "./MarketProductItem";
+import { Search } from "lucide-react";
+import Link from "next/link";
 
 type Role = "wholesaler" | "retailer";
 
@@ -25,11 +25,27 @@ export default function SearchResultsClient({
 }) {
   const router = useRouter();
   const sp = useSearchParams();
+
+  // مقدار قابل ویرایشِ ورودی کاربر
   const [text, setText] = useState(initialQuery || "");
 
-  // جستجو (CSR)
+  // ← فقط categoryId را مستقیماً از URL بخوان
+  const catId = useMemo(() => {
+    const raw = sp.get("categoryId") ?? sp.get("CategoryID");
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  }, [sp]);
+
+  // جستجو (CSR) — بدون تغییر در شکل پارامترهای قبلی
   const { data, loading, setPage, page, setQuery, query } = useMarketSearch(
-    { limit: 20, sortBy: "updated", sortUpdated: "desc", onlyVisible: true, search: initialQuery || "" },
+    {
+      limit: 20,
+      sortBy: "updated",
+      sortUpdated: "desc",
+      onlyVisible: true,
+      search: initialQuery || "",
+      categoryId: catId, // ⬅️ فقط این را اضافه کردیم
+    },
     "fa"
   );
 
@@ -49,21 +65,35 @@ export default function SearchResultsClient({
     }
   }, [data.items, query.offset]);
 
-  // همگام با URL
+  // همگام با URL (هر بار q یا categoryId عوض شد)
   useEffect(() => {
     const q = sp.get("q") || "";
+    const raw = sp.get("categoryId") ?? sp.get("CategoryID");
+    const n = raw ? Number(raw) : undefined;
     setText(q);
-    setQuery((prev) => ({ ...prev, search: q, offset: 0 }));
+    setQuery((prev) => ({
+      ...prev,
+      search: q,
+      categoryId: n && n > 0 ? n : undefined, // ⬅️ فقط همین
+      offset: 0,
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.replace(`/${role}/search${text ? `?q=${encodeURIComponent(text)}` : ""}`);
+    // هنگام جستجوی جدید، categoryId فعلی URL حفظ شود
+    const params = new URLSearchParams();
+    if (text) params.set("q", text);
+    if (catId) params.set("categoryId", String(catId));
+    router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
   const limit = query.limit || 20;
-  const totalPages = useMemo(() => Math.max(1, Math.ceil((data.total || 0) / limit)), [data.total, limit]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil((data.total || 0) / limit)),
+    [data.total, limit]
+  );
 
   // — موبایل: اسکرول بی‌نهایت —
   const hasMore = page * limit < (data.total || 0);
@@ -76,23 +106,18 @@ export default function SearchResultsClient({
     <main className="max-w-screen-lg mx-auto px-3 pb-20" dir="rtl">
       {/* Header + Search */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
-        <div className="flex items-center gap-2 py-3">
-          <button onClick={() => router.push(`/${role}`)} aria-label={t.action.back} className="p-2 rounded-xl border hover:bg-gray-50">
-            <svg viewBox="0 0 24 24" className="w-5 h-5"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-          </button>
-          <form onSubmit={submit} className="flex-1">
-            <div className="flex items-center gap-2 rounded-2xl border px-3 py-2 bg-white shadow-sm">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 0l9 9" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round"/></svg>
+        <div className="flex  items-center gap-2 py-3">
+        
+          <form onSubmit={submit} className="flex w-full">
+            <div className="flex w-full items-center gap-2 rounded-2xl border px-3 py-2 bg-white shadow-sm">
+               
               <input value={text} onChange={(e) => setText(e.target.value)} className="w-full outline-none bg-transparent text-sm" placeholder={t.search.placeholder} dir="rtl" />
-              <button className="px-3 py-1 rounded-xl bg-gray-900 text-white text-sm">{t.action.search}</button>
+              <Search></Search>
             </div>
+            <Link href="#" className="text-blue-500 w-40 px-4 py-2">فیلتر نتایج</Link>
           </form>
         </div>
-        <div className="flex items-center gap-3 py-2 text-sm text-gray-600">
-          <button className="px-2 py-1 rounded-lg hover:bg-gray-100">{t.search.filters}</button>
-          <button className="px-2 py-1 rounded-lg hover:bg-gray-100">{t.search.pickCity}</button>
-          <button className="px-2 py-1 rounded-lg hover:bg-gray-100">{t.search.export}</button>
-        </div>
+      
       </header>
 
       {/* موبایل: اسکرول بی‌نهایت */}
@@ -105,7 +130,7 @@ export default function SearchResultsClient({
         {hasMore && <div ref={sentinelRef} className="h-10" />}
       </section>
 
-      {/* دسکتاپ: صفحه‌بندی با Pagination خودت */}
+      {/* دسکتاپ: صفحه‌بندی با Pagination */}
       <section className="hidden md:block pt-4">
         {loading && <div className="py-4 text-center text-gray-500">{t.common.loading}</div>}
         {!loading && data.items.length === 0 && <div className="text-center text-gray-500 py-8">{t.list.empty}</div>}
@@ -115,19 +140,7 @@ export default function SearchResultsClient({
         </ul>
 
         <div className="mt-4 flex justify-center">
-          {/* اگر API کامپوننت شما فرق می‌کند، این ۴ پراپ را مطابق خودش تنظیم کن */}
-          <Pagination
-            currentPage={page}
-            
-            totalPages={data.total}
-          
-          />
-          {/*
-            نمونه‌های رایج:
-            <Pagination currentPage={page} pageSize={limit} totalItems={data.total} onPageChange={setPage} />
-            یا:
-            <Pagination value={page} total={totalPages} onChange={(p)=>setPage(p)} />
-          */}
+          <Pagination currentPage={page} totalPages={totalPages} />
         </div>
       </section>
     </main>

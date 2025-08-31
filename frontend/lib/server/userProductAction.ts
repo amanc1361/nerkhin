@@ -12,6 +12,7 @@ import type {
 } from "@/app/types/userproduct/userProduct";
 import { MarketItemVM, MarketSearchQuery, MarketSearchResult, MarketSearchVM, UserProductMarketView } from "@/app/types/userproduct/market";
 import { getUserProductMessages } from "./texts/userProdutMessages";
+import { toast } from "react-toastify";
 
 // ---------------- URL helpers ----------------
 const clean = (s: string) => (s || "").replace(/\/+$/, "");
@@ -94,6 +95,7 @@ export type ShopProductsQuery = {
 };
 
 function buildFetchShopQueryString(q?: ShopProductsQuery) {
+  
   if (!q) return "";
   const params = new URLSearchParams();
   if (q.shopId) params.set("shopId", String(q.shopId));
@@ -137,7 +139,6 @@ export async function fetchMyShopProductsRawSSR(q?: ShopProductsQuery): Promise<
   const headers = await authHeader();
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
-
   const res = await fetch(url, { headers, cache: "no-store" });
   const payload = await readJson<ShopViewModel | { products: UserProductView[] }>(res);
 

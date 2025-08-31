@@ -1,5 +1,5 @@
-// app/[role]/search/page.tsx
 import { getMarketMessages } from "@/lib/server/texts/marketMessages";
+import SearchResultsClient from "@/app/components/market/SearchResultsClient";
 
 export const revalidate = 0;
 
@@ -14,19 +14,25 @@ export default async function SearchPage({
 }) {
   const { role } = await params;
   const sp = await searchParams;
+   console.log(sp)
+  // مقدار خام q
   const raw = sp?.q;
-  const q = Array.isArray(raw) ? raw[0] : raw ?? "";
+  let q = Array.isArray(raw) ? raw[0] : raw ?? "";
+
+
+  const rawCat = sp?.categoryId ?? sp?.CategoryID;
+  const categoryId = Number(Array.isArray(rawCat) ? rawCat[0] : rawCat);
+  if (categoryId > 0) {
+ 
+    q = q ? `${q} categoryId:${categoryId}` : `categoryId:${categoryId}`;
+    console.log(q)
+  }
 
   const t = getMarketMessages("fa");
 
-  // صفحهٔ کلاینتی برای مصرف useMarketSearch
   return (
     <div className="bg-white">
-   
       <SearchResultsClient role={role} initialQuery={q} t={t} />
     </div>
   );
 }
-
-// چون این فایل Server است، ایمپورت کلاینتی را پایین می‌آوریم تا Tree-shake شود
-import SearchResultsClient from "@/app/components/market/SearchResultsClient";

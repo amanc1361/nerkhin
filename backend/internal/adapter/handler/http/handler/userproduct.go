@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -51,7 +52,7 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 
 	sortBy := strings.TrimSpace(c.Query("sortBy"))                                            // "updated" | "order"
 	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir")))) // asc|desc
-
+    fmt.Println(c.Query("categoryId"))
 	categoryID := int64(atoiDefault(c.Query("categoryId"), 0))
 	subCategoryID := int64(atoiDefault(c.Query("subCategoryId"), 0))
 
@@ -59,7 +60,7 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 	optionIDs := parseInt64Multi(c.QueryArray("optionId"))
 	filterIDs := parseInt64Multi(c.QueryArray("filterId"))
 	tags := uniqueNonEmpty(c.QueryArray("tag"))
-	search := strings.TrimSpace(c.Query("search"))
+	search := strings.TrimSpace(c.Query("search"))	
 
 	var isDollarPtr *bool
 	if v := strings.TrimSpace(c.Query("isDollar")); v != "" {
