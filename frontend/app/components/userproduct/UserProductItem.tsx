@@ -34,13 +34,13 @@ function shortDate(item: any) {
   }
 }
 
-/* استخراج امن فیلدها (سازگار با ساختار قدیم/جدید) */
+
 function pick(item: any) {
   const p = item?.product ?? {};
   const category = item?.productCategory ?? p?.categoryTitle ?? "";
   const brand    = item?.productBrand    ?? p?.brandTitle    ?? "";
   const model    = item?.modelName ?? item?.productModel ?? p?.modelName ?? p?.title ?? "";
-  const title    = [category, brand && ` ${brand}`, model && ` - ${model}`].filter(Boolean).join("");
+  const title    = [category, brand && ` ${brand}`, model && `  ${model}`].filter(Boolean).join("");
   const imgRel   = p?.imageUrl ?? item?.defaultImageUrl ?? "";
   const final    = item?.finalPrice ?? "";
   const hidden   = item?.isVisible === false || item?.isHidden === true;
@@ -114,7 +114,7 @@ export default function UserProductItem({
           </div>
 
           <div className="text-right">
-            <div className="text-[13px] font-semibold text-neutral-900">{price}</div>
+            <div className="text-[13px] font-semibold text-neutral-900">{price + " تومان "}</div>
             <div className="text-[13px] text-neutral-800 leading-5 line-clamp-2">{title}</div>
           </div>
         </div>

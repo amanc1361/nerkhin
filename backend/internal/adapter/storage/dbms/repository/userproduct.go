@@ -45,7 +45,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	if sortBy == "" {
 		sortBy = "updated"
 	}
-	orderExpr := fmt.Sprintf("COALESCE(up.updated_at, up.created_at) %s, up.id %s", sortDir, sortDir)
+	orderExpr := fmt.Sprintf("COALESCE(up.updated_at, up.created_at) %s, up.final_price %s", sortDir, sortDir)
 	if sortBy == "order" {
 		orderExpr = fmt.Sprintf("up.order_c %s, up.id %s", sortDir, sortDir)
 	}
@@ -80,7 +80,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			u.shop_name,
 			u.city_id,
 			c.name                         AS city_name,   -- ← اضافه شد
-			COALESCE(up.updated_at, up.created_at)::text AS updated_at
+			up.updated_at AS updated_at
 		`)
 
 	// نمایش/نقش

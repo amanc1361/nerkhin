@@ -112,7 +112,7 @@ function buildFetchShopQueryString(q?: ShopProductsQuery) {
 // ---------------- Actions (names unchanged) ----------------
 // نکته: امضا را توسعه دادیم تا پارامتر اختیاری بگیرد؛
 // اگر آرگیومانی ندهی مثل قبل «همهٔ محصولات» را برمی‌گرداند.
-export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<UserProductVM[]> {
+export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<UserProductView[]> {
   const headers = await authHeader();
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
@@ -128,8 +128,8 @@ export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<Use
   } else if (payload && Array.isArray((payload as any).products)) {
     products = (payload as any).products;
   }
-
-  return products.map(mapUserProductViewToVM);
+  return products;
+ // return products.map(mapUserProductViewToVM);
 }
 
 // در صورت نیاز به ShopInfo هم، این تابع خام را هم می‌دهیم:
