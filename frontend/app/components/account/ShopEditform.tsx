@@ -8,6 +8,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import MapPicker from "../map/MapPicker";
+import { useRouter } from "next/navigation";
 
 
 function SubmitBtn({ t }: { t: ShopEditMessages }) {
@@ -15,7 +16,7 @@ function SubmitBtn({ t }: { t: ShopEditMessages }) {
   return (
     <button
       type="submit"
-      className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-white hover:bg-indigo-700 disabled:opacity-60"
+      className=" w-full rounded-xl bg-purple-medium px-4 py-3 text-white hover:bg-indigo-700 disabled:opacity-60"
       disabled={pending}
     >
       {pending ? t.actions.saving : t.actions.save}
@@ -28,7 +29,7 @@ type Props = {
   t: ShopEditMessages;
   user: AccountUser;
 };
-const initialState: UpdateShopResult = { ok: true };
+const initialState: UpdateShopResult = { ok: false, error: "" };
 
 export default function ShopEditForm({ t, user }: Props) {
   const [state, formAction] = useFormState<UpdateShopResult, FormData>(
@@ -37,6 +38,7 @@ export default function ShopEditForm({ t, user }: Props) {
   );
 
   // image preview
+  const router = useRouter();
   const [imagePreview, setImagePreview] = useState<string | null>(
     user.imageUrl || null
   );
@@ -56,7 +58,8 @@ export default function ShopEditForm({ t, user }: Props) {
     if (state?.ok) {
       // ساده: بعد از ذخیره موفق می‌تونیم پیام بدهیم یا رفرش کنیم
     //  alert(t.actions.saved);
-    } else if (state && !state.ok) {
+    router.push("/account");
+    } else if (state && !state.ok && state.error!="") {
       alert(state.error || t.errors.unknown);
     }
   }, [state, t]);
@@ -97,7 +100,7 @@ export default function ShopEditForm({ t, user }: Props) {
         </div>
         <button
           type="button"
-          className="text-sm text-indigo-700"
+          className=" text-indigo-700"
           onClick={() => fileRef.current?.click()}
         >
           {t.changeImage} ✏️
@@ -306,8 +309,13 @@ export default function ShopEditForm({ t, user }: Props) {
           />
         </div>
       </div>
+      <div className="flex flex-row gap-3">
 
       <SubmitBtn t={t} />
+      <button className="w-full border-2 border-purple-medium  text-purple-medium rounded-xl" onClick={() => router.push("/wholesaler/account")}>
+        {t.actions.cancel}
+      </button>
+      </div>
     </form>
   );
 }
