@@ -81,7 +81,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			u.city_id,
 			c.name                         AS city_name,   -- ← اضافه شد
 			up.updated_at AS updated_at
-		`).Distinct("up.product_id")
+		`)
 
 	// نمایش/نقش
 	if onlyVisible {
@@ -174,6 +174,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		Order(clause.Expr{SQL: orderExpr}).
 		Limit(limit).
 		Offset(offset).
+		Distinct("up.product_id").
 		Find(&out).Error; err != nil {
 		return nil, err
 	}
