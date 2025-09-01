@@ -3,18 +3,22 @@
 import { useMemo, useState } from "react";
 import type { ProductShop } from "@/app/types/userproduct/ProductInfoViewModel";
 import ShopOfferItem from "./ShopOfferItem";
-
+import Link from "next/link";
+type Role = "wholesaler" | "retailer";
 
 type Messages = {
   sellerCountTemplate: string; // مثل: "تعداد فروشنده: {n}"
   call: string;                // "تماس"
-  city: string;                // "شهر"
+  city: string;     
+       // "شهر"
 };
 
 type Props = {
   t: Messages;
   items: ProductShop[];
+  role:Role; 
 };
+
 
 function replaceFaDigits(s: string) {
   // تبدیل ارقام فارسی/عربی به انگلیسی
@@ -35,7 +39,7 @@ function priceToNumber(p: string | number): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export default function ShopOffersList({ t, items }: Props) {
+export default function ShopOffersList({ t, items,role }: Props) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const sorted = useMemo(() => {
@@ -87,7 +91,9 @@ export default function ShopOffersList({ t, items }: Props) {
       {/* لیست آیتم‌ها */}
       <div className="divide-y divide-gray-100">
         {sorted.map((it) => (
-          <ShopOfferItem key={it.id} t={t} item={it} />
+          <Link href={`/${role}/shop/${it.userId}`} key={it.id} >
+             <ShopOfferItem key={it.id} t={t} item={it}  />
+          </Link>
         ))}
       </div>
     </section>

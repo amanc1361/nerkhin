@@ -43,8 +43,10 @@ export default async function Page(
           sellerCountTemplate: t.common.sellerCount, // مثل: "تعداد فروشنده: {n}"
           call: t.common.call,
           city: t.common.city,
+          
         }}
         items={data.shopProducts}
+        role={(await params).role}
       />
     </div>
   );

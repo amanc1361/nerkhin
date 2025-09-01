@@ -10,6 +10,17 @@ export type UserProductMessages = {
       cancel: string;
     };
   };
+  shop :{
+    showOnMap: string;
+    report: string;
+    like: string;
+    address: string;
+    phones: string;
+    city: string;
+    productsCount:  string;
+    empty: string;
+    back:string;
+  }
   editModal: {
     title: string;
     cancelBtn: string;
@@ -95,6 +106,17 @@ export type UserProductMessages = {
 export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductMessages => {
   if (locale === "en") {
     return {
+      shop:{
+        back:"Back",
+        showOnMap: "Show on map",
+        report: "Report",
+        like: "Likes",
+        address: "Address",
+        phones: "Phones",
+        city: "City",
+        productsCount: "Products count",
+        empty: "Empty",
+      },
       loading: "Loading...",
       title: "My Products",
       filters:{
@@ -193,6 +215,17 @@ export const getUserProductMessages = (locale: "fa" | "en" = "fa"): UserProductM
   }
 
   return {
+    shop:{
+      back:"برگشت",
+      showOnMap:"نمایش روی نقشه",
+      report:"گزارش",
+      like:"لایک",
+      address:"آدرس",
+      phones:"تلفن",
+      city:"شهر",
+      productsCount:"محصولات",
+      empty:"هیچ محصولی وجود ندارد",
+    },
     loading: "در حال بارگزاری..",
     title: "محصولات من",
     filters: {

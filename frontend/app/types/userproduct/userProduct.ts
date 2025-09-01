@@ -48,6 +48,18 @@ export type ShopViewModel = {
     userName?: string;
     city?: string;
     phoneNumber?: string;
+    imageUrl?: string;
+    lat?: number;
+    lng?: number;
+    likesCount?: number;
+    address?: string;
+    phone1?: string;
+    phone2?: string;
+    cityName?: string;
+    shopName?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    
     // سایر فیلدهای کاربر که نیاز داری به تدریج اضافه کن
   } | null;
   products: UserProductView[];

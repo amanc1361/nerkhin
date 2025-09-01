@@ -8,10 +8,8 @@ const PersianDate: React.FC = () => {
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    // فعال‌سازی فارسی با اعداد فارسی
     moment.loadPersian({ dialect: "persian-modern", usePersianDigits: true });
 
-    // خروجی مثل: ۱۰ شهریور ۱۴۰۴
     const dateStr = moment().format("jD jMMMM jYYYY");
     setFormattedDate(dateStr);
   }, []);
