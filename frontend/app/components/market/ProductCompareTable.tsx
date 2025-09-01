@@ -1,9 +1,13 @@
 "use client";
+
 import { ProductViewModel } from "@/app/types/product/product";
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Back from "../icon-components/Back";
 
-
-function group(p: any) {
+/** فقط فیلترها/گزینه‌ها را تجمیع می‌کند */
+function groupFilters(p: any) {
   const m = new Map<string, string[]>();
 
   if (Array.isArray(p?.filterRelations)) {
@@ -19,7 +23,7 @@ function group(p: any) {
     for (const f of p.filters) {
       const key = f?.title || "—";
       const opts = (Array.isArray(f?.options) ? f.options : [])
-        .filter((o: any) => o?.selected ?? true)
+        .filter((o: any) => (o?.selected ?? true))
         .map((o: any) => o?.title)
         .filter(Boolean);
       if (opts.length) {
@@ -28,62 +32,118 @@ function group(p: any) {
       }
     }
   }
+
   const obj: Record<string, string> = {};
   for (const [k, arr] of m.entries()) obj[k] = Array.from(new Set(arr)).join("، ");
   return obj;
 }
 
+/** عکس اصلی (اختیاری) */
+function mainImage(p: any): string | null {
+  const url =
+    p?.defaultImageUrl ||
+    p?.imageUrl ||
+    (Array.isArray(p?.images) && p.images.length ? p.images[0]?.url : null);
+  return typeof url === "string" && url.trim() ? url : null;
+}
+
+type Messages = {
+  specs: string;
+  back: string;
+};
+
 export default function ProductCompareTable({
   left,
   right,
+  messages,
+  onRemoveLeft,
+  onRemoveRight,
 }: {
   left: ProductViewModel;
   right: ProductViewModel;
+  messages?: Partial<Messages>;
+  onRemoveLeft?: () => void;
+  onRemoveRight?: () => void;
 }) {
-  const L = useMemo(() => group(left), [left]);
-  const R = useMemo(() => group(right), [right]);
+  const t: Messages = { specs: "مشخصات:", back: "بازگشت", ...messages };
+  const router = useRouter();
 
-  const allKeys = useMemo(() => {
-    const set = new Set<string>([...Object.keys(L), ...Object.keys(R)]);
-    return Array.from(set);
-  }, [L, R]);
+  const L = useMemo(() => groupFilters(left), [left]);
+  const R = useMemo(() => groupFilters(right), [right]);
 
-  return (
-    <div className="rounded-2xl border border-gray-200 overflow-hidden">
-      {/* Header */}
-      <div className="grid grid-cols-2 gap-px bg-gray-200 text-sm font-medium">
-        <div className="bg-white p-3">
-          {left.brandTitle} — {left.modelName}
-          {left.description ? (
-            <div className="mt-2 text-xs text-gray-600 whitespace-pre-line break-words">
-              {left.description}
-            </div>
-          ) : null}
+  const renderCard = (
+    p: ProductViewModel,
+    grouped: Record<string, string>,
+    onRemove?: () => void
+  ) => {
+    const img = mainImage(p);
+
+    return (
+      <div className="relative bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* دکمه × */}
+      
+
+        {/* تصویر */}
+        <div className="p-4">
+                 
+            <Image
+              src={"https://nerkhin.com/uploads/"+p.id+"/1.webp"}
+              alt={p?.modelName || ""}
+              width={300}
+              height={300}
+              className="w-full aspect-square object-contain rounded-lg bg-gray-50"
+            />
+       
         </div>
-        <div className="bg-white p-3">
-          {right.brandTitle} — {right.modelName}
-          {right.description ? (
-            <div className="mt-2 text-xs text-gray-600 whitespace-pre-line break-words">
-              {right.description}
-            </div>
-          ) : null}
+
+        {/* عنوان + توضیحات */}
+        <div className="px-4 pb-3 h-16 text-right">
+          <div className="text-base font-bold leading-6 text-gray-900 whitespace-pre-line break-words">
+            {`${p?.brandTitle ?? ""} ${p?.modelName ?? ""}`.trim()}
+          </div>
+      
+        </div>
+
+        {/* خط جداکننده */}
+        <div className="h-px bg-gray-200" />
+
+        {/* مشخصات */}
+        <div className="px-4 py-3 text-right">
+          <div className="text-gray-500 text-sm mb-2">{t.specs}</div>
+          <div className="space-y-2">
+            {Object.entries(grouped).map(([k, v]) => (
+              <div key={k} className="text-sm text-gray-900">
+                <span className="text-gray-600">{k}:</span>{" "}
+                <span className="font-medium whitespace-pre-line break-words">{v}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+    );
+  };
 
-      {/* Rows */}
-      <div className="divide-y divide-gray-200">
-        {allKeys.map((k) => {
-          const lv = L[k] ?? "—";
-          const rv = R[k] ?? "—";
-          const diff = lv !== rv;
-          return (
-            <div key={k} className="grid grid-cols-3 items-start">
-              <div className="p-3 text-xs text-gray-500 bg-gray-50">{k}</div>
-              <div className={`p-3 text-sm ${diff ? "bg-yellow-50" : ""}`}>{lv}</div>
-              <div className={`p-3 text-sm ${diff ? "bg-yellow-50" : ""}`}>{rv}</div>
+  return (
+    <div className="w-full ">
+      {/* Back button */}
+      <div className="mb-4 ">
+        <div className="flex justify-end">
+
+    
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="px-4 flex py-2  rounded-lg border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-100"
+          >
+           {t.back}
+        </button>
             </div>
-          );
-        })}
+      </div>
+
+      {/* مقایسه دو محصول */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
+        {renderCard(left, L, onRemoveLeft)}
+        {renderCard(right, R, onRemoveRight)}
       </div>
     </div>
   );
