@@ -6,7 +6,9 @@ import ShopOffersList from "@/app/components/market/ShopOffersList";
 import { getMarketMessages } from "@/lib/server/texts/marketMessages";
 import { ProductInfoViewModel } from "@/app/types/userproduct/ProductInfoViewModel";
 import { buildGalleryFromDefault } from "@/app/utils/iamge";
+
 import { fetchProductInfoSSR } from "@/lib/server/fetchProductinfo";
+import ProductSpecsController from "@/app/components/market/ProductSpecsController";
 
 type Role = "wholesaler" | "retailer";
 
@@ -29,10 +31,10 @@ export default async function Page(
 
       <ProductGallery images={images} alt={`${p.brandTitle} ${p.modelName}`} />
      
-      <ProductActionBar
-        t={{ specs: t.action.specs, compare: t.action.compare, favorite: t.action.favorite }}
-      />
-
+      <ProductSpecsController
+  t={{ specs: t.action.specs, compare: t.action.compare, favorite: t.action.favorite }}
+  product={p}
+/>
 
 
       <ShopOffersList
