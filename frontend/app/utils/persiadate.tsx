@@ -1,29 +1,29 @@
 // components/PersianDate.tsx
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import moment from 'moment-jalaali'; // moment-jalaali به صورت خودکار moment را گسترش می‌دهد
-
-// تنظیمات اولیه برای moment-jalaali (اختیاری، مثلا برای نام ماه‌های فارسی)
-// moment.loadPersian({ usePersianDigits: false, dialect: 'persian-modern' });
+import React, { useEffect, useState } from "react";
+import moment from "moment-jalaali";
 
 const PersianDate: React.FC = () => {
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
 
   useEffect(() => {
-    // moment() تاریخ و زمان فعلی را برمی‌گرداند
-    // jYYYY/jMM/jDD یک فرمت رایج برای تاریخ شمسی با moment-jalaali است
-    // می‌توانید از فرمت‌های دیگر مانند 'jDD jMMMM jYYYY' برای "۳۱ اردیبهشت ۱۴۰۳" استفاده کنید
-    const dateStr = moment().format('jYYYY/jMM/jDD');
+    // فعال‌سازی فارسی با اعداد فارسی
+    moment.loadPersian({ dialect: "persian-modern", usePersianDigits: true });
+
+    // خروجی مثل: ۱۰ شهریور ۱۴۰۴
+    const dateStr = moment().format("jD jMMMM jYYYY");
     setFormattedDate(dateStr);
   }, []);
 
-  if (formattedDate === null) {
-    return null;
-  }
+  if (formattedDate === null) return null;
 
   return (
-    <div className="text-gray-medium dark:text-gray-400 text-sm VazirFontMedium">
+    <div
+      dir="rtl"
+      lang="fa"
+      className="text-right text-gray-medium dark:text-gray-400 text-sm VazirFontMedium"
+    >
       {formattedDate}
     </div>
   );

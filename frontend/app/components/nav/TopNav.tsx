@@ -2,6 +2,7 @@ import { formatTodayJalaliShort } from "@/lib/date/jalai";
 import { MarketMessages } from "@/lib/server/texts/marketMessages";
 import Link from "next/link";
 import BrandLogo from "../shared/‌BrandLogo";
+import PersianDate from "@/app/utils/persiadate";
 
 type Role = "wholesaler" | "retailer";
 type Active = "search" | "account" | "products";
@@ -93,7 +94,7 @@ export default function TopNav({
 
         {/* چپ: تاریخ کوتاه */}
         <div className="text-slate-400 text-sm min-w-[7.5rem] text-left">
-          {dateShort}
+           <PersianDate></PersianDate>
         </div>
       </div>
     </header>
