@@ -31,11 +31,11 @@ export default async function Page(
 
       <ProductGallery images={images} alt={`${p.brandTitle} ${p.modelName}`} />
      
-      <ProductSpecsController
+
+<ProductSpecsController
   t={{ specs: t.action.specs, compare: t.action.compare, favorite: t.action.favorite }}
   product={p}
 />
-
 
       <ShopOffersList
         t={{

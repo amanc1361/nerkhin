@@ -8,7 +8,6 @@ import Portal from "../shared/portal";
 function groupFilters(p: any): Array<{ title: string; values: string[] }> {
   const map = new Map<string, string[]>();
 
-  // حالت ۱: relations
   if (Array.isArray(p?.filterRelations)) {
     for (const r of p.filterRelations) {
       const key = r?.filterTitle || r?.filter?.title || "—";
@@ -19,7 +18,6 @@ function groupFilters(p: any): Array<{ title: string; values: string[] }> {
     }
   }
 
-  // حالت ۲: filters + options
   if (Array.isArray(p?.filters)) {
     for (const f of p.filters) {
       const key = f?.title || "—";
@@ -42,7 +40,6 @@ function groupFilters(p: any): Array<{ title: string; values: string[] }> {
   }));
 }
 
-/** محتوای مشخصات (توضیحات + جدول فیلترها) */
 function SpecsContent({ product }: { product: ProductViewModel }) {
   const pairs = useMemo(() => groupFilters(product), [product]);
 
@@ -79,18 +76,16 @@ export default function ProductSpecsResponsive({
   title = "مشخصات",
 }: {
   product: ProductViewModel;
-  open: boolean;      // موبایل: کنترل مودال / دسکتاپ: نادیده
+  open: boolean;     // موبایل: کنترل مودال
   onClose: () => void;
   title?: string;
 }) {
-  // ESC برای بستن مودال موبایل
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     if (open) window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [open, onClose]);
 
-  // قفل اسکرول بدنه وقتی مودال باز است (فقط موبایل)
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -102,23 +97,21 @@ export default function ProductSpecsResponsive({
 
   return (
     <>
-      {/* دسکتاپ: همیشه زیر گالری نمایش بده (بدون مودال) */}
+      {/* دسکتاپ: همیشه زیر گالری */}
       <div className="hidden md:block mt-4">
         <h2 className="text-base font-semibold mb-2">{title}</h2>
         <SpecsContent product={product} />
       </div>
 
-      {/* موبایل: شیت از پایین داخل Portal تا روی BottomNavigation بیاد */}
+      {/* موبایل: شیت داخل پرتال با z-index بالا */}
       <Portal>
         <div className="md:hidden">
-          {/* بک‌دراپ */}
           <div
             className={`fixed inset-0 z-[9998] bg-black/40 transition-opacity ${
               open ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             onClick={onClose}
           />
-          {/* شیت */}
           <div
             className={`fixed inset-x-0 bottom-0 z-[9999] transform transition-transform duration-300 ${
               open ? "translate-y-0" : "translate-y-full"
@@ -136,12 +129,7 @@ export default function ProductSpecsResponsive({
                 <h2 className="text-base font-semibold">{title}</h2>
                 <button onClick={onClose} className="p-2" aria-label="close">
                   <svg viewBox="0 0 24 24" className="w-5 h-5">
-                    <path
-                      d="M6 6l12 12M18 6L6 18"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                    />
+                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                   </svg>
                 </button>
               </div>

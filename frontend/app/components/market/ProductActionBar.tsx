@@ -12,8 +12,8 @@ export default function ProductActionBar({
   onLike?: () => void;
 }) {
   return (
-    <div className="grid grid-cols-3  gap-3 my-4">
-      <button onClick={onSpecs} className="border rounded-xl py-2 text-sm md:hidden">
+    <div className="grid grid-cols-3 gap-3 my-4">
+      <button type="button" onClick={onSpecs} className="border rounded-xl py-2 text-sm">
         {t.specs}
       </button>
       <button type="button" onClick={onCompare} className="border rounded-xl py-2 text-sm">
