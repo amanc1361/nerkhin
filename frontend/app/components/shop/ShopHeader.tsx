@@ -78,17 +78,17 @@ export default function ShopHeader({
 
       {/* آدرس/تلفن/شهر */}
       <div className="mt-3 space-y-2 text-sm">
-        {info?.shopInfo?.address && (
+        {info?.shopInfo?.shopAddress && (
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 min-w-16">{t?.shop?.address ?? ""}</span>
-            <span className="leading-6">{info.shopInfo?.address}</span>
+            <span className="text-gray-500 min-w-16">{t?.shop?.address ?? "ادرس"}</span>
+            <span className="leading-6">{info.shopInfo?.shopAddress}</span>
           </div>
         )}
-        {(info?.shopInfo?.phone1 || info?.shopInfo?.phone2) && (
+        {(info?.shopInfo?.shopPhone1 || info?.shopInfo?.shopPhone2) && (
           <div className="flex items-start gap-2">
             <span className="text-gray-500 min-w-16">{t?.shop?.phones ?? ""}</span>
             <span className="leading-6 ltr">
-              {info.shopInfo?.phone1 || ""}{info.shopInfo?.phone1 && info.shopInfo?.phone2 ? " | " : ""}{info.shopInfo?.phone2 || ""}
+              {info.shopInfo?.shopPhone1 || ""}{info.shopInfo?.shopPhone1 && info.shopInfo?.shopPhone2 ? " | " : ""}{info.shopInfo?.shopPhone2 || ""}
             </span>
           </div>
         )}

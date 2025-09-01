@@ -52,14 +52,13 @@ export type ShopViewModel = {
     lat?: number;
     lng?: number;
     likesCount?: number;
-    address?: string;
-    phone1?: string;
-    phone2?: string;
-    cityName?: string;
+    shopAddress?: string;
+    shopPhone1?: string;
+    shopPhone2?: string;
     shopName?: string;
     createdAt?: string;
     updatedAt?: string;
-    
+
     // سایر فیلدهای کاربر که نیاز داری به تدریج اضافه کن
   } | null;
   products: UserProductView[];

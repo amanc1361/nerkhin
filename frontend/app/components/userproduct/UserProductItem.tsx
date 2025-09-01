@@ -70,10 +70,11 @@ type Props = {
   onMoveUp: (id: number) => void;
   onMoveDown: (id: number) => void;
   disabled?: boolean;
+  showAction?:boolean;
 };
 
 export default function UserProductItem({
-  item, messages, onEdit, onDelete, onToggleVisible, onMoveUp, onMoveDown, disabled = false,
+  item, messages, onEdit, onDelete, onToggleVisible, onMoveUp, onMoveDown, disabled = false,showAction=true
 }: Props) {
   const { title, imgRel, final, hidden, productId } = pick(item as any);
   const dateFa = shortDate(item as any);
@@ -122,7 +123,8 @@ export default function UserProductItem({
       </div>
 
       {/* ===== پایین ===== */}
-      <div className="mt-2 flex items-center">
+      
+      {showAction && <div className="mt-2 flex items-center">
         {/* چپ: Up/Down (فقط ترایگر؛ جابه‌جایی در والد) */}
         <div className="flex items-center gap-4">
      
@@ -181,6 +183,8 @@ export default function UserProductItem({
           </button>
         </div>
       </div>
+}
     </div>
+      
   );
 }

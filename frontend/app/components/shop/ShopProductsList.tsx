@@ -28,7 +28,7 @@ export default function ShopProductsList({
     return (
       <div className="grid grid-cols-1 gap-3 mt-4">
         {products.map((p: any) => (
-          <UserProductItem key={p.id} item={p} messages={t}  onEdit={()=>{}} onDelete={()=>{}} onToggleVisible={()=>{}} onMoveUp={()=>{}} onMoveDown={()=>{}}/>
+          <UserProductItem showAction={false} key={p.id} item={p} messages={t}  onEdit={()=>{}} onDelete={()=>{}} onToggleVisible={()=>{}} onMoveUp={()=>{}} onMoveDown={()=>{}}/>
         ))}
       </div>
     );
