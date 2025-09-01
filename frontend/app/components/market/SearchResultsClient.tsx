@@ -168,7 +168,7 @@ export default function SearchResultsClient({
       <section className="md:hidden pt-3">
         {mergedItems.length === 0 && !loading && <div className="text-center text-gray-500 py-8">{t.list.empty}</div>}
         <ul className="flex flex-col divide-y">
-          {mergedItems.map((item) => <MarketProductItem key={item.id} item={item} t={t} />)}
+          {mergedItems.map((item) => <MarketProductItem key={item.id} item={item} t={t} role={role} />)}
         </ul>
         {loading && <div className="py-4 text-center text-gray-500">{t.common.loading}</div>}
         {hasMore && <div ref={sentinelRef} className="h-10" />}
@@ -180,7 +180,7 @@ export default function SearchResultsClient({
         {!loading && data.items.length === 0 && <div className="text-center text-gray-500 py-8">{t.list.empty}</div>}
 
         <ul className="flex flex-col divide-y">
-          {data.items.map((item) => <MarketProductItem key={item.id} item={item} t={t} />)}
+          {data.items.map((item) => <MarketProductItem key={item.id} item={item} t={t} role={role} />)}
         </ul>
 
         <div className="mt-4 flex justify-center">

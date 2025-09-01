@@ -11,7 +11,6 @@ type ProductViewModel struct {
 	CategoryTitle    string                            `json:"categoryTitle"`
 	BrandTitle       string                            `json:"brandTitle"`
 	IsLiked          bool                              `json:"isLiked"`
-	Images           []*ProductImage                   `gorm:"-" json:"images"`
 	FilterRelations  []*ProductFilterRelationViewModel `gorm:"-" json:"filterRelations"`
 	Tags             []*ProductTag                     `gorm:"-" json:"tags"`
 }

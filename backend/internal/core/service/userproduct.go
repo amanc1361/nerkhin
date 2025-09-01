@@ -568,15 +568,8 @@ func (ups *UserProductService) FetchRelatedShopProducts(ctx context.Context,
 			return err
 		}
 
-		productImagesMap, err := ups.productRepo.GetProductsImages(ctx, txSession, productID)
-		if err != nil {
-			return err
-		}
+	
 
-		productImages, exists := productImagesMap[productID]
-		if exists {
-			product.Images = productImages
-		}
 
 		filterRelations, err := ups.productFilterRepo.
 			GetProductFilterRelations(ctx, txSession, productID)

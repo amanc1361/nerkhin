@@ -190,7 +190,6 @@ func (pr *ProductRepository) ListProductsByCategoryWithSearch(
 			CategoryTitle:    r.CategoryTitle,
 			BrandTitle:       r.BrandTitle,
 			IsLiked:          false,
-			Images:           toSlice(r.Images),
 			Tags:             toSlice(r.Tags),
 		}
 		for _, fr := range r.FilterRelations {
@@ -291,7 +290,6 @@ func (pr *ProductRepository) GetProductsByBrandIDPaginated(
 			CategoryTitle:    r.CategoryTitle,
 			BrandTitle:       r.BrandTitle,
 			IsLiked:          false,
-			Images:           toSlice(r.Images),
 			Tags:             toSlice(r.Tags),
 		}
 

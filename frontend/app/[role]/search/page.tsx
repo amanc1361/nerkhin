@@ -14,8 +14,7 @@ export default async function SearchPage({
 }) {
   const { role } = await params;
   const sp = await searchParams;
-   console.log(sp)
-  // مقدار خام q
+ 
   const raw = sp?.q;
   let q = Array.isArray(raw) ? raw[0] : raw ?? "";
 

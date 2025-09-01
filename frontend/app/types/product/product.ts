@@ -58,14 +58,14 @@ export interface ProductViewModel {
   shopsCount: number;
   createdAt: string;
   updatedAt: string;
-
+  imagesCount?: number;
   subCategoryId: number;
   subCategoryTitle: string;
   categoryTitle: string;
   brandTitle: string;
   isLiked: boolean;
 
-  images: ProductImage[];
+
   filterRelations: ProductFilterRelationViewModel[];
   tags: ProductTag[];
 }

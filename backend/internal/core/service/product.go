@@ -152,7 +152,6 @@ func (ps *ProductService) UpdateProduct(
 		if err := ps.repo.DeleteProductFilterRelations(ctx, txSession, product.ID); err != nil {
 			return err
 		}
-	
 
 		// ذخیره عکس‌های جدید
 		imagePayload, defaultUrl, err := image.SaveProductImagesWithPayload(product.ID, imageFiles, defaultImageIndex, baseImagePath)
@@ -171,8 +170,6 @@ func (ps *ProductService) UpdateProduct(
 		return ps.saveAssociatedData(ctx, txSession, product.ID, imagePayload, filterPayload, tagPayload)
 	})
 }
-
-
 
 // GetProductByID با تکیه بر ریپازیتوری اصلاح شده
 func (ps *ProductService) GetProductByID(ctx context.Context, id int64) (*domain.ProductViewModel, error) {
@@ -330,24 +327,16 @@ func (ps *ProductService) hydrateProductViewModels(ctx context.Context, dbSessio
 	for i, p := range products {
 		productIDs[i] = p.ID
 	}
-	imagesMap, err := ps.repo.GetProductsImages(ctx, dbSession, productIDs[0])
-	if err != nil {
-		return err
-	}
+
 	tagsMap, err := ps.repo.GetProductsTags(ctx, dbSession, productIDs)
 	if err != nil {
 		return err
 	}
 
 	for _, p := range products {
-		p.Images = imagesMap[p.ID]
+
 		p.Tags = tagsMap[p.ID]
-		for _, img := range p.Images {
-			if img.IsDefault {
-				p.DefaultImageUrl = img.Url
-				break
-			}
-		}
+
 	}
 	return nil
 }
@@ -438,7 +427,7 @@ func (ps *ProductService) EnsureBrandByTitle(ctx context.Context, categoryID int
 
 	dbSession, err := ps.dbms.NewDB(ctx)
 	if err != nil {
-		return 0, err	
+		return 0, err
 	}
 
 	var outID int64

@@ -12,6 +12,8 @@ export type MarketMessages = {
     compare:string;
     like:string;
     bookmark:string;
+    specs:string;
+    favorite:string;
     
   };
   money:{
@@ -26,6 +28,9 @@ export type MarketMessages = {
   common:{
     loading: string;
     of:string;
+    sellerCount: string;
+    call: string;
+    city: string;
   }
   list:{
     empty: string;
@@ -48,6 +53,8 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
         bookmark:"bookmark",
         compare:"compare",
         like:"like",
+        specs:"specs",
+        favorite:"favorite",
       },
       search:{
         placeholder: "Search…",
@@ -58,6 +65,9 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
       common:{
         loading: "Loading...",
         of:"off",
+        sellerCount: "Seller",
+        call: "Call",
+        city: "City",
       },
       list:{
         empty: "No results.",
@@ -85,6 +95,8 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
       bookmark:"علامت گذاری",
       compare:"مقایسه",
       like:"پسند",
+      specs:"مشخصات",
+      favorite:"علاقه مند",  
     },
     search:{
       placeholder: "جستجو…",
@@ -95,6 +107,9 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
     common:{
       of:"از",
       loading: "در حال بارگزاری...",
+      sellerCount: "فروشنده",
+      call: "تماس",
+      city: "شهر",
     },
     money:{
       usdShort:"دلار"
