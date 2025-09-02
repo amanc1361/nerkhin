@@ -72,6 +72,13 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 		type pair struct{ fId, optId int64 }
 		existingRelCache := map[int64]map[pair]struct{}{} // productID → set[(filterID, optionID)]
 
+		// کاراکترهای خاص که باید در SQL نرمال‌سازی شوند (پارامتری)
+		const (
+			zwnj    = "\u200C" // نیم‌فاصله
+			nbsp    = "\u00A0" // NBSP
+			tatweel = "\u0640" // کشیده ـ
+		)
+
 		// --- Lookup برند با نرمال‌سازی فارسی و fallback ---
 		ensureBrandID := func(tx *gorm.DB, name string) (int64, error) {
 			name = strings.TrimSpace(name)
@@ -102,23 +109,29 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			}
 
 			// 3) مقایسهٔ فشردهٔ نرمال‌شده (بدون فاصله/نیم‌فاصله/کشیده)
+			// توجه: از پارامترها برای کاراکترهای یونیکد استفاده می‌کنیم تا از E'\u....' دوری کنیم.
 			compact := normalizeFACompact(name)
 			raw := `
-SELECT *
+SELECT id, title
 FROM product_brand
 WHERE
-  REPLACE(
-    REPLACE(
-      REPLACE(
-        REPLACE(
-          REPLACE(LOWER(title), E'\u200c', ' '),  -- ZWNJ → space
-        ' ', ''),                                  -- remove spaces
-      E'\u0640', ''),                              -- Tatweel
-    E'\u00a0', ' ')                                -- NBSP → space
+  regexp_replace(
+    replace(
+      replace(
+        replace(lower(title), ?, ' '),   -- ZWNJ → space
+        ?, ' '                           -- NBSP → space
+      ),
+      ?, ''                              -- Tatweel حذف
+    ),
+    '\s+', '', 'g'                       -- حذف همهٔ فاصله‌ها
   ) = ?
 LIMIT 1;
 `
-			if err := tx.Raw(raw, compact).Scan(&b).Error; err == nil && b.ID != 0 {
+			if err := tx.Raw(raw, zwnj, nbsp, tatweel, compact).Scan(&b).Error; err != nil {
+				// اگر سینتکس/اجرا خطا داشت، ادامه دادن باعث 25P02 می‌شود؛ پس همین‌جا خطا بدهیم
+				return 0, err
+			}
+			if b.ID != 0 {
 				brandCache[cacheKey] = b.ID
 				return b.ID, nil
 			}
@@ -155,21 +168,25 @@ LIMIT 1;
 			// 3) مقایسهٔ فشردهٔ نرمال‌شده
 			compact := normalizeFACompact(modelName)
 			raw := `
-SELECT *
+SELECT id, model_name, brand_id
 FROM product
 WHERE brand_id = ?
-  AND REPLACE(
-        REPLACE(
-          REPLACE(
-            REPLACE(
-              REPLACE(LOWER(model_name), E'\u200c', ' '), -- ZWNJ → space
-            ' ', ''),                                     -- remove spaces
-          E'\u0640', ''),                                 -- Tatweel
-        E'\u00a0', ' ')                                   -- NBSP → space
+  AND regexp_replace(
+        replace(
+          replace(
+            replace(lower(model_name), ?, ' '),  -- ZWNJ → space
+            ?, ' '                                -- NBSP → space
+          ),
+          ?, ''                                   -- Tatweel حذف
+        ),
+        '\s+', '', 'g'                            -- حذف همهٔ فاصله‌ها
       ) = ?
 LIMIT 1;
 `
-			if err := tx.Raw(raw, brandID, compact).Scan(&p).Error; err == nil && p.ID != 0 {
+			if err := tx.Raw(raw, brandID, zwnj, nbsp, tatweel, compact).Scan(&p).Error; err != nil {
+				return 0, err
+			}
+			if p.ID != 0 {
 				prodCache[cacheKey] = p.ID
 				return p.ID, nil
 			}
