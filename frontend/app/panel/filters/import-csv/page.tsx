@@ -59,10 +59,10 @@ type Result = {
       // توجه: از api.fetch (یا api.post) پروژه خودتان استفاده کنید
       const resp = await api.postMultipart(endpoint, fd); // اگر postForm ندارید، از fetch با headers توکن استفاده کنید
       if (!resp.ok) {
-        const t = await resp.json().catch(() => ({}));
+        const t = await resp;
         throw new Error(t?.error || "Import failed");
       }
-      const data: Result = await resp.json();
+      const data: Result = await resp;
       setRes(data);
     } catch (err: any) {
       setError(err.message || "خطا در ارسال");
