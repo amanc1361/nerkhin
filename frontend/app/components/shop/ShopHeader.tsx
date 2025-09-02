@@ -3,6 +3,7 @@
 import { ShopViewModel } from "@/app/types/userproduct/userProduct";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 function absolutizeUploads(url?: string | null) {
   if (!url) return "";
@@ -13,15 +14,16 @@ function absolutizeUploads(url?: string | null) {
   return clean.startsWith("uploads/") ? `${host}/${clean}` : `${host}${prefix}/${clean}`;
 }
 
-export default function ShopHeader({
-  t,
-  info,
-}: {
-  t: any; // از getUserProductMessages می‌آید؛ ساختار را دست نمی‌زنیم
-  info: ShopViewModel; // از داده‌های همان اکشن پر می‌شود؛ تایپ جدید نمی‌سازیم
-}) {
+type Props = {
+  t: any;            // از getUserProductMessages
+  info: ShopViewModel;
+  onToggleLike?: () => void; // اختیاری: اگر خواستی از بیرون مدیریت لایک کنی
+};
+
+export default function ShopHeader({ t, info, onToggleLike }: Props) {
   const router = useRouter();
   const title = info?.shopInfo?.shopName || (t?.shop?.titleFallback ?? "");
+  const likes = info?.shopInfo?.likesCount ?? 0;
 
   const handleShowMap = () => {
     if (info?.shopInfo?.lat && info?.shopInfo?.lng) {
@@ -30,11 +32,17 @@ export default function ShopHeader({
     }
   };
 
+  const socials = [
+    { key: "instagramUrl", label: "Instagram", href: info?.shopInfo?.instagramUrl },
+    { key: "telegramUrl", label: "Telegram", href: info?.shopInfo?.telegramUrl },
+    { key: "whatsappUrl", label: "WhatsApp", href: info?.shopInfo?.whatsappUrl },
+    { key: "websiteUrl", label: "Website", href: info?.shopInfo?.websiteUrl },
+  ].filter(x => !!x.href);
+
   return (
-    <div className="rtl text-right">
-      {/* بنر بالا دقیقا مثل اسکرین‌شات */}
-      <div className="relative w-full h-40 rounded-2xl overflow-hidden">
-        <p>{info.shopInfo?.imageUrl}</p>
+    <div dir="rtl" className="text-right">
+      {/* ───── Hero ───── */}
+      <div className="relative w-full h-64 md:h-64 rounded-2xl overflow-hidden">
         <Image
           src={absolutizeUploads(info?.shopInfo?.imageUrl) || "/images/placeholders/shop-banner.jpg"}
           alt={title}
@@ -42,63 +50,135 @@ export default function ShopHeader({
           className="object-cover"
           priority
         />
+        {/* overlay for readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/25 to-transparent" />
+
+        {/* Back button (top-left) */}
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="absolute top-3 left-3 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/90 hover:bg-white shadow"
+          aria-label={t?.common?.back ?? "بازگشت"}
+          title={t?.common?.back ?? "بازگشت"}
+        >
+          {/* chevron-right (RTL یعنی برگشت به عقب) */}
+          <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden>
+            <path d="M15 18L9 12l6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+
+        {/* Like/Favorite (top-right) */}
+        <button
+          type="button"
+          onClick={onToggleLike}
+          className="absolute top-3 right-3 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/90 hover:bg-white shadow"
+          aria-label={t?.shop?.likeBtn ?? "پسند"}
+          title={t?.shop?.likeBtn ?? "پسند"}
+        >
+          {/* star */}
+          <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden>
+            <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27z"
+              fill="currentColor"/>
+          </svg>
+        </button>
+
+        {/* Title & likes (centered) */}
+        <div className="absolute inset-x-4 bottom-5 text-center text-white">
+          <div className="text-lg font-bold drop-shadow">{title}</div>
+          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/35 text-sm">
+            {/* small star */}
+            <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden>
+              <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27z"
+                fill="currentColor"/>
+            </svg>
+            <span>{likes}</span>
+            <span className="opacity-90">{t?.shop?.likes ?? "پسندها"}</span>
+          </div>
+        </div>
       </div>
 
-      {/* عنوان + پسندها + دکمه‌ها */}
-      <div className="mt-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-base font-semibold">{title}</h1>
-          <span className="text-sm text-gray-500">|</span>
-          <span className="text-sm text-gray-600">
-            {(t?.shop?.like ?? "")} {info?.shopInfo?.likesCount ?? 0}
-          </span>
-        </div>
+      {/* ───── Actions row under hero ───── */}
+      <div className="mt-3 px-4 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={handleShowMap}
+          className="flex items-center justify-center gap-2 py-2 border rounded-2xl text-sm"
+          aria-label={t?.shop?.showOnMap ?? "نمایش روی نقشه"}
+          title={t?.shop?.showOnMap ?? "نمایش روی نقشه"}
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden>
+            <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"
+              fill="currentColor"/>
+          </svg>
+          {t?.shop?.showOnMap ?? "نمایش روی نقشه"}
+        </button>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleShowMap}
-            className="px-3 py-2 text-sm border rounded-xl"
-            aria-label={t?.shop?.showOnMap ?? ""}
-            title={t?.shop?.showOnMap ?? ""}
-          >
-            {t?.shop?.showOnMap ?? ""}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push("/report")}
-            className="px-3 py-2 text-sm border rounded-xl"
-            aria-label={t?.shop?.report ?? ""}
-            title={t?.shop?.report ?? ""}
-          >
-            {t?.shop?.report ?? ""}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => router.push("/report")}
+          className="flex items-center justify-center gap-2 py-2 border rounded-2xl text-sm"
+          aria-label={t?.shop?.report ?? "گزارش تخلف"}
+          title={t?.shop?.report ?? "گزارش تخلف"}
+        >
+          <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden>
+            <path d="M3 3h18v4H3V3zm0 6h18v12H3V9zm10 3H6v6h7v-6z" fill="currentColor"/>
+          </svg>
+          {t?.shop?.report ?? "گزارش تخلف"}
+        </button>
       </div>
 
-      {/* آدرس/تلفن/شهر */}
-      <div className="mt-3 space-y-2 text-sm">
+      {/* ───── Address / Phones / City ───── */}
+      <div className="mt-3 px-4 space-y-3 text-sm">
         {info?.shopInfo?.shopAddress && (
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 min-w-16">{t?.shop?.address ?? "ادرس"}</span>
-            <span className="leading-6">{info.shopInfo?.shopAddress}</span>
+            <span className="text-gray-500 min-w-16">{t?.shop?.address ?? "آدرس"}</span>
+            <span className="leading-6">{info.shopInfo.shopAddress}</span>
           </div>
         )}
+
         {(info?.shopInfo?.shopPhone1 || info?.shopInfo?.shopPhone2) && (
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 min-w-16">{t?.shop?.phones ?? ""}</span>
+            <span className="text-gray-500 min-w-16">{t?.shop?.phones ?? "تلفن"}</span>
             <span className="leading-6 ltr">
-              {info.shopInfo?.shopPhone1 || ""}{info.shopInfo?.shopPhone1 && info.shopInfo?.shopPhone2 ? " | " : ""}{info.shopInfo?.shopPhone2 || ""}
+              {info.shopInfo?.shopPhone1 || ""}
+              {info.shopInfo?.shopPhone1 && info.shopInfo?.shopPhone2 ? " | " : ""}
+              {info.shopInfo?.shopPhone2 || ""}
             </span>
           </div>
         )}
+
         {info?.shopInfo?.city && (
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 min-w-16">{t?.shop?.city ?? ""}</span>
-            <span>{info.shopInfo?.city}</span>
+            <span className="text-gray-500 min-w-16">{t?.shop?.city ?? "شهر"}</span>
+            <span>{info.shopInfo.city}</span>
           </div>
         )}
       </div>
+
+      {/* ───── Social icons ───── */}
+      {socials.length > 0 && (
+        <div className="mt-3 px-4 flex items-center gap-3">
+          {socials.map((s) => (
+            <a
+              key={s.key}
+              href={s.href as string}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-xl border hover:bg-gray-50"
+              aria-label={s.label}
+              title={s.label}
+            >
+              {/* ساده: آیکن عمومی لینک */}
+              <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden>
+                <path d="M10.59 13.41a1.998 1.998 0 0 0 2.82 0l4.59-4.59a2 2 0 1 0-2.83-2.83l-1.88 1.88"
+                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13.41 10.59a1.998 1.998 0 0 0-2.82 0l-4.59 4.59a2 2 0 1 0 2.83 2.83l1.88-1.88"
+                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

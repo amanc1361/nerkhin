@@ -22,13 +22,14 @@ export default async function Page({
   const labels = await buildShopLabels("fa", products.length);
 
   return (
-    <div dir="rtl" className="px-3 py-4 max-w-md mx-auto">
+    <div dir="rtl" className=" max-w-md mx-auto">
       <ShopHeader
         t={labels}
         info={vm}
       />
+      <div className="mt-4 px-4">
 
-      <div className="mt-4 text-sm text-gray-700">{labels.productsCountText}</div>
+      <div className="mt-4 text-sm text-gray-700">{labels.productsCountText} : {products.length}</div>
 
       <ShopProductsList role={role} products={products} />
 
@@ -36,6 +37,7 @@ export default async function Page({
         <Link href={`/${role}/search`} className="text-blue-600 text-sm hover:underline">
           {labels.back}
         </Link>
+      </div>
       </div>
     </div>
   );

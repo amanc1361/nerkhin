@@ -57,6 +57,10 @@ export type ShopViewModel = {
     shopPhone2?: string;
     shopName?: string;
     createdAt?: string;
+    instagramUrl?: string;
+    telegramUrl?: string;
+    whatsappUrl?: string;
+    websiteUrl?: string;
     updatedAt?: string;
 
     // سایر فیلدهای کاربر که نیاز داری به تدریج اضافه کن
