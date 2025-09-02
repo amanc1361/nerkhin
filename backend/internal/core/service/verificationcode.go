@@ -3,31 +3,30 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt" 
+	"fmt"
 
-	"github.com/kavenegar/kavenegar-go"         
-	"github.com/nerkhin/internal/adapter/config" 
-	"github.com/nerkhin/internal/core/domain"    
-	"github.com/nerkhin/internal/core/domain/msg" 
-	"github.com/nerkhin/internal/core/port"      
+	//"github.com/kavenegar/kavenegar-go"
+	"github.com/nerkhin/internal/adapter/config"
+	"github.com/nerkhin/internal/core/domain"
+	"github.com/nerkhin/internal/core/domain/msg"
+	"github.com/nerkhin/internal/core/port"
 )
 
-var STATIC_CODE = "123456" 
+var STATIC_CODE = "123456"
 var CODE_LENGTH = 6
 
 type VerificationCodeService struct {
-	dbms      port.DBMS                       
-	repo      port.VerificationCodeRepository  
-	userRepo  port.UserRepository             
-	appConfig config.App                      
-	
+	dbms      port.DBMS
+	repo      port.VerificationCodeRepository
+	userRepo  port.UserRepository
+	appConfig config.App
 }
 
 func RegisterVerificationCodeService(
 	dbms port.DBMS,
 	repo port.VerificationCodeRepository,
 	userRepo port.UserRepository,
-	appConfig config.App) port.VerificationCodeService { 
+	appConfig config.App) port.VerificationCodeService {
 	// rand.Seed(time.Now().UnixNano()) // برای تولید کد رندوم واقعی (اگر می‌خواهید استفاده کنید)
 	return &VerificationCodeService{
 		dbms:      dbms,
@@ -38,36 +37,36 @@ func RegisterVerificationCodeService(
 }
 
 func (vc *VerificationCodeService) SendVerificationCode(ctx context.Context, phone string) (codeGenerated string, err error) {
-	db, err := vc.dbms.NewDB(ctx) 
+	db, err := vc.dbms.NewDB(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get DB session for sending code: %w", err)
 	}
-	
+
 	user, err := vc.userRepo.GetUserByPhone(ctx, db, phone)
 	if err != nil {
-		if errors.Is(err, errors.New(msg.ErrRecordNotFound)) { 
+		if errors.Is(err, errors.New(msg.ErrRecordNotFound)) {
 			return "", errors.New(msg.ErrUserDoesNotExist)
 		}
 		return "", fmt.Errorf("failed to find user by phone before sending code: %w", err)
 	}
 
-	codeGenerated = STATIC_CODE 
+	codeGenerated = STATIC_CODE
 
-	err = vc.repo.SaveVerificationCode(ctx, db, user.ID, codeGenerated) 
+	err = vc.repo.SaveVerificationCode(ctx, db, user.ID, codeGenerated)
 	if err != nil {
 		return "", fmt.Errorf("failed to save verification code: %w", err)
 	}
 
-	api := kavenegar.New(vc.appConfig.SmsApiKey)
-	receptor := phone
-	template := "otp-code" 
-	params := &kavenegar.VerifyLookupParam{}
+	// api := kavenegar.New(vc.appConfig.SmsApiKey)
+	// receptor := phone
+	// template := "otp-code"
+	// params := &kavenegar.VerifyLookupParam{}
 
-	if _, errSend := api.Verify.Lookup(receptor, template, codeGenerated, params); errSend != nil {
-		return "", fmt.Errorf("failed to send SMS via Kavenegar: %w", errSend)
-	}
+	// if _, errSend := api.Verify.Lookup(receptor, template, codeGenerated, params); errSend != nil {
+	// 	return "", fmt.Errorf("failed to send SMS via Kavenegar: %w", errSend)
+	// }
 
-	return codeGenerated, nil 
+	return codeGenerated, nil
 }
 
 func (vc *VerificationCodeService) VerifyCode(ctx context.Context, phone, code string) (
@@ -90,20 +89,20 @@ func (vc *VerificationCodeService) VerifyCode(ctx context.Context, phone, code s
 			}
 			return fmt.Errorf("error getting user by phone in transaction: %w", txErr)
 		}
-		user = localUser 
+		user = localUser
 
 		localAdminAccess, txErr := vc.userRepo.GetAdminAccess(ctx, txSession, user.ID)
 		if txErr != nil {
-			if !errors.Is(txErr, errors.New(msg.ErrRecordNotFound)) { 
+			if !errors.Is(txErr, errors.New(msg.ErrRecordNotFound)) {
 				return fmt.Errorf("error getting admin access in transaction: %w", txErr)
 			}
 		}
-		adminAccess = localAdminAccess 
+		adminAccess = localAdminAccess
 
 		savedCode, txErr := vc.repo.GetVerificationCode(ctx, txSession, user.ID)
 		if txErr != nil {
 			if errors.Is(txErr, errors.New(msg.ErrRecordNotFound)) {
-				return errors.New(msg.ErrVerificationCodeLengthIsNotValid) 
+				return errors.New(msg.ErrVerificationCodeLengthIsNotValid)
 			}
 			return fmt.Errorf("error getting saved verification code in transaction: %w", txErr)
 		}
@@ -112,8 +111,7 @@ func (vc *VerificationCodeService) VerifyCode(ctx context.Context, phone, code s
 			return errors.New(msg.ErrCodeIsWrong)
 		}
 
-
-		return nil 
+		return nil
 	})
 
 	if err != nil {
