@@ -33,11 +33,7 @@ export default async function Page({
 
       <ShopProductsList role={role} products={products} />
 
-      <div className="mt-6">
-        <Link href={`/${role}/search`} className="text-blue-600 text-sm hover:underline">
-          {labels.back}
-        </Link>
-      </div>
+      
       </div>
     </div>
   );
