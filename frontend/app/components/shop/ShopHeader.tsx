@@ -4,6 +4,10 @@ import { ShopViewModel } from "@/app/types/userproduct/userProduct";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Telegram from "../icon-components/Telegram";
+import { jsx } from "react/jsx-runtime";
+import Instagram from "../icon-components/Instagram";
+import WhatsApp from "../icon-components/WhatsApp";
 
 function absolutizeUploads(url?: string | null) {
   if (!url) return "";
@@ -33,10 +37,24 @@ export default function ShopHeader({ t, info, onToggleLike }: Props) {
   };
 
   const socials = [
-    { key: "instagramUrl", label: "Instagram", href: info?.shopInfo?.instagramUrl },
-    { key: "telegramUrl", label: "Telegram", href: info?.shopInfo?.telegramUrl },
-    { key: "whatsappUrl", label: "WhatsApp", href: info?.shopInfo?.whatsappUrl },
-    { key: "websiteUrl", label: "Website", href: info?.shopInfo?.websiteUrl },
+    {
+      key: "instagramUrl",
+      label: "Instagram",
+      href: info?.shopInfo?.instagramUrl,
+      Component: (
+        <a
+          href={info?.shopInfo?.instagramUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          <Instagram />
+        </a>
+      ),
+    },
+    { key: "telegramUrl", label: "Telegram", href: info?.shopInfo?.telegramUrl ,Component: <Telegram />},
+    { key: "whatsappUrl", label: "WhatsApp", href: info?.shopInfo?.whatsappUrl ,Component: <WhatsApp />},
+    { key: "websiteUrl", label: "Website", href: info?.shopInfo?.websiteUrl ,Component: <Telegram />},
   ].filter(x => !!x.href);
 
   return (
@@ -157,7 +175,7 @@ export default function ShopHeader({ t, info, onToggleLike }: Props) {
 
       {/* ───── Social icons ───── */}
       {socials.length > 0 && (
-        <div className="mt-3 px-4 flex items-center gap-3">
+        <div className="mt-3 px-4 flex items-center justify-between gap-3">
           {socials.map((s) => (
             <a
               key={s.key}
@@ -168,13 +186,8 @@ export default function ShopHeader({ t, info, onToggleLike }: Props) {
               aria-label={s.label}
               title={s.label}
             >
-              {/* ساده: آیکن عمومی لینک */}
-              <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden>
-                <path d="M10.59 13.41a1.998 1.998 0 0 0 2.82 0l4.59-4.59a2 2 0 1 0-2.83-2.83l-1.88 1.88"
-                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M13.41 10.59a1.998 1.998 0 0 0-2.82 0l-4.59 4.59a2 2 0 1 0 2.83 2.83l1.88-1.88"
-                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+             
+              {s.Component}
             </a>
           ))}
         </div>
