@@ -85,6 +85,7 @@ func main() {
 		productBrandRepo,
 		appConfig,
 	)
+    productFilterImportService := service.RegisterProductFilterImportService(postgresDMBS, productFilterRepo)
 
 	productBrandService := service.RegisterProductBrandService(postgresDMBS, productBrandRepo, productCategoryRepo, productModelRepo)
 	productFilterService := service.RegisterProductFilterService(postgresDMBS, productFilterRepo,
@@ -114,6 +115,8 @@ func main() {
 	productModelService := service.RegisterProductModelService(postgresDMBS, productModelRepo, productBrandRepo, productRepo, productCategoryRepo)
 
 	// init handlers
+	productFilterImportHandler := handler.RegisterProductFilterImportHandler(productFilterImportService, tokenService, appConfig)
+
 	cityHandler := handler.RegisterCityHandler(cityService, tokenService, appConfig)
 	productModelHandler := handler.RegisterProductModelHandler(productModelService, tokenService, appConfig)
 
@@ -161,6 +164,8 @@ func main() {
 		userSubscriptionHandler,
 		favoriteProductHandler,
 		favoriteAccountHandler,
+		productFilterImportHandler,
+		
 		landingHandler,
 	)
 	if err != nil {

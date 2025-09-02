@@ -1,4 +1,3 @@
-// internal/adapter/handler/http/product_filter_import_handler.go
 package handler
 
 import (
@@ -15,25 +14,32 @@ import (
 )
 
 type ProductFilterImportHandler struct {
-	Service   port.ProductFilterImportService // اینترفیس سرویس (پایین تعریف شده)
+	Service   port.ProductFilterImportService
+	Token     port.TokenService // اگر لازم نبود، می‌تونی استفاده نکنی
 	AppConfig config.App
+
 }
 
-func RegisterProductFilterImportHandler(router *gin.Engine, svc port.ProductFilterImportService, appCfg config.App) {
-	h := &ProductFilterImportHandler{Service: svc, AppConfig: appCfg}
 
-	api := router.Group("/product-filter")
-	{
-		// POST /product-filter/import-csv
-		api.POST("/import-csv", h.ImportCSV)
+func RegisterProductFilterImportHandler(
+	svc port.ProductFilterImportService,
+	tokenSvc port.TokenService,
+	appCfg config.App,
+) *ProductFilterImportHandler {
+	return &ProductFilterImportHandler{
+		Service:   svc,
+		Token:     tokenSvc,
+		AppConfig: appCfg,
 	}
 }
 
-// فرم دیتا: file=..., categoryId=..., brandCol=برند, modelCol=مدل
+// این متد توسط http.NewRouter فراخوانی می‌شود
+
+
+// فرم‌دیتا: file, categoryId, brandCol?, modelCol?, startFilterColIndex?
 func (h *ProductFilterImportHandler) ImportCSV(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// دسته الزامیست
 	categoryIDStr := c.PostForm("categoryId")
 	if categoryIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "categoryId is required"})
@@ -53,8 +59,6 @@ func (h *ProductFilterImportHandler) ImportCSV(c *gin.Context) {
 	if modelCol == "" {
 		modelCol = "مدل"
 	}
-	// “از ستون سوم به بعد فیلتر هستند”: اگر headerها معلوم‌اند، از هدرها استفاده می‌کنیم؛
-	// در غیر اینصورت می‌توانیم startFilterColIndex را هم به‌عنوان گزینه اضافه کنیم (اختیاری)
 	startFilterColIndex := -1
 	if s := c.PostForm("startFilterColIndex"); s != "" {
 		if v, err := strconv.Atoi(s); err == nil && v >= 0 {
@@ -73,17 +77,15 @@ func (h *ProductFilterImportHandler) ImportCSV(c *gin.Context) {
 	reader.FieldsPerRecord = -1
 	reader.TrimLeadingSpace = true
 
-	// خواندن هدر
 	header, err := reader.Read()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot read csv header"})
 		return
 	}
 	for i := range header {
-		header[i] = strings.TrimSpace(strings.TrimPrefix(header[i], "\uFEFF")) // حذف BOM احتمالی
+		header[i] = strings.TrimSpace(strings.TrimPrefix(header[i], "\uFEFF"))
 	}
 
-	// یافتن ایندکس ستون‌های برند و مدل
 	colIdx := func(name string) int {
 		for i, h := range header {
 			if equalFa(h, name) {
@@ -95,16 +97,16 @@ func (h *ProductFilterImportHandler) ImportCSV(c *gin.Context) {
 	brandIdx := colIdx(brandCol)
 	modelIdx := colIdx(modelCol)
 	if brandIdx < 0 || modelIdx < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("cannot find brandCol=%q or modelCol=%q in header", brandCol, modelCol)})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("cannot find brandCol=%q or modelCol=%q in header", brandCol, modelCol),
+		})
 		return
 	}
 
-	// مشخص‌کردن شروع فیلترها: اگر کاربر مشخص نکرده، طبق گفتۀ شما از ستون سوم (index=2) به بعد
 	if startFilterColIndex < 0 {
-		startFilterColIndex = 2
+		startFilterColIndex = 2 // از ستون سوم به بعد
 	}
 
-	// لیست سطرها
 	var rows [][]string
 	for {
 		rec, err := reader.Read()
@@ -118,7 +120,6 @@ func (h *ProductFilterImportHandler) ImportCSV(c *gin.Context) {
 		rows = append(rows, rec)
 	}
 
-	// فراخوانی سرویس
 	res, err := h.Service.ImportCSV(ctx, port.ImportCSVArgs{
 		CategoryID:          categoryID,
 		Header:              header,
@@ -137,7 +138,7 @@ func (h *ProductFilterImportHandler) ImportCSV(c *gin.Context) {
 		"createdOptions":   res.CreatedOptions,
 		"createdRelations": res.CreatedRelations,
 		"skippedEmpty":     res.SkippedEmpty,
-		"notFoundProducts": res.NotFoundProducts, // [{brand:"...", model:"..."}]
+		"notFoundProducts": res.NotFoundProducts,
 		"warnings":         res.Warnings,
 	})
 }

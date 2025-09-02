@@ -54,6 +54,7 @@ func NewRouter(
 	userSubscriptionHandler *handler.UserSubscriptionHandler,
 	favoriteProductHandler *handler.FavoriteProductHandler,
 	favoriteAccountHandler *handler.FavoriteAccountHandler,
+	productFilterImportHandler *handler.ProductFilterImportHandler,
 	landingHandler *handler.LandingHandler,
 ) (*Router, error) {
 	if httpConfig.Env == "production" || httpConfig.Env == "staging" {

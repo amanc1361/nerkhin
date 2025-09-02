@@ -1,4 +1,3 @@
-// internal/core/service/product_filter_import_service.go
 package service
 
 import (
@@ -14,8 +13,8 @@ import (
 )
 
 type ProductFilterImportService struct {
-	DBMS        port.DBMS
-	FilterRepo  *repository.ProductFilterRepository
+	DBMS       port.DBMS
+	FilterRepo *repository.ProductFilterRepository
 }
 
 func NewProductFilterImportService(dbms port.DBMS, filterRepo *repository.ProductFilterRepository) *ProductFilterImportService {
@@ -23,6 +22,14 @@ func NewProductFilterImportService(dbms port.DBMS, filterRepo *repository.Produc
 		DBMS:       dbms,
 		FilterRepo: filterRepo,
 	}
+}
+
+// مطابق الگوی پروژه‌ات برای رجیستر در main
+func RegisterProductFilterImportService(
+	dbms port.DBMS,
+	filterRepo *repository.ProductFilterRepository,
+) port.ProductFilterImportService {
+	return NewProductFilterImportService(dbms, filterRepo)
 }
 
 func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.ImportCSVArgs) (port.ImportCSVResult, error) {
@@ -38,26 +45,23 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 	}
 
 	return res, gdb.Transaction(func(tx *gorm.DB) error {
-		// 1) گرفتن کلیه فیلترها و گزینه‌های موجود این دسته
+		// 1) فیلترها و آپشن‌های موجود این دسته
 		existing, err := s.FilterRepo.GetAllProductFilters(ctx, tx, args.CategoryID)
 		if err != nil {
 			return err
 		}
-		// map: filterName(norm) -> *ProductFilterData
-		filterMap := make(map[string]*domain.ProductFilterData)
+		filterMap := make(map[string]*domain.ProductFilterData) // displayName نرمال‌شده → فیلتر
 		for _, fd := range existing {
 			key := norm(fd.Filter.DisplayName)
 			filterMap[key] = fd
 		}
 
-		// کش برند → id
-		brandCache := map[string]int64{}
-		// کش (brandID + modelName) → productID
-		prodCache := map[string]int64{}
+		// کش‌ها
+		brandCache := map[string]int64{} // title → id
+		prodCache := map[string]int64{}  // brandID|modelName → productID
 
-		// برای کاهش تکرار relation داخل همین ایمپورت
 		type pair struct{ fId, optId int64 }
-		existingRelCache := map[int64]map[pair]struct{}{} // productID -> set[(filterID, optionID)]
+		existingRelCache := map[int64]map[pair]struct{}{} // productID → set[(filterID, optionID)]
 
 		ensureBrandID := func(tx *gorm.DB, name string) (int64, error) {
 			name = strings.TrimSpace(name)
@@ -68,10 +72,9 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 				return id, nil
 			}
 			var b domain.ProductBrand
-			err := tx.Model(&domain.ProductBrand{}).
+			if err := tx.Model(&domain.ProductBrand{}).
 				Where("title = ?", name).
-				First(&b).Error
-			if err != nil {
+				First(&b).Error; err != nil {
 				return 0, err
 			}
 			brandCache[name] = b.ID
@@ -79,25 +82,20 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 		}
 
 		findProductID := func(tx *gorm.DB, brandID int64, modelName string) (int64, error) {
-			key := strings.Join([]string{strconv.FormatInt(brandID, 10), "|", modelName}, "")
+			key := strconv.FormatInt(brandID, 10) + "|" + modelName
 			if id, ok := prodCache[key]; ok {
 				return id, nil
 			}
 			var p domain.Product
-			err := tx.Model(&domain.Product{}).
+			if err := tx.Model(&domain.Product{}).
 				Where("brand_id = ? AND model_name = ?", brandID, modelName).
-				First(&p).Error
-			if err != nil {
+				First(&p).Error; err != nil {
 				return 0, err
 			}
 			prodCache[key] = p.ID
 			return p.ID, nil
 		}
 
-		// 2) پردازش سطرها
-		var toCreateRelations []*domain.ProductFilterRelation
-
-		// کمک: ساخت relationKeyMap موجود برای یک محصول
 		loadExistingRelations := func(tx *gorm.DB, productID int64) (map[pair]struct{}, error) {
 			if m, ok := existingRelCache[productID]; ok {
 				return m, nil
@@ -114,7 +112,6 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			return m, nil
 		}
 
-		// کمک: اطمینان از وجود فیلتر
 		ensureFilter := func(tx *gorm.DB, displayName string) (*domain.ProductFilterData, bool, error) {
 			key := norm(displayName)
 			if fd, ok := filterMap[key]; ok {
@@ -123,7 +120,7 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			fd := &domain.ProductFilterData{
 				Filter: &domain.ProductFilter{
 					CategoryID:  args.CategoryID,
-					Name:        displayName, // اگر Name جدا می‌خواهید، همین‌جا اسلاگ کنید
+					Name:        displayName, // اگر نیاز به اسلاگ جدا دارید، همین‌جا اعمال کنید
 					DisplayName: displayName,
 				},
 				Options: []*domain.ProductFilterOption{},
@@ -138,17 +135,13 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			return fd, true, nil
 		}
 
-		// کمک: اطمینان از وجود گزینه برای یک فیلتر
 		ensureOption := func(tx *gorm.DB, fd *domain.ProductFilterData, optName string) (*domain.ProductFilterOption, bool, error) {
 			optKey := norm(optName)
-
-			// ابتدا بین گزینه‌های موجود این فیلتر بگرد
 			for _, o := range fd.Options {
 				if norm(o.Name) == optKey {
 					return o, false, nil
 				}
 			}
-			// اگر نبود، بساز
 			opt := &domain.ProductFilterOption{
 				FilterID: fd.Filter.ID,
 				Name:     optName,
@@ -163,8 +156,10 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			return opt, true, nil
 		}
 
+		var toCreateRelations []*domain.ProductFilterRelation
+
 		for _, row := range args.Rows {
-			// ایمنی: اگر طول ردیف کمتر از حداقل ستون‌ها بود، رد
+			// حداقل ستون‌های موردنیاز
 			if len(row) <= args.ModelColIndex || len(row) <= args.BrandColIndex {
 				continue
 			}
@@ -190,7 +185,7 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 				return err
 			}
 
-			// از ستون سوم به بعد = فیلترها
+			// از ستون سوم به بعد (یا ایندکس داده‌شده) = فیلترها
 			for col := args.StartFilterColIndex; col < len(args.Header) && col < len(row); col++ {
 				filterTitle := strings.TrimSpace(args.Header[col])
 				if filterTitle == "" {
@@ -212,10 +207,8 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 
 				key := pair{fId: fd.Filter.ID, optId: opt.ID}
 				if _, exists := exRel[key]; exists {
-					continue // از قبل وجود دارد
+					continue
 				}
-				// در همین ایمپورت دوباره تکرار نشود
-				// (می‌توان کلید productID+pair را هم در یک map سراسری چک کرد)
 				exRel[key] = struct{}{}
 
 				toCreateRelations = append(toCreateRelations, &domain.ProductFilterRelation{
