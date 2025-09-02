@@ -12,8 +12,7 @@ type Result = {
   notFoundProducts: { brand: string; model: string }[];
   warnings?: string[];
 };
-
-export default function CsvFilterImporter({
+ function CsvFilterImporter({
   defaultCategoryId,
   defaultBrandCol = "برند",
   defaultModelCol = "مدل",
@@ -165,6 +164,22 @@ export default function CsvFilterImporter({
           ) : null}
         </div>
       )}
+    </div>
+  );
+}
+
+
+// صفحه سروریه و فقط کامپوننت کلاینتی رو رندر می‌کنه
+export default function Page() {
+  return (
+    <div className="p-4">
+      <CsvFilterImporter
+        defaultCategoryId={17}
+        defaultBrandCol="برند"
+        defaultModelCol="مدل"
+        defaultStartFilterColIndex={2}
+        endpoint="/api/go/product-filter/import-csv" // اگر پشت Nginx داری؛ در غیر اینصورت آدرس مطلق بده
+      />
     </div>
   );
 }
