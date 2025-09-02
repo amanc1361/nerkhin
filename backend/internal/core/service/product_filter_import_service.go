@@ -10,6 +10,7 @@ import (
 	"github.com/nerkhin/internal/core/domain"
 	"github.com/nerkhin/internal/core/port"
 	"gorm.io/gorm"
+	gLogger "gorm.io/gorm/logger"
 )
 
 type ProductFilterImportService struct {
@@ -44,7 +45,15 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 		return res, err
 	}
 
+	// لاگ سطح Info برای دیباگ جریان ایمپورت
+	gdb = gdb.Session(&gorm.Session{Logger: gLogger.Default.LogMode(gLogger.Info)})
+
 	return res, gdb.Transaction(func(tx *gorm.DB) error {
+		// خطاهای قیود (FK/Unique) را همان ابتدا و در لحظه‌ی اجرای کوئری‌ها سطحی کن
+		if err := tx.Exec("SET CONSTRAINTS ALL IMMEDIATE").Error; err != nil {
+			return err
+		}
+
 		// 1) فیلترها و آپشن‌های موجود این دسته
 		existing, err := s.FilterRepo.GetAllProductFilters(ctx, tx, args.CategoryID)
 		if err != nil {

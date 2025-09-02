@@ -14,6 +14,7 @@ func (pfr *ProductFilterRepository) CreateProductFilterOption(ctx context.Contex
 	if err != nil {
 		return 0, err
 	}
+
 	err = db.Create(&filterOption).Error
 	if err != nil {
 		return 0, err
