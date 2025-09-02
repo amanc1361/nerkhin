@@ -22,6 +22,7 @@ import (
 	"github.com/nerkhin/internal/adapter/handler/http/routes/productbrand"
 	"github.com/nerkhin/internal/adapter/handler/http/routes/productcategory"
 	"github.com/nerkhin/internal/adapter/handler/http/routes/productfilter"
+	"github.com/nerkhin/internal/adapter/handler/http/routes/productfilterroute"
 	"github.com/nerkhin/internal/adapter/handler/http/routes/productmodel"
 	"github.com/nerkhin/internal/adapter/handler/http/routes/productrequest"
 	"github.com/nerkhin/internal/adapter/handler/http/routes/report"
@@ -98,6 +99,7 @@ func NewRouter(
 	favoriteaccount.AddRoutes(api, favoriteAccountHandler)
 	usersubscription.AddRoutes(api, userSubscriptionHandler)
 	landing.AddRoutes(api, landingHandler)
+	productfilterroute.AddRoutes(api, productFilterImportHandler)
 
 	return &Router{
 		Engine: router, // برگرداندن Router که gin.Engine را در خود دارد

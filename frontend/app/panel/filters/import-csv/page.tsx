@@ -17,7 +17,7 @@ type Result = {
   defaultBrandCol = "برند",
   defaultModelCol = "مدل",
   defaultStartFilterColIndex = 2, // ستون سوم (0-based)
-  endpoint = "/product-filter/import-csv", // مسیر reverse-proxy شما به Go
+  endpoint = "/product-filter-import/import-csv", // مسیر reverse-proxy شما به Go
 }: {
   defaultCategoryId?: number;
   defaultBrandCol?: string;
@@ -178,7 +178,7 @@ export default function Page() {
         defaultBrandCol="برند"
         defaultModelCol="مدل"
         defaultStartFilterColIndex={2}
-        endpoint="/api/go/product-filter/import-csv" // اگر پشت Nginx داری؛ در غیر اینصورت آدرس مطلق بده
+        endpoint="/product-filter-import/import-csv" // اگر پشت Nginx داری؛ در غیر اینصورت آدرس مطلق بده
       />
     </div>
   );
