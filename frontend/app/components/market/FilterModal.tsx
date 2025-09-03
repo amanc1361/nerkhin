@@ -2,20 +2,26 @@
 "use client";
 
 import { useBrandsByCategory } from "@/app/hooks/useBrandCategory";
-import { useFiltersByCategory } from "@/app/hooks/useFilterByCategory";
+
+import type { ProductFilterData } from "@/app/types/product/product";
 
 import { useEffect, useMemo, useState } from "react";
+
+// ← کامپوننت پول سه‌رقمی (طبق پروژه‌ی خودت)
+import MoneyInput, { parseMoney } from "@/app/components/shared/MonyInput";
+import { useFiltersByCategory } from "@/app/hooks/useFilterByCategory";
+import Portal from "../shared/portal";
 
 type Option = { value: number; label: string };
 
 export type FiltersValue = {
   categoryId?: number;
-  brandIds?: number[];
+  brandIds?: number[]; // در این فرم تک‌انتخاب است ولی همچنان آرایه می‌فرستیم
   cityId?: number;
   isDollar?: boolean | null;
   priceMin?: number;
   priceMax?: number;
-  /** ← جدید: همه‌ی آیدی گزینه‌های انتخاب‌شده در تمام فیلترها */
+  // خروجی نهاییِ فیلترها به صورت آرایه‌ی فلت از optionIdها
   optionIds?: number[];
 };
 
@@ -67,12 +73,63 @@ export default function FiltersModal({
   );
 
   // فیلترها و گزینه‌ها براساس دسته
-  const { filters: filterGroups = [], loading: filtersLoading, error } = useFiltersByCategory(categoryId);
+  const {
+    filters: filterGroups = [],
+    loading: filtersLoading,
+    error,
+  } = useFiltersByCategory(categoryId);
+
+  // ⭐️ نگاشت انتخاب‌ها به ازای هر فیلتر: { [filterId]: optionId }
+  const [selectedByFilter, setSelectedByFilter] = useState<Record<number, number | undefined>>({});
 
   // اگر دسته عوض شد، انتخاب قبلیِ برندها و گزینه‌ها بی‌معنی است → پاک‌شان کن
   useEffect(() => {
     setVal((p) => ({ ...p, categoryId, brandIds: [], optionIds: [] }));
+    setSelectedByFilter({});
   }, [categoryId]);
+
+  // مقداردهی اولیه‌ی انتخاب‌های فیلتر از روی initial.optionIds بعد از لود فیلترها
+  useEffect(() => {
+    if (!filterGroups.length) return;
+    const initIds = initial?.optionIds ?? [];
+    if (!initIds.length) return;
+
+    // ساخت lookup: optionId → filterId
+    const optionToFilter = new Map<number, number>();
+    for (const g of filterGroups) {
+      for (const opt of g.options ?? []) {
+        optionToFilter.set(Number(opt.id), Number(g.filter.id));
+      }
+    }
+    const next: Record<number, number> = {};
+    for (const oid of initIds) {
+      const fid = optionToFilter.get(Number(oid));
+      if (fid) next[fid] = Number(oid);
+    }
+    setSelectedByFilter(next);
+  }, [filterGroups, initial?.optionIds]);
+
+  // خروجی نهاییِ optionIds از روی selectedByFilter
+  const flatOptionIds = useMemo(
+    () =>
+      Object.values(selectedByFilter)
+        .filter((v): v is number => Number.isFinite(v as number))
+        .map(Number),
+    [selectedByFilter]
+  );
+
+  // هندل تغییر کشویی هر فیلتر
+  const onChangeFilterSelect = (filterId: number, optionId?: number) => {
+    setSelectedByFilter((prev) => ({ ...prev, [filterId]: optionId }));
+  };
+
+  // نهایی‌سازی و ارسال به والد
+  const apply = () => {
+    onApply({
+      ...val,
+      optionIds: flatOptionIds.length ? flatOptionIds : undefined,
+    });
+  };
 
   const isOpen = open ? "pointer-events-auto" : "pointer-events-none";
   const backdrop = open ? "opacity-100" : "opacity-0";
@@ -89,6 +146,7 @@ export default function FiltersModal({
       />
 
       {/* Bottom Sheet (mobile) */}
+      <Portal>
       <section
         dir={dir}
         className={`
@@ -112,9 +170,12 @@ export default function FiltersModal({
           filterGroups={filterGroups}
           filtersLoading={filtersLoading}
           errorText={error ?? undefined}
+          selectedByFilter={selectedByFilter}
+          onChangeFilterSelect={onChangeFilterSelect}
         />
-        <Footer onClear={onClear} onApply={() => onApply(val)} onClose={onClose} />
+        <Footer onClear={onClear} onApply={apply} onClose={onClose} />
       </section>
+      </Portal>
 
       {/* Sidebar (desktop) */}
       <section
@@ -140,8 +201,10 @@ export default function FiltersModal({
           filterGroups={filterGroups}
           filtersLoading={filtersLoading}
           errorText={error ?? undefined}
+          selectedByFilter={selectedByFilter}
+          onChangeFilterSelect={onChangeFilterSelect}
         />
-        <Footer onClear={onClear} onApply={() => onApply(val)} onClose={onClose} />
+        <Footer onClear={onClear} onApply={apply} onClose={onClose} />
       </section>
     </>
   );
@@ -170,6 +233,8 @@ function FormBody({
   filterGroups,
   filtersLoading,
   errorText,
+  selectedByFilter,
+  onChangeFilterSelect,
 }: {
   val: FiltersValue;
   setVal: (u: FiltersValue | ((p: FiltersValue) => FiltersValue)) => void;
@@ -177,24 +242,19 @@ function FormBody({
   brandsLoading: boolean;
   cities: Option[];
   categoryId?: number;
-  filterGroups: any[]; // ProductFilterData[]
+  filterGroups: ProductFilterData[];
   filtersLoading: boolean;
   errorText?: string;
+  selectedByFilter: Record<number, number | undefined>;
+  onChangeFilterSelect: (filterId: number, optionId?: number) => void;
 }) {
-  const toggleOption = (optId: number, checked: boolean) => {
-    setVal((prev) => {
-      const set = new Set(prev.optionIds ?? []);
-      if (checked) set.add(optId);
-      else set.delete(optId);
-      return { ...prev, optionIds: Array.from(set) };
-    });
-  };
-
-  const isOptChecked = (optId: number) => (val.optionIds ?? []).includes(optId);
+  // برای MoneyInput معمولاً مقدار رشته‌ای بدهیم و در خروجی number بسازیم
+  const priceMinStr = val.priceMin != null ? String(val.priceMin) : "";
+  const priceMaxStr = val.priceMax != null ? String(val.priceMax) : "";
 
   return (
     <div className="flex-1 overflow-auto pt-4 space-y-6">
-      {/* برند (کشویی) */}
+      {/* برند (کشویی تک‌انتخاب) */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">برند</label>
         <select
@@ -236,35 +296,37 @@ function FormBody({
         </div>
       )}
 
-      {/* بازه قیمت */}
+      {/* بازه قیمت با MoneyInput (سه‌رقمی) */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">حداقل قیمت</label>
-          <input
-            type="number"
-            inputMode="numeric"
-            className="w-full rounded-xl border px-3 py-2"
-            value={val.priceMin ?? ""}
-            onChange={(e) =>
-              setVal({ ...val, priceMin: e.target.value ? Number(e.target.value) : undefined })
+          <MoneyInput
+            value={priceMinStr}
+            onChange={(str: string) =>
+              setVal((p) => ({
+                ...p,
+                priceMin: str ? Number(parseMoney(str)) : undefined,
+              }))
             }
+            placeholder="مثلاً ۱,۵۰۰,۰۰۰"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">حداکثر قیمت</label>
-          <input
-            type="number"
-            inputMode="numeric"
-            className="w-full rounded-xl border px-3 py-2"
-            value={val.priceMax ?? ""}
-            onChange={(e) =>
-              setVal({ ...val, priceMax: e.target.value ? Number(e.target.value) : undefined })
+          <MoneyInput
+            value={priceMaxStr}
+            onChange={(str: string) =>
+              setVal((p) => ({
+                ...p,
+                priceMax: str ? Number(parseMoney(str)) : undefined,
+              }))
             }
+            placeholder="مثلاً ۱۲,۰۰۰,۰۰۰"
           />
         </div>
       </div>
 
-      {/* فیلترها و گزینه‌ها */}
+      {/* فیلترها و گزینه‌ها (هر فیلتر = یک کشویی تک‌انتخاب) */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <h4 className="text-sm font-semibold text-slate-800">فیلترها</h4>
@@ -276,34 +338,36 @@ function FormBody({
           <div className="text-sm text-gray-500">فیلتری برای این دسته ثبت نشده است.</div>
         )}
 
-        {filterGroups.map((f: any) => (
-          <div key={f.id} className="border rounded-xl p-3">
-            <div className="text-sm font-medium text-slate-700 mb-2">
-              {String(f.title ?? f.name ?? `فیلتر #${f.id}`)}
+        {filterGroups.map((g) => {
+          const fid = Number(g.filter.id);
+          const title = String(g.filter.displayName ?? g.filter.name ?? `فیلتر #${fid}`);
+          const current = selectedByFilter[fid] ?? "";
+
+          return (
+            <div key={fid} className="border rounded-xl p-3">
+              <label className="block text-sm font-medium text-slate-700 mb-1">{title}</label>
+              <select
+                className="w-full rounded-xl border px-3 py-2 bg-white text-sm"
+                value={current}
+                onChange={(e) => {
+                  const v = e.target.value ? Number(e.target.value) : undefined;
+                  onChangeFilterSelect(fid, v);
+                }}
+              >
+                <option value="">همه</option>
+                {(g.options ?? []).map((opt) => {
+                  const oid = Number(opt.id);
+                  const label = String(opt.name ?? oid);
+                  return (
+                    <option key={oid} value={oid}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {(f.options ?? []).map((opt: any) => {
-                const id = Number(opt?.id);
-                const label = String(opt?.title ?? opt?.name ?? id);
-                const checked = isOptChecked(id);
-                return (
-                  <label
-                    key={id}
-                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
-                  >
-                    <input
-                      type="checkbox"
-                      className="accent-black"
-                      checked={checked}
-                      onChange={(e) => toggleOption(id, e.target.checked)}
-                    />
-                    <span className="truncate">{label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

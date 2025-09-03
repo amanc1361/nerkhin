@@ -19,6 +19,9 @@ export const useFiltersByCategory = (categoryId: number | string) => {
         const data = await api.get<FiltersResponse>(filterApi.getByCategory(categoryId));
         
         setFilters(data.productFilters??[]); 
+     
+      
+ 
         setError(null);
       } catch (err) {
         const msg = err instanceof ApiError ? err.message : "خطا در دریافت فیلترها";

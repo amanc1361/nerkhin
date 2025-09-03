@@ -1,5 +1,6 @@
 "use client";
 import type { MarketItemVM } from "@/app/types/userproduct/market";
+import PersianDate from "@/app/utils/persiadate";
 import type { MarketMessages } from "@/lib/server/texts/marketMessages";
 import Image from "next/image";
 import Link from "next/link";
@@ -56,8 +57,8 @@ export default function MarketProductItem({
               </div>
             </div>
           </div>
-
-          <div className="w-12 text-xs text-gray-500">{shortDate(item.updatedAt)}</div>
+  
+          <div className="w-16 text-xs text-gray-500"><PersianDate value={item.updatedAt}/></div>
         </div>
       </Link>
     </li>

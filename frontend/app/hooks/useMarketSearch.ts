@@ -2,11 +2,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthenticatedApi } from "./useAuthenticatedApi";
 import { userProductApi } from "@/app/services/userProductService";
-import type { MarketSearchQuery, MarketSearchVM, UserProductMarketView } from "@/app/types/userproduct/market";
+import type {
+  MarketSearchQuery,
+  MarketSearchVM,
+  UserProductMarketView,
+} from "@/app/types/userproduct/market";
 import { getUserProductMessages } from "@/lib/server/texts/userProdutMessages";
 import { toast } from "react-toastify";
 
-// اگر ترجیح می‌دهی util ابسولوت کردن را از یک جای مشترک import کنی، جایگزین کن
+// ---------- utils ----------
 function absolutizeUploads(imageUrl?: string | null) {
   if (!imageUrl) return null;
   if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
@@ -17,11 +21,7 @@ function absolutizeUploads(imageUrl?: string | null) {
 }
 
 function mapMarketItemToVM(p: any) {
-  const dollar =
-    p?.dollarPrice?.String ??
-    p?.dollarPrice ??
-    null;
-
+  const dollar = p?.dollarPrice?.String ?? p?.dollarPrice ?? null;
   return {
     id: p.id,
     productId: p.productId,
@@ -49,9 +49,88 @@ function mapMarketItemToVM(p: any) {
   };
 }
 
+/** حذف کلیدهای تهی بدون جنریک */
+function pruneRecord(obj: Record<string, any>) {
+  const out: Record<string, string | number | boolean> = {};
+  Object.keys(obj || {}).forEach((k) => {
+    const v = obj[k];
+    if (v !== undefined && v !== null && v !== "") out[k] = v as any;
+  });
+  return out;
+}
+
+/** مپ state → پارامترهای URL سرور (با تحمل نام‌های مختلف) */
+function toServerParams(q: MarketSearchQuery) {
+  const qq = q as any;
+
+  // alias برای min/max
+  const priceMin = qq.priceMin ?? qq.min;
+  const priceMax = qq.priceMax ?? qq.max;
+
+  // isDollar بولین → 1/0
+  let isDollar: number | undefined;
+  if (typeof qq.isDollar === "boolean") isDollar = qq.isDollar ? 1 : 0;
+
+  // sortUpdated پروژه → sortDir سرور
+  const sortDir = (qq.sortUpdated ?? "desc") as "asc" | "desc";
+
+  // brandIds/optionIds به comma-separated
+  const brandId =
+    Array.isArray(qq.brandIds) && qq.brandIds.length ? qq.brandIds.join(",") : undefined;
+  const optionId =
+    Array.isArray(qq.optionIds) && qq.optionIds.length ? qq.optionIds.join(",") : undefined;
+
+  const base: Record<string, any> = {
+    limit: qq.limit,
+    offset: qq.offset,
+    search: (qq.search || "").trim(),
+    onlyVisible: qq.onlyVisible,
+    categoryId: qq.categoryId,
+    brandId,
+    optionId,
+    isDollar,
+    priceMin,
+    priceMax,
+    cityId: qq.cityId,
+    sortBy: qq.sortBy || "updated",
+    sortDir,
+  };
+
+  return pruneRecord(base);
+}
+
+/** ادغام امن پارامترهای جدید با URL موجود (بدون ? دوم و بدون کلید تکراری) */
+function mergeUrlWithParams(baseUrl: string, params: Record<string, string | number | boolean>) {
+  if (!baseUrl) return "";
+
+  // اگر URL شامل query هست، ادغام کنیم
+  const qIndex = baseUrl.indexOf("?");
+  if (qIndex >= 0) {
+    const path = baseUrl.slice(0, qIndex);
+    const qs = baseUrl.slice(qIndex + 1);
+    const usp = new URLSearchParams(qs);
+
+    // پارامترهای جدید، کلیدهای قبلی را overwrite می‌کنند
+    Object.entries(params).forEach(([k, v]) => {
+      usp.set(k, String(v));
+    });
+
+    const s = usp.toString();
+    return s ? `${path}?${s}` : path;
+  }
+
+  // اگر query نداشت، از اول بسازیم
+  const usp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => usp.set(k, String(v)));
+  const s = usp.toString();
+  return s ? `${baseUrl}?${s}` : baseUrl;
+}
+
+// ---------- hook ----------
 export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en" = "fa") {
   const { api } = useAuthenticatedApi();
   const t = getUserProductMessages(locale);
+
   const [query, setQuery] = useState<MarketSearchQuery>(() => ({
     limit: 24,
     offset: 0,
@@ -65,24 +144,47 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const page = useMemo(() => Math.floor((query.offset ?? 0) / (query.limit || 1)) + 1, [query.offset, query.limit]);
+  const page = useMemo(
+    () => Math.floor((query.offset ?? 0) / (query.limit || 1)) + 1,
+    [query.offset, query.limit]
+  );
 
-  const run = useCallback(async (q: MarketSearchQuery) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const d = userProductApi.marketSearch(q);
-      const res = await api[d.method]<{ items: UserProductMarketView[]; total: number }>({ url: d.url });
-      const items = Array.isArray(res?.items) ? res.items : [];
-      const total = Number(res?.total ?? 0);
-      setData({ items: items.map(mapMarketItemToVM), total });
-    } catch (e: any) {
-      setError(e?.message || t.toasts.error);
-      toast.error(e?.message || t.toasts.error);
-    } finally {
-      setLoading(false);
-    }
-  }, [api, t.toasts.error]);
+  const run = useCallback(
+    async (q: MarketSearchQuery) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const d = userProductApi.marketSearch(q); // همون سرویس خودت
+        const params = toServerParams(q);
+
+        // URL نهایی با merge ایمن
+        const finalUrl = mergeUrlWithParams(d.url, params);
+
+        // برای دیباگ:
+        // eslint-disable-next-line no-console
+        console.debug("[marketSearch][GET]", finalUrl);
+
+        // همون امضای فعلی شما (بدون data/params)
+        const res = await api[d.method as "get"]<{
+          items: UserProductMarketView[];
+          total: number;
+        }>({
+          url: finalUrl,
+        });
+
+        const items = Array.isArray(res?.items) ? res.items : [];
+        const total = Number(res?.total ?? 0);
+        setData({ items: items.map(mapMarketItemToVM), total });
+      } catch (e: any) {
+        const msg = e?.message || t.toasts.error;
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [api, t.toasts.error]
+  );
 
   // debounce fetch on query change
   useEffect(() => {
@@ -93,20 +195,28 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
     };
   }, [query, run]);
 
-  // helpers برای صفحه‌بندی
-  const setPage = useCallback((p: number) => {
-    const limit = query.limit ?? 24;
-    setQuery((q) => ({ ...q, offset: Math.max(0, (p - 1) * limit) }));
-  }, [query.limit]);
+  // helpers صفحه‌بندی
+  const setPage = useCallback(
+    (p: number) => {
+      const limit = query.limit ?? 24;
+      setQuery((q) => ({ ...q, offset: Math.max(0, (p - 1) * limit) }));
+    },
+    [query.limit]
+  );
 
   const setLimit = useCallback((limit: number) => {
     setQuery((q) => ({ ...q, limit, offset: 0 }));
   }, []);
 
   return {
-    query, setQuery, setPage, setLimit,
+    query,
+    setQuery,
+    setPage,
+    setLimit,
     page,
-    data, loading, error,
+    data,
+    loading,
+    error,
     refresh: () => run(query),
   };
 }
