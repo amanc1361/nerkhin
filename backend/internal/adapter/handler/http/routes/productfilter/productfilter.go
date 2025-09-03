@@ -15,7 +15,13 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.ProductFilterHandler) {
 	productFilterGroup.POST("/create", handler.Create)
 	productFilterGroup.POST("/option/create", handler.CreateFilteroption)
 	productFilterGroup.PUT("/update", handler.Update)
-	productFilterGroup.GET("/fetch-all/:categoryId", handler.FetchAll)
+
+	nonAdminProductFilterGroup := parent.Group("/product-filter").Use(
+		middleware.AuthMiddleware(handler.TokenService, handler.AppConfig),
+		middleware.ApprovedUserMiddleware(handler.TokenService, handler.AppConfig),
+	)
+
+	nonAdminProductFilterGroup.GET("/fetch-all/:categoryId", handler.FetchAll)
 	productFilterGroup.DELETE("/delete/:id", handler.BatchDeleteProductFilters)
 	productFilterGroup.DELETE("/delete-options/:id", handler.BatchDeleteProductFilterOptions)
 }

@@ -2,19 +2,21 @@
 "use client";
 
 import { useBrandsByCategory } from "@/app/hooks/useBrandCategory";
-import { useEffect, useMemo, useState } from "react";
-// مسیر ایمپورت را مطابق پروژه خودت تنظیم کن:
+import { useFiltersByCategory } from "@/app/hooks/useFilterByCategory";
 
+import { useEffect, useMemo, useState } from "react";
 
 type Option = { value: number; label: string };
 
 export type FiltersValue = {
   categoryId?: number;
-  brandIds?: number[];      // خروجی همچنان آرایه است
+  brandIds?: number[];
   cityId?: number;
   isDollar?: boolean | null;
   priceMin?: number;
   priceMax?: number;
+  /** ← جدید: همه‌ی آیدی گزینه‌های انتخاب‌شده در تمام فیلترها */
+  optionIds?: number[];
 };
 
 export default function FiltersModal({
@@ -23,7 +25,6 @@ export default function FiltersModal({
   onClear,
   onApply,
   initial,
-  // 🔹 ورودی جدید:
   categoryId,
   cities = [],
   dir = "rtl",
@@ -34,7 +35,7 @@ export default function FiltersModal({
   onClear?: () => void;
   onApply: (val: FiltersValue) => void;
   initial?: FiltersValue;
-  categoryId: number;             // ⬅️ مهم
+  categoryId: number;
   cities?: Option[];
   dir?: "rtl" | "ltr";
   title?: string;
@@ -49,19 +50,28 @@ export default function FiltersModal({
     if (!open) return;
     const { overflow } = document.body.style;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = overflow; };
+    return () => {
+      document.body.style.overflow = overflow;
+    };
   }, [open]);
 
-  // 🔹 واکشی برندها بر اساس categoryId (یا subCategoryId)
+  // برندها براساس دسته
   const { items: brands = [], loading: brandsLoading } = useBrandsByCategory(categoryId);
   const brandOptions: Option[] = useMemo(
-    () => brands.map((b: any) => ({ value: Number(b.id), label: String(b.title ?? b.name ?? b.model ?? b.id) })),
+    () =>
+      brands.map((b: any) => ({
+        value: Number(b.id),
+        label: String(b.title ?? b.name ?? b.model ?? b.id),
+      })),
     [brands]
   );
 
-  // اگر دسته عوض شد، انتخاب برندهای قبلی معنی ندارد → پاک‌شان کن
+  // فیلترها و گزینه‌ها براساس دسته
+  const { filters: filterGroups = [], loading: filtersLoading, error } = useFiltersByCategory(categoryId);
+
+  // اگر دسته عوض شد، انتخاب قبلیِ برندها و گزینه‌ها بی‌معنی است → پاک‌شان کن
   useEffect(() => {
-    setVal((p) => ({ ...p, categoryId, brandIds: [] }));
+    setVal((p) => ({ ...p, categoryId, brandIds: [], optionIds: [] }));
   }, [categoryId]);
 
   const isOpen = open ? "pointer-events-auto" : "pointer-events-none";
@@ -87,15 +97,21 @@ export default function FiltersModal({
           transform transition-transform duration-300 md:hidden
           ${panelMobile}
         `}
-        role="dialog" aria-modal="true" aria-label={title}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
       >
         <Header title={title} onClose={onClose} />
         <FormBody
-          val={val} setVal={setVal}
+          val={val}
+          setVal={setVal}
           brandOptions={brandOptions}
           brandsLoading={brandsLoading}
           cities={cities}
           categoryId={categoryId}
+          filterGroups={filterGroups}
+          filtersLoading={filtersLoading}
+          errorText={error ?? undefined}
         />
         <Footer onClear={onClear} onApply={() => onApply(val)} onClose={onClose} />
       </section>
@@ -109,15 +125,21 @@ export default function FiltersModal({
           transform transition-transform duration-300 hidden md:flex md:flex-col
           ${panelDesktop}
         `}
-        role="dialog" aria-modal="true" aria-label={title}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
       >
         <Header title={title} onClose={onClose} />
         <FormBody
-          val={val} setVal={setVal}
+          val={val}
+          setVal={setVal}
           brandOptions={brandOptions}
           brandsLoading={brandsLoading}
           cities={cities}
           categoryId={categoryId}
+          filterGroups={filterGroups}
+          filtersLoading={filtersLoading}
+          errorText={error ?? undefined}
         />
         <Footer onClear={onClear} onApply={() => onApply(val)} onClose={onClose} />
       </section>
@@ -139,7 +161,15 @@ function Header({ title, onClose }: { title: string; onClose: () => void }) {
 }
 
 function FormBody({
-  val, setVal, brandOptions, brandsLoading, cities, categoryId,
+  val,
+  setVal,
+  brandOptions,
+  brandsLoading,
+  cities,
+  categoryId,
+  filterGroups,
+  filtersLoading,
+  errorText,
 }: {
   val: FiltersValue;
   setVal: (u: FiltersValue | ((p: FiltersValue) => FiltersValue)) => void;
@@ -147,11 +177,23 @@ function FormBody({
   brandsLoading: boolean;
   cities: Option[];
   categoryId?: number;
+  filterGroups: any[]; // ProductFilterData[]
+  filtersLoading: boolean;
+  errorText?: string;
 }) {
+  const toggleOption = (optId: number, checked: boolean) => {
+    setVal((prev) => {
+      const set = new Set(prev.optionIds ?? []);
+      if (checked) set.add(optId);
+      else set.delete(optId);
+      return { ...prev, optionIds: Array.from(set) };
+    });
+  };
+
+  const isOptChecked = (optId: number) => (val.optionIds ?? []).includes(optId);
+
   return (
     <div className="flex-1 overflow-auto pt-4 space-y-6">
-   
-
       {/* برند (کشویی) */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">برند</label>
@@ -166,33 +208,11 @@ function FormBody({
         >
           <option value="">{brandsLoading ? "در حال بارگذاری…" : "همهٔ برندها"}</option>
           {brandOptions.map((b) => (
-            <option key={b.value} value={b.value}>{b.label}</option>
+            <option key={b.value} value={b.value}>
+              {b.label}
+            </option>
           ))}
         </select>
-      </div>
-
-      
-
-      {/* بازه قیمت */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">حداقل قیمت</label>
-          <input
-            type="number" inputMode="numeric"
-            className="w-full rounded-xl border px-3 py-2"
-            value={val.priceMin ?? ""}
-            onChange={(e) => setVal({ ...val, priceMin: e.target.value ? Number(e.target.value) : undefined })}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">حداکثر قیمت</label>
-          <input
-            type="number" inputMode="numeric"
-            className="w-full rounded-xl border px-3 py-2"
-            value={val.priceMax ?? ""}
-            onChange={(e) => setVal({ ...val, priceMax: e.target.value ? Number(e.target.value) : undefined })}
-          />
-        </div>
       </div>
 
       {/* شهر (اختیاری) */}
@@ -202,23 +222,115 @@ function FormBody({
           <select
             className="w-full rounded-xl border px-3 py-2 bg-white text-sm"
             value={val.cityId ?? ""}
-            onChange={(e) => setVal({ ...val, cityId: e.target.value ? Number(e.target.value) : undefined })}
+            onChange={(e) =>
+              setVal((p) => ({ ...p, cityId: e.target.value ? Number(e.target.value) : undefined }))
+            }
           >
-            <option value="">همه</option>
-            {cities.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            <option value="">همهٔ شهرها</option>
+            {cities.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
           </select>
         </div>
       )}
+
+      {/* بازه قیمت */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">حداقل قیمت</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            className="w-full rounded-xl border px-3 py-2"
+            value={val.priceMin ?? ""}
+            onChange={(e) =>
+              setVal({ ...val, priceMin: e.target.value ? Number(e.target.value) : undefined })
+            }
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">حداکثر قیمت</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            className="w-full rounded-xl border px-3 py-2"
+            value={val.priceMax ?? ""}
+            onChange={(e) =>
+              setVal({ ...val, priceMax: e.target.value ? Number(e.target.value) : undefined })
+            }
+          />
+        </div>
+      </div>
+
+      {/* فیلترها و گزینه‌ها */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h4 className="text-sm font-semibold text-slate-800">فیلترها</h4>
+          {filtersLoading && <span className="text-xs text-gray-500">(در حال بارگذاری…)</span>}
+          {errorText && <span className="text-xs text-red-600">({errorText})</span>}
+        </div>
+
+        {!filtersLoading && !filterGroups.length && (
+          <div className="text-sm text-gray-500">فیلتری برای این دسته ثبت نشده است.</div>
+        )}
+
+        {filterGroups.map((f: any) => (
+          <div key={f.id} className="border rounded-xl p-3">
+            <div className="text-sm font-medium text-slate-700 mb-2">
+              {String(f.title ?? f.name ?? `فیلتر #${f.id}`)}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(f.options ?? []).map((opt: any) => {
+                const id = Number(opt?.id);
+                const label = String(opt?.title ?? opt?.name ?? id);
+                const checked = isOptChecked(id);
+                return (
+                  <label
+                    key={id}
+                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      className="accent-black"
+                      checked={checked}
+                      onChange={(e) => toggleOption(id, e.target.checked)}
+                    />
+                    <span className="truncate">{label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function Footer({ onClear, onApply, onClose }: { onClear?: () => void; onApply: () => void; onClose: () => void }) {
+function Footer({
+  onClear,
+  onApply,
+  onClose,
+}: {
+  onClear?: () => void;
+  onApply: () => void;
+  onClose: () => void;
+}) {
   return (
     <footer className="pt-4 border-t mt-4 flex items-center gap-3">
-      {onClear && <button onClick={onClear} className="px-4 py-2 rounded-xl border hover:bg-gray-50">پاک‌کردن</button>}
-      <button onClick={onApply} className="px-4 py-2 rounded-xl bg-gray-900 text-white">اعمال فیلتر</button>
-      <button onClick={onClose} className="ml-auto px-3 py-2 text-gray-500 hover:text-gray-700">بستن</button>
+      {onClear && (
+        <button onClick={onClear} className="px-4 py-2 rounded-xl border hover:bg-gray-50">
+          پاک‌کردن
+        </button>
+      )}
+      <button onClick={onApply} className="px-4 py-2 rounded-xl bg-gray-900 text-white">
+        اعمال فیلتر
+      </button>
+      <button onClick={onClose} className="ml-auto px-3 py-2 text-gray-500 hover:text-gray-700">
+        بستن
+      </button>
     </footer>
   );
 }
