@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	"github.com/nerkhin/internal/adapter/storage/dbms/repository"
@@ -49,7 +48,7 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 	gdb = gdb.Session(&gorm.Session{Logger: gLogger.Default.LogMode(gLogger.Info)})
 
 	return res, gdb.Transaction(func(tx *gorm.DB) error {
-		// خطاهای قیود (FK/Unique) را همان ابتدا و در لحظه‌ی اجرای کوئری‌ها سطحی کن
+		// اگر به قیود حساس هستی می‌تونی نگه داری؛ اشکالی نداره
 		if err := tx.Exec("SET CONSTRAINTS ALL IMMEDIATE").Error; err != nil {
 			return err
 		}
@@ -65,129 +64,53 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			filterMap[key] = fd
 		}
 
-		// کش‌ها (کلید کش با رشتهٔ فارسی نرمال‌شده)
-		brandCache := map[string]int64{} // normalized(title) → id
-		prodCache := map[string]int64{}  // brandID|normalized(modelName) → productID
-
 		type pair struct{ fId, optId int64 }
 		existingRelCache := map[int64]map[pair]struct{}{} // productID → set[(filterID, optionID)]
 
-		// کاراکترهای خاص که باید در SQL نرمال‌سازی شوند (پارامتری)
-		const (
-			zwnj    = "\u200C" // نیم‌فاصله
-			nbsp    = "\u00A0" // NBSP
-			tatweel = "\u0640" // کشیده ـ
-		)
-
-		// --- Lookup برند با نرمال‌سازی فارسی و fallback ---
+		// --- Lookup ساده برند: بدون هیچ دستکاری روی متن ورودی ---
 		ensureBrandID := func(tx *gorm.DB, name string) (int64, error) {
-			name = strings.TrimSpace(name)
 			if name == "" {
 				return 0, nil
-			}
-			cacheKey := normalizeFA(name)
-			if id, ok := brandCache[cacheKey]; ok {
-				return id, nil
 			}
 
 			var b domain.ProductBrand
 
-			// 1) تطبیق دقیق
+			// 1) exact
 			if err := tx.Model(&domain.ProductBrand{}).
 				Where("title = ?", name).
-				First(&b).Error; err == nil {
-				brandCache[cacheKey] = b.ID
+				First(&b).Error; err == nil && b.ID != 0 {
 				return b.ID, nil
 			}
 
-			// 2) ILIKE ساده (lower)
+			// 2) ILIKE با همان متن ورودی
 			if err := tx.Model(&domain.ProductBrand{}).
-				Where("LOWER(title) ILIKE ?", "%"+strings.ToLower(name)+"%").
-				First(&b).Error; err == nil {
-				brandCache[cacheKey] = b.ID
-				return b.ID, nil
-			}
-
-			// 3) مقایسهٔ فشردهٔ نرمال‌شده (بدون فاصله/نیم‌فاصله/کشیده)
-			// توجه: از پارامترها برای کاراکترهای یونیکد استفاده می‌کنیم تا از E'\u....' دوری کنیم.
-			compact := normalizeFACompact(name)
-			raw := `
-SELECT id, title
-FROM product_brand
-WHERE
-  regexp_replace(
-    replace(
-      replace(
-        replace(lower(title), ?, ' '),   -- ZWNJ → space
-        ?, ' '                           -- NBSP → space
-      ),
-      ?, ''                              -- Tatweel حذف
-    ),
-    '\s+', '', 'g'                       -- حذف همهٔ فاصله‌ها
-  ) = ?
-LIMIT 1;
-`
-			if err := tx.Raw(raw, zwnj, nbsp, tatweel, compact).Scan(&b).Error; err != nil {
-				// اگر سینتکس/اجرا خطا داشت، ادامه دادن باعث 25P02 می‌شود؛ پس همین‌جا خطا بدهیم
-				return 0, err
-			}
-			if b.ID != 0 {
-				brandCache[cacheKey] = b.ID
+				Where("title ILIKE ?", "%"+name+"%").
+				First(&b).Error; err == nil && b.ID != 0 {
 				return b.ID, nil
 			}
 
 			return 0, gorm.ErrRecordNotFound
 		}
 
-		// --- Lookup محصول با نرمال‌سازی فارسی و fallback ---
+		// --- Lookup ساده محصول: بدون هیچ دستکاری روی متن ورودی ---
 		findProductID := func(tx *gorm.DB, brandID int64, modelName string) (int64, error) {
-			modelName = strings.TrimSpace(modelName)
-			cacheKey := strconv.FormatInt(brandID, 10) + "|" + normalizeFA(modelName)
-			if id, ok := prodCache[cacheKey]; ok {
-				return id, nil
+			if modelName == "" {
+				return 0, gorm.ErrRecordNotFound
 			}
 
 			var p domain.Product
 
-			// 1) تطبیق دقیق
+			// 1) exact
 			if err := tx.Model(&domain.Product{}).
 				Where("brand_id = ? AND model_name = ?", brandID, modelName).
-				First(&p).Error; err == nil {
-				prodCache[cacheKey] = p.ID
+				First(&p).Error; err == nil && p.ID != 0 {
 				return p.ID, nil
 			}
 
-			// 2) ILIKE ساده روی model_name
+			// 2) ILIKE با همان متن ورودی
 			if err := tx.Model(&domain.Product{}).
-				Where("brand_id = ? AND LOWER(model_name) ILIKE ?", brandID, "%"+strings.ToLower(modelName)+"%").
-				First(&p).Error; err == nil {
-				prodCache[cacheKey] = p.ID
-				return p.ID, nil
-			}
-
-			// 3) مقایسهٔ فشردهٔ نرمال‌شده
-			compact := normalizeFACompact(modelName)
-			raw := `
-SELECT id, model_name, brand_id
-FROM product
-WHERE brand_id = ?
-  AND regexp_replace(
-        replace(
-          replace(
-            replace(lower(model_name), ?, ' '),  -- ZWNJ → space
-            ?, ' '                                -- NBSP → space
-          ),
-          ?, ''                                   -- Tatweel حذف
-        ),
-        '\s+', '', 'g'                            -- حذف همهٔ فاصله‌ها
-      ) = ?
-LIMIT 1;
-`
-			if err := tx.Raw(raw, brandID, zwnj, nbsp, tatweel, compact).Scan(&p).Error; err != nil {
-				return 0, err
-			}
-			if p.ID != 0 {
-				prodCache[cacheKey] = p.ID
+				Where("brand_id = ? AND model_name ILIKE ?", brandID, "%"+modelName+"%").
+				First(&p).Error; err == nil && p.ID != 0 {
 				return p.ID, nil
 			}
 
@@ -211,7 +134,7 @@ LIMIT 1;
 			return m, nil
 		}
 
-		// اطمینان از وجود فیلتر
+		// اطمینان از وجود فیلتر (برای فیلتر/آپشن‌ها همان قبلی کافیست)
 		ensureFilter := func(tx *gorm.DB, displayName string) (*domain.ProductFilterData, bool, error) {
 			key := norm(displayName)
 			if fd, ok := filterMap[key]; ok {
@@ -220,7 +143,7 @@ LIMIT 1;
 			fd := &domain.ProductFilterData{
 				Filter: &domain.ProductFilter{
 					CategoryID:  args.CategoryID,
-					Name:        displayName, // در صورت نیاز اسلاگ‌سازی کن
+					Name:        displayName,
 					DisplayName: displayName,
 				},
 				Options: []*domain.ProductFilterOption{},
@@ -264,8 +187,11 @@ LIMIT 1;
 			if len(row) <= args.ModelColIndex || len(row) <= args.BrandColIndex {
 				continue
 			}
-			brand := strings.TrimSpace(row[args.BrandColIndex])
-			model := strings.TrimSpace(row[args.ModelColIndex])
+
+			// ❗️بدون هیچ دستکاری: نه trim، نه lower، نه replace
+			brand := row[args.BrandColIndex]
+			model := row[args.ModelColIndex]
+
 			if brand == "" || model == "" {
 				res.SkippedEmpty++
 				continue
@@ -286,9 +212,9 @@ LIMIT 1;
 				return err
 			}
 
-			// از ستون سوم به بعد (یا ایندکس داده‌شده) = فیلترها
+			// از ستون سوم به بعد = فیلترها
 			for col := args.StartFilterColIndex; col < len(args.Header) && col < len(row); col++ {
-				filterTitle := strings.TrimSpace(args.Header[col])
+				filterTitle := strings.TrimSpace(args.Header[col]) // عنوان ستون را می‌تونیم trim کنیم
 				if filterTitle == "" {
 					continue
 				}
@@ -335,56 +261,4 @@ LIMIT 1;
 // برای فیلتر/آپشن‌ها کافیست trim+lower
 func norm(s string) string {
 	return strings.TrimSpace(strings.ToLower(s))
-}
-
-// --- هلسپرهای نرمال‌سازی فارسی برای برند/مدل ---
-
-// normalizeFA: یکسان‌سازی کاراکترهای رایج فارسی/عربی + تبدیل اعداد به لاتین + جمع‌کردن فاصله‌ها + lower
-func normalizeFA(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return s
-	}
-
-	// جایگزینی‌های متداول
-	replacer := strings.NewReplacer(
-		// کاف/ی عربی → فارسی
-		"ي", "ی", "ك", "ک",
-		// نیم‌فاصله/فاصله‌های خاص → فاصله
-		"\u200C", " ", // ZWNJ
-		"\u00A0", " ", // NBSP
-		"\u2009", " ", // thin space
-		"\u200A", " ",
-		"\u202F", " ",
-		"\u3000", " ",
-		// کشیده
-		"\u0640", "", // Tatweel
-	)
-	s = replacer.Replace(s)
-
-	// اعداد فارسی/عربی → لاتین
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		switch {
-		case r >= '0' && r <= '9':
-			b.WriteRune(r)
-		case r >= '\u06F0' && r <= '\u06F9': // Persian digits
-			b.WriteRune('0' + (r - '\u06F0'))
-		case r >= '\u0660' && r <= '\u0669': // Arabic-Indic digits
-			b.WriteRune('0' + (r - '\u0660'))
-		default:
-			b.WriteRune(r)
-		}
-	}
-	s = b.String()
-
-	// collapse spaces و lower
-	fields := strings.Fields(s)
-	return strings.ToLower(strings.Join(fields, " "))
-}
-
-// نسخهٔ فشرده برای مقایسهٔ دقیق‌تر (حذف همهٔ فاصله‌ها)
-func normalizeFACompact(s string) string {
-	return strings.ReplaceAll(normalizeFA(s), " ", "")
 }
