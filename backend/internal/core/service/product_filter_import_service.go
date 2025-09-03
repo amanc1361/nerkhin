@@ -68,7 +68,7 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 		existingRelCache := map[int64]map[pair]struct{}{} // productID → set[(filterID, optionID)]
 
 		// --- Lookup ساده برند: بدون هیچ دستکاری روی متن ورودی ---
-		ensureBrandID := func(tx *gorm.DB, name string) (int64, error) {
+		ensureBrandID := func(tx *gorm.DB, category_id int64, name string) (int64, error) {
 			if name == "" {
 				return 0, nil
 			}
@@ -77,14 +77,14 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 
 			// 1) exact
 			if err := tx.Model(&domain.ProductBrand{}).
-				Where("title = ?", name).
+				Where("category_id=? and title = ?", category_id, name).
 				First(&b).Error; err == nil && b.ID != 0 {
 				return b.ID, nil
 			}
 
 			// 2) ILIKE با همان متن ورودی
 			if err := tx.Model(&domain.ProductBrand{}).
-				Where("title ILIKE ?", "%"+name+"%").
+				Where("category_id=? and title ILIKE ?", category_id, "%"+name+"%").
 				First(&b).Error; err == nil && b.ID != 0 {
 				return b.ID, nil
 			}
@@ -197,7 +197,7 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 				continue
 			}
 
-			brandID, err := ensureBrandID(tx, brand)
+			brandID, err := ensureBrandID(tx, args.CategoryID, brand)
 			if err != nil || brandID == 0 {
 				res.NotFoundProducts = append(res.NotFoundProducts, map[string]string{"brand": brand, "model": model})
 				continue
