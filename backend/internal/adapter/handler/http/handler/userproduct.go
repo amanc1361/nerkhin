@@ -42,7 +42,23 @@ type createUserProductRequest struct {
 type createUserProductResponse struct {
 	ID int64 `json:"id" example:"1"`
 }
-
+func decimalPtrIfPositive(s string) *decimal.Decimal {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	// حذف جداکننده هزارگان رایج
+	s = strings.ReplaceAll(s, ",", "")
+	s = strings.ReplaceAll(s, "٬", "") // جداکنندهٔ فارسی
+	d, err := decimal.NewFromString(s)
+	if err != nil {
+		return nil
+	}
+	if d.Cmp(decimal.Zero) <= 0 {
+		return nil
+	}
+	return &d
+}
 func (h *UserProductHandler) Search(c *gin.Context) {
 	// اگر محدودسازی به سابسکرایب لازم است از کانتکست کاربر احراز هویت‌شده بخوان:
 	viewerID := currentUserIDOrZero(c) // با منطق auth خودت عوض کن
@@ -52,7 +68,8 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 
 	sortBy := strings.TrimSpace(c.Query("sortBy"))                                            // "updated" | "order"
 	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir")))) // asc|desc
-    fmt.Println(c.Query("categoryId"))
+
+	fmt.Println(c.Query("categoryId"))
 	categoryID := int64(atoiDefault(c.Query("categoryId"), 0))
 	subCategoryID := int64(atoiDefault(c.Query("subCategoryId"), 0))
 
@@ -60,7 +77,7 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 	optionIDs := parseInt64Multi(c.QueryArray("optionId"))
 	filterIDs := parseInt64Multi(c.QueryArray("filterId"))
 	tags := uniqueNonEmpty(c.QueryArray("tag"))
-	search := strings.TrimSpace(c.Query("search"))	
+	search := strings.TrimSpace(c.Query("search"))
 
 	var isDollarPtr *bool
 	if v := strings.TrimSpace(c.Query("isDollar")); v != "" {
@@ -80,8 +97,13 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 		}
 	}
 
+	// --- خواندن بازهٔ قیمت (اضافه‌شده) ---
+	priceMin := decimalPtrIfPositive(c.Query("priceMin"))
+	priceMax := decimalPtrIfPositive(c.Query("priceMax"))
+	// اگر هر دو مقدار داده شد و کاربر جابه‌جا فرستاده باشد، لازم نیست اینجا دست‌کاری کنیم؛
+	// منطق مرتب‌سازی/درستیِ بازه در ریپازیتوری هندل می‌شود (همان‌طور که قبلاً اضافه شد).
+
 	// enforceSubscription را بر اساس سناریوت فعال/غیرفعال کن.
-	// اگر همیشه باید فقط شهرهای سابسکرایب‌شده دیده شوند، این را true کن.
 	enforceSubscription := c.Query("enforceSubscription") == "1"
 
 	onlyVisible := true
@@ -105,6 +127,10 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 		OptionIDs:     optionIDs,
 		CityID:        cityIDPtr,
 
+		// --- ست‌کردن فیلدهای قیمت (اضافه‌شده) ---
+		PriceMin: priceMin,
+		PriceMax: priceMax,
+
 		OnlyVisible:           &onlyVisible,
 		EnforceSubscription:   enforceSubscription,
 		ViewerID:              viewerID,
@@ -113,12 +139,12 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 
 	res, err := h.service.SearchPaged(c.Request.Context(), q)
 	if err != nil {
-
 		validationError(c, err, h.AppConfig.Lang)
 		return
 	}
 	handleSuccess(c, res)
 }
+
 
 func atoiDefault(s string, def int) int {
 	if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v >= 0 {

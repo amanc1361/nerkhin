@@ -1,5 +1,7 @@
 package domain
 
+import "github.com/shopspring/decimal"
+
 type SortUpdated string
 
 // "asc" | "desc" (مثل نمونهٔ خودت)
@@ -33,6 +35,8 @@ type UserProductSearchQuery struct {
 
 	// فقط اگر لازم داری نقش کاربر فروشنده را محدود کنی:
 	RequireWholesalerRole bool
+	PriceMin              *decimal.Decimal `json:"priceMin,omitempty"` // صفر یا nil یعنی بدون حد پایین
+	PriceMax              *decimal.Decimal `json:"priceMax,omitempty"` // صفر یا nil یعنی بدون حد بالا
 }
 
 type UserProductMarketView struct {

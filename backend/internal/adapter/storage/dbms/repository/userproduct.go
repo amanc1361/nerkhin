@@ -58,7 +58,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		onlyVisible = *q.OnlyVisible
 	}
 
-	// ---- همون qb خودت با همهٔ فیلترها و جستجوها (بدون تغییر) ----
+	// ---- همون qb با همهٔ فیلترها و جستجوها (بدون تغییر) ----
 	qb := db.Table("user_product AS up").
 		Joins("JOIN user_t AS u  ON u.id = up.user_id").
 		Joins("JOIN product AS p ON p.id = up.product_id").
@@ -156,8 +156,27 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		`, like, like, like, like, like, like, like, like)
 	}
 
-	// ---- مرحلهٔ انتخاب یک‌ردیف برای هر product_id (بدون حذف جستجو/فیلترها) ----
-	// PostgreSQL: DISTINCT ON برای ددیوپ
+	// ---- فیلتر بازهٔ قیمت (اضافه‌شده) ----
+	{
+		hasMin := q.PriceMin != nil && q.PriceMin.GreaterThan(decimal.Zero)
+		hasMax := q.PriceMax != nil && q.PriceMax.GreaterThan(decimal.Zero)
+
+		if hasMin && hasMax {
+			minV := *q.PriceMin
+			maxV := *q.PriceMax
+			if maxV.LessThan(minV) {
+				minV, maxV = maxV, minV
+			}
+			qb = qb.Where("up.final_price BETWEEN ? AND ?", minV, maxV)
+		} else if hasMin {
+			qb = qb.Where("up.final_price >= ?", *q.PriceMin)
+		} else if hasMax {
+			qb = qb.Where("up.final_price <= ?", *q.PriceMax)
+		}
+	}
+	// --------------------------------------
+
+	// ---- DISTINCT ON انتخاب یک‌ردیف برای هر product_id ----
 	distinctPicker := qb.
 		Select(`
 			DISTINCT ON (up.product_id)
@@ -181,18 +200,12 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			up.updated_at                   AS updated_at,
 			up.created_at                   AS created_at
 		`).
-		// ترتیب انتخاب برای DISTINCT ON:
-		// 1) گروه براساس product_id
-		// 2) جدیدترین آپدیت/ایجاد
-		// 3) در صورت تساوی، کمترین قیمت
 		Order(`
 			up.product_id,
 			COALESCE(up.updated_at, up.created_at) DESC,
 			up.final_price ASC
 		`)
 
-	// سورت و صفحه‌بندی نهایی روی خروجی ددیوپ‌شده
-	// نکته: باید پیشوند up. به x. تغییر کند چون در ساب‌کوئری هستیم
 	finalOrderExpr := strings.ReplaceAll(orderExpr, "up.", "x.")
 	rows := db.Table("(?) AS x", distinctPicker).
 		Order(clause.Expr{SQL: finalOrderExpr}).
@@ -227,7 +240,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
 		Select("up.id")
 
-	// همان قیود بالا را اعمال می‌کنیم (بدون Select جزئیات)
+	// همان قیود
 	onlyVisible := true
 	if q.OnlyVisible != nil {
 		onlyVisible = *q.OnlyVisible
@@ -241,7 +254,6 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 	if q.CategoryID > 0 {
 		qb = qb.Where("pb.category_id = ?", q.CategoryID)
 	}
-
 	if len(q.BrandIDs) > 0 {
 		qb = qb.Where("pb.id IN ?", q.BrandIDs)
 	}
@@ -270,7 +282,8 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 	if len(q.FilterIDs) > 0 {
 		qb = qb.Where(`
 			EXISTS (
-				SELECT 1 FROM product_filter_relation pfr
+				SELECT 1
+				FROM product_filter_relation pfr
 				WHERE pfr.product_id = up.product_id AND pfr.filter_id IN ?
 			)
 		`, q.FilterIDs)
@@ -278,7 +291,8 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 	if len(q.OptionIDs) > 0 {
 		qb = qb.Where(`
 			EXISTS (
-				SELECT 1 FROM product_filter_relation pfr2
+				SELECT 1
+				FROM product_filter_relation pfr2
 				WHERE pfr2.product_id = up.product_id AND pfr2.filter_option_id IN ?
 			)
 		`, q.OptionIDs)
@@ -302,6 +316,26 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 			)
 		`, like, like, like, like, like, like, like, like)
 	}
+
+	// ---- فیلتر بازهٔ قیمت (اضافه‌شده) ----
+	{
+		hasMin := q.PriceMin != nil && q.PriceMin.GreaterThan(decimal.Zero)
+		hasMax := q.PriceMax != nil && q.PriceMax.GreaterThan(decimal.Zero)
+
+		if hasMin && hasMax {
+			minV := *q.PriceMin
+			maxV := *q.PriceMax
+			if maxV.LessThan(minV) {
+				minV, maxV = maxV, minV
+			}
+			qb = qb.Where("up.final_price BETWEEN ? AND ?", minV, maxV)
+		} else if hasMin {
+			qb = qb.Where("up.final_price >= ?", *q.PriceMin)
+		} else if hasMax {
+			qb = qb.Where("up.final_price <= ?", *q.PriceMax)
+		}
+	}
+	// --------------------------------------
 
 	var total int64
 	if err := qb.Count(&total).Error; err != nil {
