@@ -386,7 +386,7 @@ function FormBody({
       {/* فیلترها و گزینه‌ها (هر فیلتر = یک کشویی تک‌انتخاب) */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <h4 className="text-sm font-semibold text-slate-800">فیلترها</h4>
+   
           {filtersLoading && <span className="text-xs text-gray-500">(در حال بارگذاری…)</span>}
           {errorText && <span className="text-xs text-red-600">({errorText})</span>}
         </div>
@@ -404,16 +404,7 @@ function FormBody({
             <div key={fid} className="border rounded-xl p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-slate-700">{title}</label>
-                {/* تیک اعمال بدون گزینه */}
-                <label className="flex items-center gap-2 text-xs text-slate-600">
-                  <input
-                    type="checkbox"
-                    className="rounded"
-                    checked={!!enabledFilters[fid]}
-                    onChange={(e) => onToggleFilterEnabled(fid, e.target.checked)}
-                  />
-                  <span>اعمال بدون گزینه</span>
-                </label>
+       
               </div>
 
               <select
