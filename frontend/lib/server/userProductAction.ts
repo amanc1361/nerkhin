@@ -266,11 +266,9 @@ export async function searchMarketSSR(q: MarketSearchQuery, locale: "fa" | "en" 
   const items = Array.isArray(payload?.items) ? payload.items : [];
   const total = Number(payload?.total ?? 0);
 
-  // مپ به VM
   const mapped: MarketItemVM[] = items.map(mapMarketItemToVM);
 
-  // (بدون هاردکد) اگر خواستی پیام خالی بودن را در UI استفاده کنی:
-  // if (!mapped.length) console.info(t.list.empty);  // فقط مثال
+ 
 
   return { items: mapped, total };
 }

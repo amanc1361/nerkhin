@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
+
 	"math"
 
 	"github.com/nerkhin/internal/core/domain"
@@ -183,21 +183,19 @@ func (ps *UserProductService) FetchShopProducts(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		fmt.Println(likedProducts)
+
 		likedProductsMap := map[int64]bool{}
 		for _, likedP := range likedProducts {
 			likedProductsMap[likedP.ProductID] = true
 		}
-		fmt.Println("*******************************")
-		fmt.Println(likedProductsMap)
+
 		for _, product := range products {
 			_, isLiked := likedProductsMap[product.ProductID]
 			if isLiked {
 				product.IsLiked = true
 			}
 		}
-		fmt.Println("****************************")
-		fmt.Println(products)
+
 		userProductsVM.Products = products
 
 		return nil
@@ -569,6 +567,16 @@ func (ups *UserProductService) FetchRelatedShopProducts(ctx context.Context,
 		product, err := ups.productRepo.GetProductByID(ctx, txSession, productID)
 		if err != nil {
 			return err
+		}
+		likedProducts, err := ups.favoriteProductRepo.
+			GetFavoriteProducts(ctx, txSession, currentUserID)
+		if err != nil {
+			return err
+		}
+		for _, likedP := range likedProducts {
+			if likedP.ProductID == product.ID {
+				product.IsLiked = true
+			}
 		}
 
 		filterRelations, err := ups.productFilterRepo.
