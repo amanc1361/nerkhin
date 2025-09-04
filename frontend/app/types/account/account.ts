@@ -36,3 +36,10 @@ export interface UserSubscription {
   startAt?: string;
   endAt?: string; // تاریخ پایان برای محاسبه اعتبار
 }
+export interface FavoriteAccount {
+  id: number;
+  userId: number;
+  targetUserId: number;
+  createdAt?: string;
+  updatedAt?: string;
+};

@@ -9,6 +9,15 @@ import { jsx } from "react/jsx-runtime";
 import Instagram from "../icon-components/Instagram";
 import WhatsApp from "../icon-components/WhatsApp";
 
+/* --- افزوده‌ها (بدون تغییر در ساختار اصلی) --- */
+import { useMemo, useState, useCallback } from "react";
+
+import { toast } from "react-toastify";
+import { useFavoriteAccountActions } from "@/app/hooks/useFavoriteAccountAction";
+// 🔧 اصلاح ۱: مسیر صحیحِ هوک (Actions جمع است)
+
+/* --------------------------------------------- */
+
 function absolutizeUploads(url?: string | null) {
   if (!url) return "";
   if (/^https?:\/\//i.test(url)) return url;
@@ -24,10 +33,54 @@ type Props = {
   onToggleLike?: () => void; // اختیاری: اگر خواستی از بیرون مدیریت لایک کنی
 };
 
-export default function ShopHeader({ t, info, onToggleLike }: Props) {
+export default function ShopHeader({ t, info }: Props) {
   const router = useRouter();
   const title = info?.shopInfo?.shopName || (t?.shop?.titleFallback ?? "");
   const likes = info?.shopInfo?.likesCount ?? 0;
+
+  /* --- افزوده‌ها: وضعیت لایک محلی و اکشن‌ها --- */
+  const initialLiked = Boolean((info as any)?.shopInfo?.isLikedByViewer);
+  const initialFavoriteId = (info as any)?.shopInfo?.favoriteId as number | null | undefined;
+
+  const [liked, setLiked] = useState<boolean>(initialLiked);
+  const [likesCount, setLikesCount] = useState<number>(likes);
+  const [favoriteId, setFavoriteId] = useState<number | null | undefined>(initialFavoriteId);
+ 
+  // استخراج شناسهٔ کاربر صاحب فروشگاه
+  const targetUserId = useMemo(() => {
+    return Number((info as any)?.shopInfo?.ownerUserId || (info as any)?.shopInfo?.userId || 0);
+  }, [info]);
+
+  const { addToFavorites, removeFavoritesByIds, isSubmitting } = useFavoriteAccountActions(() => {
+    // بعد از موفقیت، اگر لازم بود SWR/state بیرونی را به‌روزرسانی کن
+  });
+
+  const handleInternalToggleLike = useCallback(async () => {
+ 
+    if (!targetUserId) return;
+    try {
+      if (!liked) {
+        // افزودن به علاقه‌مندی‌ها
+        const id = await addToFavorites(targetUserId);
+        if (typeof id === "number") setFavoriteId(id);
+        setLiked(true);
+        setLikesCount((n) => n + 1);
+      } else {
+        // حذف از علاقه‌مندی‌ها: نیاز به favoriteId
+        if (favoriteId) {
+          await removeFavoritesByIds([favoriteId]);
+          setLiked(false);
+          setLikesCount((n) => (n > 0 ? n - 1 : 0));
+          setFavoriteId(null);
+        } else {
+          toast.warn("شناسهٔ علاقه‌مندی در دسترس نیست. لطفاً صفحه را رفرش کنید.");
+        }
+      }
+    } catch {
+      /* toast داخل هوک */
+    }
+  }, [liked, favoriteId, targetUserId, addToFavorites, removeFavoritesByIds]);
+  /* ------------------------------------------------ */
 
   const handleShowMap = () => {
     if (info?.shopInfo?.lat && info?.shopInfo?.lng) {
@@ -88,8 +141,14 @@ export default function ShopHeader({ t, info, onToggleLike }: Props) {
         {/* Like/Favorite (top-right) */}
         <button
           type="button"
-          onClick={onToggleLike}
-          className="absolute top-3 right-3 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/90 hover:bg-white shadow"
+          // 🔧 اصلاح ۲: اگر prop بیرونی نبود، هندلر داخلی اجرا شود
+          onClick={ handleInternalToggleLike}
+          
+          // 🔧 اصلاح ۳: جلوگیری از کلیک‌های بی‌اثر
+          // disabled={isSubmitting || !targetUserId}
+          className={`absolute top-3 right-3 inline-flex items-center justify-center w-9 h-9 rounded-xl shadow ${
+            liked ? "bg-yellow-400 text-white" : "bg-white/90 hover:bg-white"
+          }`}
           aria-label={t?.shop?.likeBtn ?? "پسند"}
           title={t?.shop?.likeBtn ?? "پسند"}
         >
@@ -109,7 +168,7 @@ export default function ShopHeader({ t, info, onToggleLike }: Props) {
               <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27z"
                 fill="currentColor"/>
             </svg>
-            <span>{likes}</span>
+            <span>{likesCount}</span>
             <span className="opacity-90">{t?.shop?.likes ?? "پسندها"}</span>
           </div>
         </div>
@@ -175,7 +234,7 @@ export default function ShopHeader({ t, info, onToggleLike }: Props) {
 
       {/* ───── Social icons ───── */}
       {socials.length > 0 && (
-        <div className="mt-3 px-4 flex items-center justify-between gap-3">
+        <div className="mt-3 px-4 flex items-center justify_between gap-3">
           {socials.map((s) => (
             <a
               key={s.key}
