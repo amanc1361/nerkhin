@@ -42,6 +42,7 @@ type createUserProductRequest struct {
 type createUserProductResponse struct {
 	ID int64 `json:"id" example:"1"`
 }
+
 func decimalPtrIfPositive(s string) *decimal.Decimal {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -60,14 +61,17 @@ func decimalPtrIfPositive(s string) *decimal.Decimal {
 	return &d
 }
 func (h *UserProductHandler) Search(c *gin.Context) {
-	// اگر محدودسازی به سابسکرایب لازم است از کانتکست کاربر احراز هویت‌شده بخوان:
-	viewerID := currentUserIDOrZero(c) // با منطق auth خودت عوض کن
+
+	viewerID := currentUserIDOrZero(c)
+	fmt.Println("[DEBUG] brandId[] =", c.QueryArray("brandId"))
+	fmt.Println("[DEBUG] optionId[] =", c.QueryArray("optionId"))
+	fmt.Println("[DEBUG] filterId[] =", c.QueryArray("filterId"))
 
 	limit := atoiDefault(c.Query("limit"), 100)
 	offset := atoiDefault(c.Query("offset"), 0)
 
-	sortBy := strings.TrimSpace(c.Query("sortBy"))                                            // "updated" | "order"
-	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir")))) // asc|desc
+	sortBy := strings.TrimSpace(c.Query("sortBy"))
+	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir"))))
 
 	fmt.Println(c.Query("categoryId"))
 	categoryID := int64(atoiDefault(c.Query("categoryId"), 0))
@@ -97,13 +101,9 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 		}
 	}
 
-	// --- خواندن بازهٔ قیمت (اضافه‌شده) ---
 	priceMin := decimalPtrIfPositive(c.Query("priceMin"))
 	priceMax := decimalPtrIfPositive(c.Query("priceMax"))
-	// اگر هر دو مقدار داده شد و کاربر جابه‌جا فرستاده باشد، لازم نیست اینجا دست‌کاری کنیم؛
-	// منطق مرتب‌سازی/درستیِ بازه در ریپازیتوری هندل می‌شود (همان‌طور که قبلاً اضافه شد).
 
-	// enforceSubscription را بر اساس سناریوت فعال/غیرفعال کن.
 	enforceSubscription := c.Query("enforceSubscription") == "1"
 
 	onlyVisible := true
@@ -144,7 +144,6 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 	}
 	handleSuccess(c, res)
 }
-
 
 func atoiDefault(s string, def int) int {
 	if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v >= 0 {

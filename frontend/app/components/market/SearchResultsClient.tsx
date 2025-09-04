@@ -1,3 +1,4 @@
+// app/components/market/SearchResultsClient.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -11,7 +12,6 @@ import { useIntersection } from "@/app/hooks/useIntersection";
 import MarketProductItem from "./MarketProductItem";
 import { Filter, Search } from "lucide-react";
 import FiltersModal, { FiltersValue } from "./FilterModal";
-
 
 type Role = "wholesaler" | "retailer";
 
@@ -53,6 +53,11 @@ export default function SearchResultsClient({
       .map((x) => Number(x))
       .filter((n) => Number.isFinite(n) && n > 0);
 
+    const filterIds = (sp.get("filterIds") || "")
+      .split(",")
+      .map((x) => Number(x))
+      .filter((n) => Number.isFinite(n) && n > 0);
+
     const isDollar =
       sp.get("isDollar") === "1" ? true : sp.get("isDollar") === "0" ? false : undefined;
 
@@ -65,6 +70,7 @@ export default function SearchResultsClient({
       categoryId: catId,
       brandIds: brandIds.length ? brandIds : undefined,
       optionIds: optionIds.length ? optionIds : undefined,
+      filterIds: filterIds.length ? filterIds : undefined, // ← اضافه شد
       isDollar,
       priceMin,
       priceMax,
@@ -98,6 +104,11 @@ export default function SearchResultsClient({
       .map(Number)
       .filter((n) => Number.isFinite(n) && n > 0);
 
+    const filterIds = (sp.get("filterIds") || "")
+      .split(",")
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0);
+
     const isDollar =
       sp.get("isDollar") === "1" ? true : sp.get("isDollar") === "0" ? false : undefined;
 
@@ -111,6 +122,7 @@ export default function SearchResultsClient({
       categoryId: nCat && nCat > 0 ? nCat : undefined,
       brandIds: brandIds.length ? brandIds : undefined,
       optionIds: optionIds.length ? optionIds : undefined,
+      filterIds: filterIds.length ? filterIds : undefined, // ← اضافه شد
       isDollar,
       priceMin,
       priceMax,
@@ -135,62 +147,68 @@ export default function SearchResultsClient({
     router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
-// ... بقیه فایل بدون تغییر
+  // — اعمال از مودال —
+  const applyFilters = (f: FiltersValue) => {
+    // اول state داخلی هوک رو به‌روزرسانی کن
+    setQuery((prev) => ({
+      ...prev,
+      offset: 0,
+      categoryId: f.categoryId ?? prev.categoryId,
+      isDollar: typeof f.isDollar === "boolean" ? f.isDollar : undefined,
+      priceMin: f.priceMin,
+      priceMax: f.priceMax,
+      cityId: f.cityId,
+      brandIds: f.brandIds?.length ? f.brandIds : undefined,
+      optionIds: f.optionIds?.length ? f.optionIds : undefined,
+      filterIds: f.filterIds?.length ? f.filterIds : undefined, // ← اضافه شد
+    }));
 
-const applyFilters = (f: FiltersValue) => {
-  // اول state داخلی هوک رو به‌روزرسانی کن
-  setQuery((prev) => ({
-    ...prev,
-    offset: 0,
-    categoryId: f.categoryId ?? prev.categoryId,
-    isDollar: typeof f.isDollar === "boolean" ? f.isDollar : undefined,
-    priceMin: f.priceMin,
-    priceMax: f.priceMax,
-    cityId: f.cityId,
-    brandIds: f.brandIds?.length ? f.brandIds : undefined,
-    optionIds: f.optionIds?.length ? f.optionIds : undefined,
-  }));
+    // خیلی مهم: از URL فعلی شروع کن
+    const params = new URLSearchParams(sp.toString());
 
-  // خیلی مهم: از URL فعلی شروع کن
-  const params = new URLSearchParams(sp.toString());
+    // q را دست‌نخورده نگه داریم
+    const qUrl = (params.get("q") || "").trim();
+    if (qUrl) params.set("q", qUrl);
+    else params.delete("q");
 
-  // q را دست‌نخورده نگه داریم
-  const qUrl = (params.get("q") || "").trim();
-  if (qUrl) params.set("q", qUrl);
-  else params.delete("q");
+    // categoryId
+    const finalCatId =
+      f.categoryId ??
+      (params.get("categoryId") ? Number(params.get("categoryId")) : undefined) ??
+      undefined;
+    if (finalCatId) params.set("categoryId", String(finalCatId));
+    else params.delete("categoryId");
 
-  // categoryId
-  const finalCatId = f.categoryId ?? (params.get("categoryId") ? Number(params.get("categoryId")) : undefined) ?? undefined;
-  if (finalCatId) params.set("categoryId", String(finalCatId));
-  else params.delete("categoryId");
+    // isDollar
+    if (typeof f.isDollar === "boolean") params.set("isDollar", f.isDollar ? "1" : "0");
+    else params.delete("isDollar");
 
-  // isDollar
-  if (typeof f.isDollar === "boolean") params.set("isDollar", f.isDollar ? "1" : "0");
-  else params.delete("isDollar");
+    // priceMin / priceMax
+    if (f.priceMin != null) params.set("min", String(f.priceMin)); else params.delete("min");
+    if (f.priceMax != null) params.set("max", String(f.priceMax)); else params.delete("max");
 
-  // priceMin / priceMax
-  if (f.priceMin != null) params.set("min", String(f.priceMin)); else params.delete("min");
-  if (f.priceMax != null) params.set("max", String(f.priceMax)); else params.delete("max");
+    // cityId
+    if (f.cityId != null) params.set("cityId", String(f.cityId)); else params.delete("cityId");
 
-  // cityId
-  if (f.cityId != null) params.set("cityId", String(f.cityId)); else params.delete("cityId");
+    // brandIds
+    if (f.brandIds?.length) params.set("brandIds", f.brandIds.join(","));
+    else params.delete("brandIds");
 
-  // brandIds
-  if (f.brandIds?.length) params.set("brandIds", f.brandIds.join(","));
-  else params.delete("brandIds");
+    // optionIds
+    if (f.optionIds?.length) params.set("optionIds", f.optionIds.join(","));
+    else params.delete("optionIds");
 
-  // optionIds
-  if (f.optionIds?.length) params.set("optionIds", f.optionIds.join(","));
-  else params.delete("optionIds");
+    // filterIds
+    if (f.filterIds?.length) params.set("filterIds", f.filterIds.join(","));
+    else params.delete("filterIds");
 
-  // مرتب‌سازی: اگر بک‌اندت sortDir می‌خواهد، مطمئن شو ست شده
-  params.set("sortBy", "updated");
-  params.set("sortDir", "desc");
+    // مرتب‌سازی: اگر بک‌اندت sortDir می‌خواهد، مطمئن شو ست شده
+    params.set("sortBy", "updated");
+    params.set("sortDir", "desc");
 
-  router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
-  setFiltersOpen(false);
-};
-
+    router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
+    setFiltersOpen(false);
+  };
 
   // — موبایل: مرج برای اسکرول بی‌نهایت —
   const [mergedItems, setMergedItems] = useState<MarketItemVM[]>([]);
@@ -302,10 +320,17 @@ const applyFilters = (f: FiltersValue) => {
                 .map(Number)
                 .filter((n) => Number.isFinite(n) && n > 0)
             : [],
-          // ← اضافه شد: optionIds از URL
+          // ← اضافه شد: optionIds و filterIds از URL
           optionIds: sp.get("optionIds")
             ? sp
                 .get("optionIds")!
+                .split(",")
+                .map(Number)
+                .filter((n) => Number.isFinite(n) && n > 0)
+            : [],
+          filterIds: sp.get("filterIds")
+            ? sp
+                .get("filterIds")!
                 .split(",")
                 .map(Number)
                 .filter((n) => Number.isFinite(n) && n > 0)

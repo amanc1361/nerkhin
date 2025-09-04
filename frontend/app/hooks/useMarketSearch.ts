@@ -74,11 +74,13 @@ function toServerParams(q: MarketSearchQuery) {
   // sortUpdated پروژه → sortDir سرور
   const sortDir = (qq.sortUpdated ?? "desc") as "asc" | "desc";
 
-  // brandIds/optionIds به comma-separated
+  // brandIds/optionIds/filterIds به comma-separated (در مرحله بعد به repeated تبدیل می‌کنیم)
   const brandId =
     Array.isArray(qq.brandIds) && qq.brandIds.length ? qq.brandIds.join(",") : undefined;
   const optionId =
     Array.isArray(qq.optionIds) && qq.optionIds.length ? qq.optionIds.join(",") : undefined;
+  const filterId =
+    Array.isArray(qq.filterIds) && qq.filterIds.length ? qq.filterIds.join(",") : undefined; // ← اضافه شد
 
   const base: Record<string, any> = {
     limit: qq.limit,
@@ -88,6 +90,7 @@ function toServerParams(q: MarketSearchQuery) {
     categoryId: qq.categoryId,
     brandId,
     optionId,
+    filterId, // ← اضافه شد
     isDollar,
     priceMin,
     priceMax,
@@ -99,9 +102,26 @@ function toServerParams(q: MarketSearchQuery) {
   return pruneRecord(base);
 }
 
-/** ادغام امن پارامترهای جدید با URL موجود (بدون ? دوم و بدون کلید تکراری) */
+/** ادغام امن پارامترهای جدید با URL موجود و تبدیل آرایه‌ها به پارامترهای تکراری */
 function mergeUrlWithParams(baseUrl: string, params: Record<string, string | number | boolean>) {
   if (!baseUrl) return "";
+
+  const applyMultiKeys = (usp: URLSearchParams) => {
+    // کلیدهای چندمقداری را از comma-separated به **تکراری** تبدیل کن
+    (["brandId", "optionId", "filterId"] as const).forEach((k) => {
+      // اگر مقدار جدید برای این کلید نداریم، کاری نکنیم (تا اگر قبلاً در URL بوده حفظ شود)
+      if (params[k] === undefined || params[k] === null || params[k] === ("" as any)) {
+        return;
+      }
+      const raw = String(params[k]);
+      usp.delete(k);
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((v) => usp.append(k, v));
+    });
+  };
 
   // اگر URL شامل query هست، ادغام کنیم
   const qIndex = baseUrl.indexOf("?");
@@ -110,10 +130,12 @@ function mergeUrlWithParams(baseUrl: string, params: Record<string, string | num
     const qs = baseUrl.slice(qIndex + 1);
     const usp = new URLSearchParams(qs);
 
-    // پارامترهای جدید، کلیدهای قبلی را overwrite می‌کنند
     Object.entries(params).forEach(([k, v]) => {
+      // برای کلیدهای چندمقداری، set موقت انجام می‌دهیم و بلافاصله تبدیل می‌کنیم
       usp.set(k, String(v));
     });
+
+    applyMultiKeys(usp);
 
     const s = usp.toString();
     return s ? `${path}?${s}` : path;
@@ -122,6 +144,8 @@ function mergeUrlWithParams(baseUrl: string, params: Record<string, string | num
   // اگر query نداشت، از اول بسازیم
   const usp = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => usp.set(k, String(v)));
+  applyMultiKeys(usp);
+
   const s = usp.toString();
   return s ? `${baseUrl}?${s}` : baseUrl;
 }
@@ -157,7 +181,7 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
         const d = userProductApi.marketSearch(q); // همون سرویس خودت
         const params = toServerParams(q);
 
-        // URL نهایی با merge ایمن
+        // URL نهایی با merge ایمن (و تبدیل multi به repeated)
         const finalUrl = mergeUrlWithParams(d.url, params);
 
         // برای دیباگ:
