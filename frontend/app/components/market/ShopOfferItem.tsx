@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import type { ProductShop } from "@/app/types/userproduct/ProductInfoViewModel";
 import { Phone } from "lucide-react";
+import PersianDate from "@/app/utils/persiadate";
 
 type Messages = { call: string; city: string };
 type Props = { t: Messages; item: ProductShop };
@@ -37,7 +38,7 @@ export default function ShopOfferItem({ t, item }: Props) {
     () => absolutizeUploads(item.defaultImageUrl),
     [item.defaultImageUrl]
   );
-  const dateTxt = useMemo(() => shortDate(item.updatedAt), [item.updatedAt]);
+  const dateTxt = useMemo(() => item.updatedAt, [item.updatedAt]);
   const price = useMemo(
     () => new Intl.NumberFormat("fa-IR").format(toPriceNum(item.finalPrice)),
     [item.finalPrice]
@@ -88,8 +89,8 @@ export default function ShopOfferItem({ t, item }: Props) {
           </div>
         </div>
         {/* تاریخ: چپ */}
-        <div className="text-xs text-gray-500 w-12 shrink-0 text-left">
-          {dateTxt}
+        <div className="text-xs text-gray-500 w-16 shrink-0 text-left">
+          <PersianDate value={dateTxt}></PersianDate>
         </div>
       </div>
 

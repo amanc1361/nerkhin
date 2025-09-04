@@ -1,32 +1,138 @@
 "use client";
+
 import { ProductViewModel } from "@/app/types/product/product";
 import { useEffect, useMemo } from "react";
 import Portal from "../shared/portal";
 
+/** ---------- انواع داده‌ی منعطف برای مشخصات ---------- */
+type FilterRelationVM = {
+  // نام‌ها به شکل‌های مختلف می‌آیند:
+  filterTitle?: string | null;
+  optionTitle?: string | null;
 
-/** گروه‌بندی فیلترها و گزینه‌ها از ساختارهای مختلف */
-function groupFilters(p: any): Array<{ title: string; values: string[] }> {
+  filterName?: string | null;
+  optionName?: string | null;
+  filterOptionName?: string | null;
+
+  value?: string | number | null;
+
+  // حروف کوچک
+  filter?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
+  option?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
+
+  // حروف بزرگ (مطابق لاگ شما)
+  Filter?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
+  Option?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
+};
+
+type FilterOptionVM = {
+  id?: number;
+  title?: string | null;
+  name?: string | null;
+  displayName?: string | null;
+  selected?: boolean | number | null;
+  isSelected?: boolean | number | null;
+  checked?: boolean | number | null;
+  value?: string | number | null;
+  filterId?: number | null;
+};
+
+type FilterVM = {
+  title?: string | null;
+  name?: string | null;
+  displayName?: string | null;
+  options?: FilterOptionVM[] | null;
+};
+
+type ProductSpecsSource = {
+  description?: string | null;
+  filterRelations?: FilterRelationVM[] | null;
+  filters?: FilterVM[] | null;
+};
+
+/** ---------- کمک‌تابع‌ها ---------- */
+function pickFirstText(...candidates: Array<string | number | null | undefined>): string {
+  for (const c of candidates) {
+    if (c === null || c === undefined) continue;
+    const s = typeof c === "number" ? String(c) : String(c ?? "");
+    if (s.trim().length) return s.trim();
+  }
+  return "";
+}
+
+function normTitle(s?: string | null, fallback = "—"): string {
+  const t = (s ?? "").toString().trim();
+  return t.length ? t : fallback;
+}
+
+function truthyish(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v === "string") return v.trim().length > 0 && v !== "0" && v.toLowerCase() !== "false";
+  return false;
+}
+
+function optionIsSelected(o: FilterOptionVM): boolean {
+  return Boolean(
+    truthyish(o.selected) || truthyish(o.isSelected) || truthyish(o.checked) || truthyish(o.value)
+  );
+}
+
+/** ---------- گروه‌بندی مشخصات از منابع مختلف ---------- */
+function groupFilters(p: ProductSpecsSource): Array<{ title: string; values: string[] }> {
   const map = new Map<string, string[]>();
 
-  if (Array.isArray(p?.filterRelations)) {
-    for (const r of p.filterRelations) {
-      const key = r?.filterTitle || r?.filter?.title || "—";
-      const val = r?.optionTitle || r?.option?.title || r?.value || "";
-      if (!val) continue;
+  // 1) منبع اصلی: روابط فیلترها
+  if (Array.isArray(p?.filterRelations) && p.filterRelations!.length) {
+    for (const r of p.filterRelations!) {
+      // عنوان فیلتر
+      const key = normTitle(
+        pickFirstText(
+          r?.filterTitle,
+          r?.filterName,
+          r?.Filter?.displayName,
+          r?.Filter?.name,
+          r?.Filter?.title,
+          r?.filter?.displayName,
+          r?.filter?.name,
+          r?.filter?.title
+        )
+      );
+
+      // مقدار/گزینه انتخاب‌شده
+      const val = pickFirstText(
+        r?.optionTitle,
+        r?.optionName,
+        r?.filterOptionName, // مطابق لاگ شما
+        r?.Option?.displayName,
+        r?.Option?.name,
+        r?.Option?.title,
+        r?.option?.displayName,
+        r?.option?.name,
+        r?.option?.title,
+        r?.value
+      );
+
+      const clean = normTitle(val, "");
+      if (!clean) continue;
+
       if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(val);
+      map.get(key)!.push(clean);
     }
   }
 
-  if (Array.isArray(p?.filters)) {
-    for (const f of p.filters) {
-      const key = f?.title || "—";
-      const opts: string[] = (Array.isArray(f?.options)
-        ? f.options
-            .filter((o: any) => o?.selected ?? true)
-            .map((o: any) => o?.title)
+  // 2) fallback: filters → options (اگر روابط ناقص/خالی باشد)
+  if (Array.isArray(p?.filters) && p.filters!.length) {
+    for (const f of p.filters!) {
+      const key = normTitle(pickFirstText(f?.title, f?.displayName, f?.name));
+      const opts: string[] = Array.isArray(f?.options)
+        ? f.options!
+            .filter((o) => optionIsSelected(o))
+            .map((o) => pickFirstText(o?.title, o?.displayName, o?.name, o?.value))
+            .map((t) => t.trim())
             .filter(Boolean)
-        : []) as string[];
+        : [];
+
       if (opts.length) {
         if (!map.has(key)) map.set(key, []);
         map.set(key, [...(map.get(key) || []), ...opts]);
@@ -34,14 +140,30 @@ function groupFilters(p: any): Array<{ title: string; values: string[] }> {
     }
   }
 
+  // خروجی یکتا و مرتب
   return Array.from(map.entries()).map(([title, values]) => ({
     title,
     values: Array.from(new Set(values)),
   }));
 }
 
+/** ---------- محتوای مشخصات ---------- */
 function SpecsContent({ product }: { product: ProductViewModel }) {
-  const pairs = useMemo(() => groupFilters(product), [product]);
+  // لاگ برای عیب‌یابی
+  useEffect(() => {
+    console.debug("[ProductSpecs] filterRelations:", (product as any)?.filterRelations);
+    console.debug("[ProductSpecs] filters:", (product as any)?.filters);
+  }, [product]);
+
+  const pairs = useMemo(
+    () => groupFilters(product as unknown as ProductSpecsSource),
+    [product]
+  );
+
+  // در صورت نیاز این لاگ را بردار
+  useEffect(() => {
+    console.debug("[ProductSpecs] pairs:", pairs);
+  }, [pairs]);
 
   return (
     <div dir="rtl" className="text-right">
@@ -69,6 +191,7 @@ function SpecsContent({ product }: { product: ProductViewModel }) {
   );
 }
 
+/** ---------- ریسپانسیو (دسکتاپ + موبایل) ---------- */
 export default function ProductSpecsResponsive({
   product,
   open,
@@ -76,7 +199,7 @@ export default function ProductSpecsResponsive({
   title = "مشخصات",
 }: {
   product: ProductViewModel;
-  open: boolean;     // موبایل: کنترل مودال
+  open: boolean; // موبایل: کنترل مودال
   onClose: () => void;
   title?: string;
 }) {
@@ -129,7 +252,12 @@ export default function ProductSpecsResponsive({
                 <h2 className="text-base font-semibold">{title}</h2>
                 <button onClick={onClose} className="p-2" aria-label="close">
                   <svg viewBox="0 0 24 24" className="w-5 h-5">
-                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
                   </svg>
                 </button>
               </div>
