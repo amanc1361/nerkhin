@@ -63,7 +63,7 @@ export interface ProductViewModel {
   subCategoryTitle: string;
   categoryTitle: string;
   brandTitle: string;
-  isFavorite: boolean;
+  isLiked: boolean;
 
 
   filterRelations: ProductFilterRelationViewModel[];

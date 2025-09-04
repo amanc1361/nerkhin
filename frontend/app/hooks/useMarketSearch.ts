@@ -44,7 +44,7 @@ function mapMarketItemToVM(p: any) {
     shopName: p.shopName,
     cityId: p.cityId,
     cityName: p.cityName,
-    isFavorite: p.isFavorite,
+    isLiked: p.isFavorite,
     updatedAt: p.updatedAt,
   };
 }

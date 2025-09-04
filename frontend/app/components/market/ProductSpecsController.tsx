@@ -22,7 +22,7 @@ export default function ProductSpecsController({
   const pathname = usePathname();
   const { isFavorite, loading, toggle } = useFavoriteActions(
 
-    product?.isFavorite === true,   // مقدار اولیه از سرور
+    product?.isLiked === true,   // مقدار اولیه از سرور
     Number(product?.id)             // شناسه محصول (حتماً number)
   );
   const role = pathname?.split("/")?.[1] || "wholesaler";

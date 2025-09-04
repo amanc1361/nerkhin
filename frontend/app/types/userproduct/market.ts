@@ -83,7 +83,7 @@ export type MarketItemVM = {
   cityName: string;
 
   updatedAt: string;
-  isFavorite: boolean;
+  isLiked: boolean;
 };
 
 export type MarketSearchVM = {
