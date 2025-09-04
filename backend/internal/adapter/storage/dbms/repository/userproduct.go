@@ -58,7 +58,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		onlyVisible = *q.OnlyVisible
 	}
 
-	// ---- همون qb با همهٔ فیلترها و جستجوها (بدون تغییر) ----
+	// ---- همون qb با همهٔ فیلترها و جستجوها ----
 	qb := db.Table("user_product AS up").
 		Joins("JOIN user_t AS u  ON u.id = up.user_id").
 		Joins("JOIN product AS p ON p.id = up.product_id").
@@ -94,7 +94,8 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		qb = qb.Where("pb.category_id = ?", q.CategoryID)
 	}
 	if len(q.BrandIDs) > 0 {
-		qb = qb.Where("pb.id IN ?", q.BrandIDs)
+		// تغییر: IN (?) برای آرایه‌ها
+		qb = qb.Where("pb.id IN (?)", q.BrandIDs)
 	}
 	if q.IsDollar != nil {
 		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
@@ -111,31 +112,41 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		`, q.ViewerID)
 	}
 	if len(q.TagList) > 0 {
+		// تغییر: IN (?) برای آرایه‌ها
 		qb = qb.Where(`
 			EXISTS (
 				SELECT 1 FROM product_tag pt
-				WHERE pt.product_id = up.product_id AND pt.tag IN ?
+				WHERE pt.product_id = up.product_id AND pt.tag IN (?)
 			)
 		`, q.TagList)
 	}
+
+	// AND برای filterIdها: محصول باید همهٔ فیلترهای خواسته‌شده را داشته باشد
 	if len(q.FilterIDs) > 0 {
 		qb = qb.Where(`
-			EXISTS (
-				SELECT 1
+			up.product_id IN (
+				SELECT pfr.product_id
 				FROM product_filter_relation pfr
-				WHERE pfr.product_id = up.product_id AND pfr.filter_id IN ?
+				WHERE pfr.filter_id IN (?)
+				GROUP BY pfr.product_id
+				HAVING COUNT(DISTINCT pfr.filter_id) = ?
 			)
-		`, q.FilterIDs)
+		`, q.FilterIDs, len(q.FilterIDs))
 	}
+
+	// AND برای optionIdها: محصول باید همهٔ آپشن‌های خواسته‌شده را داشته باشد
 	if len(q.OptionIDs) > 0 {
 		qb = qb.Where(`
-			EXISTS (
-				SELECT 1
+			up.product_id IN (
+				SELECT pfr2.product_id
 				FROM product_filter_relation pfr2
-				WHERE pfr2.product_id = up.product_id AND pfr2.filter_option_id IN ?
+				WHERE pfr2.filter_option_id IN (?)
+				GROUP BY pfr2.product_id
+				HAVING COUNT(DISTINCT pfr2.filter_option_id) = ?
 			)
-		`, q.OptionIDs)
+		`, q.OptionIDs, len(q.OptionIDs))
 	}
+
 	if s := strings.TrimSpace(q.Search); s != "" {
 		like := "%" + s + "%"
 		qb = qb.Where(`
@@ -156,7 +167,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		`, like, like, like, like, like, like, like, like)
 	}
 
-	// ---- فیلتر بازهٔ قیمت (اضافه‌شده) ----
+	// ---- فیلتر بازهٔ قیمت ----
 	{
 		hasMin := q.PriceMin != nil && q.PriceMin.GreaterThan(decimal.Zero)
 		hasMax := q.PriceMax != nil && q.PriceMax.GreaterThan(decimal.Zero)
@@ -255,7 +266,8 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		qb = qb.Where("pb.category_id = ?", q.CategoryID)
 	}
 	if len(q.BrandIDs) > 0 {
-		qb = qb.Where("pb.id IN ?", q.BrandIDs)
+		// تغییر: IN (?) برای آرایه‌ها
+		qb = qb.Where("pb.id IN (?)", q.BrandIDs)
 	}
 	if q.IsDollar != nil {
 		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
@@ -272,31 +284,41 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, q.ViewerID)
 	}
 	if len(q.TagList) > 0 {
+		// تغییر: IN (?) برای آرایه‌ها
 		qb = qb.Where(`
 			EXISTS (
 				SELECT 1 FROM product_tag pt
-				WHERE pt.product_id = up.product_id AND pt.tag IN ?
+				WHERE pt.product_id = up.product_id AND pt.tag IN (?)
 			)
 		`, q.TagList)
 	}
+
+	// AND برای filterIdها
 	if len(q.FilterIDs) > 0 {
 		qb = qb.Where(`
-			EXISTS (
-				SELECT 1
+			up.product_id IN (
+				SELECT pfr.product_id
 				FROM product_filter_relation pfr
-				WHERE pfr.product_id = up.product_id AND pfr.filter_id IN ?
+				WHERE pfr.filter_id IN (?)
+				GROUP BY pfr.product_id
+				HAVING COUNT(DISTINCT pfr.filter_id) = ?
 			)
-		`, q.FilterIDs)
+		`, q.FilterIDs, len(q.FilterIDs))
 	}
+
+	// AND برای optionIdها
 	if len(q.OptionIDs) > 0 {
 		qb = qb.Where(`
-			EXISTS (
-				SELECT 1
+			up.product_id IN (
+				SELECT pfr2.product_id
 				FROM product_filter_relation pfr2
-				WHERE pfr2.product_id = up.product_id AND pfr2.filter_option_id IN ?
+				WHERE pfr2.filter_option_id IN (?)
+				GROUP BY pfr2.product_id
+				HAVING COUNT(DISTINCT pfr2.filter_option_id) = ?
 			)
-		`, q.OptionIDs)
+		`, q.OptionIDs, len(q.OptionIDs))
 	}
+
 	if s := strings.TrimSpace(q.Search); s != "" {
 		like := "%" + s + "%"
 		qb = qb.Where(`
@@ -317,7 +339,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, like, like, like, like, like, like, like, like)
 	}
 
-	// ---- فیلتر بازهٔ قیمت (اضافه‌شده) ----
+	// ---- فیلتر بازهٔ قیمت ----
 	{
 		hasMin := q.PriceMin != nil && q.PriceMin.GreaterThan(decimal.Zero)
 		hasMax := q.PriceMax != nil && q.PriceMax.GreaterThan(decimal.Zero)

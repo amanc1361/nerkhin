@@ -63,9 +63,7 @@ func decimalPtrIfPositive(s string) *decimal.Decimal {
 func (h *UserProductHandler) Search(c *gin.Context) {
 
 	viewerID := currentUserIDOrZero(c)
-	fmt.Println("[DEBUG] brandId[] =", c.QueryArray("brandId"))
-	fmt.Println("[DEBUG] optionId[] =", c.QueryArray("optionId"))
-	fmt.Println("[DEBUG] filterId[] =", c.QueryArray("filterId"))
+
 
 	limit := atoiDefault(c.Query("limit"), 100)
 	offset := atoiDefault(c.Query("offset"), 0)
