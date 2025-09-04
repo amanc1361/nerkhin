@@ -78,5 +78,5 @@ func (fpr *FavoriteProductRepository) GetFavoriteProducts(
 	if favoriteProducts == nil {
 		favoriteProducts = []*domain.FavoriteProductsViewModel{}
 	}
-	return
+	return favoriteProducts, err
 }

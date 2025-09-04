@@ -44,7 +44,7 @@ function mapMarketItemToVM(p: any) {
     shopName: p.shopName,
     cityId: p.cityId,
     cityName: p.cityName,
-
+    isFavorite: p.isFavorite,
     updatedAt: p.updatedAt,
   };
 }
@@ -80,7 +80,7 @@ function toServerParams(q: MarketSearchQuery) {
   const optionId =
     Array.isArray(qq.optionIds) && qq.optionIds.length ? qq.optionIds.join(",") : undefined;
   const filterId =
-    Array.isArray(qq.filterIds) && qq.filterIds.length ? qq.filterIds.join(",") : undefined; // ← اضافه شد
+    Array.isArray(qq.filterIds) && qq.filterIds.length ? qq.filterIds.join(",") : undefined;
 
   const base: Record<string, any> = {
     limit: qq.limit,
@@ -90,7 +90,7 @@ function toServerParams(q: MarketSearchQuery) {
     categoryId: qq.categoryId,
     brandId,
     optionId,
-    filterId, // ← اضافه شد
+    filterId,
     isDollar,
     priceMin,
     priceMax,
@@ -107,12 +107,8 @@ function mergeUrlWithParams(baseUrl: string, params: Record<string, string | num
   if (!baseUrl) return "";
 
   const applyMultiKeys = (usp: URLSearchParams) => {
-    // کلیدهای چندمقداری را از comma-separated به **تکراری** تبدیل کن
     (["brandId", "optionId", "filterId"] as const).forEach((k) => {
-      // اگر مقدار جدید برای این کلید نداریم، کاری نکنیم (تا اگر قبلاً در URL بوده حفظ شود)
-      if (params[k] === undefined || params[k] === null || params[k] === ("" as any)) {
-        return;
-      }
+      if (params[k] === undefined || params[k] === null || params[k] === ("" as any)) return;
       const raw = String(params[k]);
       usp.delete(k);
       raw
@@ -123,7 +119,6 @@ function mergeUrlWithParams(baseUrl: string, params: Record<string, string | num
     });
   };
 
-  // اگر URL شامل query هست، ادغام کنیم
   const qIndex = baseUrl.indexOf("?");
   if (qIndex >= 0) {
     const path = baseUrl.slice(0, qIndex);
@@ -131,21 +126,17 @@ function mergeUrlWithParams(baseUrl: string, params: Record<string, string | num
     const usp = new URLSearchParams(qs);
 
     Object.entries(params).forEach(([k, v]) => {
-      // برای کلیدهای چندمقداری، set موقت انجام می‌دهیم و بلافاصله تبدیل می‌کنیم
       usp.set(k, String(v));
     });
 
     applyMultiKeys(usp);
-
     const s = usp.toString();
     return s ? `${path}?${s}` : path;
   }
 
-  // اگر query نداشت، از اول بسازیم
   const usp = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => usp.set(k, String(v)));
   applyMultiKeys(usp);
-
   const s = usp.toString();
   return s ? `${baseUrl}?${s}` : baseUrl;
 }
@@ -163,10 +154,15 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
     onlyVisible: true,
     ...initial,
   }));
+
   const [data, setData] = useState<MarketSearchVM>({ items: [], total: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // --- NEW: برای دیباگ پاسخ خام قبل از map
+  const [lastUrl, setLastUrl] = useState<string>("");
+  const [lastRaw, setLastRaw] = useState<any>(null);
 
   const page = useMemo(
     () => Math.floor((query.offset ?? 0) / (query.limit || 1)) + 1,
@@ -180,22 +176,24 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
       try {
         const d = userProductApi.marketSearch(q); // همون سرویس خودت
         const params = toServerParams(q);
-
-        // URL نهایی با merge ایمن (و تبدیل multi به repeated)
         const finalUrl = mergeUrlWithParams(d.url, params);
 
-        // برای دیباگ:
-        // eslint-disable-next-line no-console
-        console.debug("[marketSearch][GET]", finalUrl);
-
-        // همون امضای فعلی شما (بدون data/params)
         const res = await api[d.method as "get"]<{
           items: UserProductMarketView[];
           total: number;
-        }>({
-          url: finalUrl,
-        });
+        }>({ url: finalUrl });
 
+        // ---- نقطه‌ای که می‌خواهی پاسخ خام را ببینی (قبل از map):
+        setLastUrl(finalUrl);
+        setLastRaw(res);
+        if (typeof window !== "undefined") {
+          (window as any).__market_last = { url: finalUrl, res };
+        }
+        // لاگ کنسول برای سهولت
+        // eslint-disable-next-line no-console
+        console.log("[useMarketSearch] RAW response before map →", { url: finalUrl, res });
+
+        // ---- سپس map کن:
         const items = Array.isArray(res?.items) ? res.items : [];
         const total = Number(res?.total ?? 0);
         setData({ items: items.map(mapMarketItemToVM), total });
@@ -242,5 +240,18 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
     loading,
     error,
     refresh: () => run(query),
+
+    // --- NEW: ابزارهای دیباگ
+    debug: {
+      lastUrl,
+      lastRaw,
+      log: () =>
+        console.log("[useMarketSearch] DEBUG current →", {
+          lastUrl,
+          lastRaw,
+          mapped: data,
+          query,
+        }),
+    },
   };
 }

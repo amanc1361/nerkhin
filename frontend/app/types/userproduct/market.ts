@@ -50,6 +50,7 @@ export type UserProductMarketView = {
   cityName: string;
 
   updatedAt: string;
+  isFavorite: boolean;
 };
 
 export type MarketSearchResult = {
@@ -82,6 +83,7 @@ export type MarketItemVM = {
   cityName: string;
 
   updatedAt: string;
+  isFavorite: boolean;
 };
 
 export type MarketSearchVM = {

@@ -24,7 +24,7 @@ export default async function SearchPage({
   if (categoryId > 0) {
  
     q = q ? `${q} categoryId:${categoryId}` : `categoryId:${categoryId}`;
-    console.log(q)
+ 
   }
 
   const t = getMarketMessages("fa");

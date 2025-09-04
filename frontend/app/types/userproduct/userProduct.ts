@@ -38,7 +38,7 @@ export type UserProductView = UserProduct & {
   description: string;
   defaultImageUrl: string;
   defaultFilter?: ProductFilterRelationViewModel | null;
-  isLiked: boolean;
+  isFavorite: boolean;
   shopsCount: number;
 };
 

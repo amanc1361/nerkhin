@@ -68,7 +68,7 @@ type UserProductMarketView struct {
 
 	// زمان مرتب‌سازی
 	UpdatedAt  string `json:"updatedAt"`
-	IsFavorite bool   `json:"isFavorite" gorm:"column:is_favorite"`
+	IsFavorite bool   `json:"	" gorm:"column:is_favorite"`
 }
 type MarketSearchResult struct {
 	Items []*UserProductMarketView `json:"items"`

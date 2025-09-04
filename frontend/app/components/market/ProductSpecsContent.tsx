@@ -17,7 +17,6 @@ function groupFilters(p: any): Array<{ title: string; values: string[] }> {
     }
   }
 
-  // حالت ۲: آرایهٔ filters [{title, options:[{title, selected?}]}]
   if (Array.isArray(p?.filters)) {
     for (const f of p.filters) {
       const key = f?.title || "—";

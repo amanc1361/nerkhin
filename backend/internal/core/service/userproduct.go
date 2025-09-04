@@ -182,7 +182,7 @@ func (ps *UserProductService) FetchShopProducts(ctx context.Context,
 		if err != nil {
 			return err
 		}
-
+        
 		likedProductsMap := map[int64]bool{}
 		for _, likedP := range likedProducts {
 			likedProductsMap[likedP.ProductID] = true
