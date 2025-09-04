@@ -15,11 +15,13 @@ export default function ProductSpecsController({
   t: { specs: string; compare: string; favorite: string };
   product: ProductViewModel;
 }) {
+  console.log("product:",product)
   const [openSpecs, setOpenSpecs] = useState(false);
   const [openCompare, setOpenCompare] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { isFavorite, loading, toggle } = useFavoriteActions(
+
     product?.isLiked === true,   // مقدار اولیه از سرور
     Number(product?.id)             // شناسه محصول (حتماً number)
   );
@@ -29,6 +31,7 @@ export default function ProductSpecsController({
 
   return (
     <>
+   
       <ProductActionBar
         t={t}
         onSpecs={() => setOpenSpecs((v) => !v)}

@@ -67,7 +67,8 @@ type UserProductMarketView struct {
 	CityName string `json:"cityName"`
 
 	// زمان مرتب‌سازی
-	UpdatedAt string `json:"updatedAt"`
+	UpdatedAt  string `json:"updatedAt"`
+	IsFavorite bool   `json:"isFavorite" gorm:"column:is_favorite"`
 }
 type MarketSearchResult struct {
 	Items []*UserProductMarketView `json:"items"`
