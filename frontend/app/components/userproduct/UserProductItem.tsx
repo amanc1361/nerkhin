@@ -8,6 +8,7 @@ import { UserProductMessages } from "@/lib/server/texts/userProdutMessages";
 import { formatMoneyInput } from "../shared/MonyInput";
 import Up from "../icon-components/Up";
 import Down from "../icon-components/Down";
+import PersianDate from "@/app/utils/persiadate";
 
 /* آدرس تصویر را مطلق کن (host + prefix) */
 function absolutizeUploads(imageUrl?: string | null) {
@@ -19,20 +20,7 @@ function absolutizeUploads(imageUrl?: string | null) {
   return clean.startsWith("uploads/") ? `${host}/${clean}` : `${host}${prefix}/${clean}`;
 }
 
-/* تاریخ کوتاه (fallback به createdAt در قالب MM/DD) */
-function shortDate(item: any) {
-  if (item?.dateFa) return String(item.dateFa);
-  const iso = item?.createdAt;
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${m}/${day}`;
-  } catch {
-    return "";
-  }
-}
+
 
 
 function pick(item: any) {
@@ -77,7 +65,7 @@ export default function UserProductItem({
   item, messages, onEdit, onDelete, onToggleVisible, onMoveUp, onMoveDown, disabled = false,showAction=true
 }: Props) {
   const { title, imgRel, final, hidden, productId } = pick(item as any);
-  const dateFa = shortDate(item as any);
+  const dateFa = item.updatedAt;
   const price  = final ? formatMoneyInput(String(final), false) : "—";
 
   const candidates = useMemo(() => buildImageCandidates(imgRel, productId), [imgRel, productId]);
@@ -119,7 +107,9 @@ export default function UserProductItem({
             <div className="text-[13px] text-neutral-800 leading-5 line-clamp-2">{title}</div>
           </div>
         </div>
-        <div className="text-[11px] text-neutral-400">{dateFa}</div>
+        <div className="text-[11px] text-neutral-400">
+          <PersianDate value={dateFa??""}></PersianDate>
+        </div>
       </div>
 
       {/* ===== پایین ===== */}
