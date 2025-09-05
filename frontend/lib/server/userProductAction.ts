@@ -12,7 +12,7 @@ import type {
 } from "@/app/types/userproduct/userProduct";
 import { MarketItemVM, MarketSearchQuery, MarketSearchResult, MarketSearchVM, UserProductMarketView } from "@/app/types/userproduct/market";
 import { getUserProductMessages } from "./texts/userProdutMessages";
-import { toast } from "react-toastify";
+
 
 // ---------------- URL helpers ----------------
 const clean = (s: string) => (s || "").replace(/\/+$/, "");
@@ -119,6 +119,7 @@ export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<Use
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
 
+ 
   const res = await fetch(url, { headers, cache: "no-store" });
 
   // خروجی می‌تواند مستقیم یا داخل data باشد: { shopInfo, products }
@@ -133,13 +134,34 @@ export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<Use
   return products;
  // return products.map(mapUserProductViewToVM);
 }
+export async function fetchShopByUserIdSSR({ userId }: { userId: number }): Promise<ShopViewModel> {
+  if (!userId || Number.isNaN(Number(userId))) {
+    throw new Error("fetchShopByUserIdSSR: invalid userId");
+  }
 
+  const headers = await authHeader();
+  const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
+  const url = joinUrl(base, `/user-product/fetch-shop/${encodeURIComponent(String(userId))}`);
+
+  const res = await fetch(url, { headers, cache: "no-store" });
+
+  // سرور ممکن است یا مستقیماً ShopViewModel بدهد یا { products: UserProductView[] }
+  const payload = await readJson<ShopViewModel | { products: UserProductView[] }>(res);
+
+  if ((payload as any)?.shopInfo) {
+    return payload as ShopViewModel;
+  }
+
+  const products = Array.isArray((payload as any)?.products) ? (payload as any).products : [];
+  return { shopInfo: undefined as any, products } as ShopViewModel;
+}
 // در صورت نیاز به ShopInfo هم، این تابع خام را هم می‌دهیم:
 export async function fetchMyShopProductsRawSSR(q?: ShopProductsQuery): Promise<ShopViewModel> {
   const headers = await authHeader();
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
   const res = await fetch(url, { headers, cache: "no-store" });
+  console.log(url)
   const payload = await readJson<ShopViewModel | { products: UserProductView[] }>(res);
 
   // نرمال‌سازی به ShopViewModel

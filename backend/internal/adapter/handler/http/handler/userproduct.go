@@ -1,14 +1,11 @@
 package handler
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
-
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
-
-	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
+  	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
 	"github.com/nerkhin/internal/core/domain"
 	"github.com/nerkhin/internal/core/port"
 	"github.com/shopspring/decimal"
@@ -71,7 +68,7 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 	sortBy := strings.TrimSpace(c.Query("sortBy"))
 	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir"))))
 
-	fmt.Println(c.Query("categoryId"))
+
 	categoryID := int64(atoiDefault(c.Query("categoryId"), 0))
 	subCategoryID := int64(atoiDefault(c.Query("subCategoryId"), 0))
 
