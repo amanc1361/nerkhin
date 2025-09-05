@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { UserProductView } from "@/app/types/userproduct/userProduct";
 import UserProductItem from "@/app/components/userproduct/UserProductItem"; // اگر داری، از همین استفاده می‌کنیم
   import { getUserProductMessages, type UserProductMessages } from "@/lib/server/texts/userProdutMessages";
+import Link from "next/link";
 
 function absolutize(url?: string | null) {
   if (!url) return "/images/placeholders/product.jpg";
@@ -28,11 +29,13 @@ export default function ShopProductsList({
     return (
       <div className="grid grid-cols-1 gap-3 mt-4">
         {products.map((p: any) => (
+          <Link  key={p.productId} href={`/${role}/product/${p.productId}`} >
           <UserProductItem showAction={false} key={p.id} item={p} messages={t}  onEdit={()=>{}} onDelete={()=>{}} onToggleVisible={()=>{}} onMoveUp={()=>{}} onMoveDown={()=>{}}/>
+          </Link>
         ))}
       </div>
     );
-  }
+}
 
   // fallback سبک (در صورت نبودن UserProductItem)
   return (
