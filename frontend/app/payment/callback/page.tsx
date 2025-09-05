@@ -1,66 +1,62 @@
 // app/payment/callback/page.tsx
-import Image from "next/image";
-import Link from "next/link";
-import Done from "@/public/done.png";
-import Failed from "@/public/failed.png";
+import { redirect } from "next/navigation";
+import {  fetchUserInfo } from "@/lib/server/server-api";
+import { normalizeRole, UserRole } from "@/app/types/role";
 import { createUserSubscriptionSSR } from "@/lib/server/sunScriptionAction";
-
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type SearchParams = { [key: string]: string | string[] | undefined };
+// در پروژه‌ی شما (Next.js 15) searchParams به‌صورت Promise می‌آید
+type SearchParams = Record<string, string | string[] | undefined>;
 
+// کمک‌تابع برای خواندن پارامترها با حروف بزرگ/کوچک مختلف
 function read(sp: SearchParams, key: string) {
-  const v = sp[key];
-  return Array.isArray(v) ? v[0] : v || "";
+  const direct = sp[key];
+  const lower = sp[key.toLowerCase()];
+  const upper = sp[key.toUpperCase()];
+  const v = direct ?? lower ?? upper ?? "";
+  return Array.isArray(v) ? (v[0] ?? "") : (v as string);
+}
+
+function roleSegmentFrom(user: any): "wholesaler" | "retailer" {
+  const n = normalizeRole(user?.role);
+  return n === UserRole.Wholesaler ? "wholesaler" : "retailer";
 }
 
 export default async function PaymentCallback({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  // ✅ امضای درست طبق تایپ پروژه‌ی شما
+  searchParams: Promise<SearchParams>;
 }) {
-  const status = (read(searchParams, "Status") || read(searchParams, "status")).toUpperCase();
-  const authority = read(searchParams, "Authority") || read(searchParams, "authority");
+  // ابتدا await کنیم چون Promise است
+  const sp = await searchParams;
 
-  let ok = false;
-  let message = "";
+  const status = String(read(sp, "Status")).toUpperCase();
+  const authority = String(read(sp, "Authority") || "");
 
-  if (status === "OK" && authority) {
-    try {
-      await createUserSubscriptionSSR(authority);
-      ok = true;
-    } catch (e: any) {
-      ok = false;
-      message = e?.message || "خطا در ثبت اشتراک پس از پرداخت";
-    }
-  } else {
-    ok = false;
-    message = "پرداخت توسط درگاه تأیید نشد (Status != OK)";
+  // نقش کاربر برای مسیر مقصد
+  let roleSegment: "wholesaler" | "retailer" = "retailer";
+  try {
+    const user = await fetchUserInfo();
+    roleSegment = roleSegmentFrom(user);
+  } catch {
+    // اگر سشن/توکن نداشتیم، پیش‌فرض retailer
   }
 
-  return (
-    <div dir="rtl" className="flex w-full items-center justify-center pt-10">
-      {ok ? (
-        <div className="flex flex-col items-center gap-6 text-center">
-          <Image height={160} src={Done} alt="result" />
-          <p className="text-lg text-green-700 VazirFontMedium">پرداخت شما با موفقیت انجام شد.</p>
-          <p>از این لحظه می‌توانید از امکانات اشتراکی نرخین استفاده کنید.</p>
-          <Link href="/wholesaler/shop" className="bg-blue-600 text-white px-5 py-3 rounded-lg">
-            رفتن به فروشگاه من
-          </Link>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-6 text-center">
-          <Image height={160} src={Failed} alt="result" />
-          <p className="text-lg text-red-700 VazirFontMedium">پرداخت شما ناموفق بود.</p>
-          <p className="text-sm text-gray-600">{message || "لطفاً دوباره تلاش کنید."}</p>
-          <Link href="/wholesaler/account/subscriptions" className="bg-red-600 text-white px-5 py-3 rounded-lg">
-            رفتن به تمدید حساب
-          </Link>
-        </div>
-      )}
-    </div>
-  );
+  // اگر درگاه OK نگفت یا authority نداریم → برگرد به صفحه‌ی تمدید نقش خودش
+  if (status !== "OK" || !authority) {
+    return redirect(`/${roleSegment}/account/subscriptions?error=payment_failed`);
+  }
+
+  // ثبت اشتراک در بک‌اند (Verify سمت سرور شما انجام می‌شود)
+  try {
+    await createUserSubscriptionSSR(authority);
+    // موفق: هدایت به صفحه‌ی مخصوص نقش
+    return redirect(`/${roleSegment}/shop`);
+  } catch {
+    // ناموفق: برگرد به صفحه‌ی تمدید
+    return redirect(`/${roleSegment}/account/subscriptions?error=payment_failed`);
+  }
 }
