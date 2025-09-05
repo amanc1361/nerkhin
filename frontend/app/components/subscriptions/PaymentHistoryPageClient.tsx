@@ -24,7 +24,7 @@ export default function PaymentHistoryPageClient({ t }: { t: PaymentHistoryMessa
   const { items, loading } = usePaymentHistory();
 
   return (
-    <div className="space-y-4" dir="rtl" lang="fa">
+    <div className="space-y-4 p-4" dir="rtl" lang="fa">
       <h1 className="text-xl font-bold">{t.pageTitle}</h1>
       <PaymentHistoryTable t={t.table} items={items} loading={loading} />
     </div>
