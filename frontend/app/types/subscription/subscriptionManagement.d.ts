@@ -24,3 +24,23 @@ export interface SuccessResponse {
   success: boolean;
   message?: string;
 }
+// app/types/subscription/payment.ts
+export type SubscriptionPeriod = number; // تعداد روز
+
+export type PaymentTransactionHistory = {
+  id: number;
+  userId: number;
+  cityId: number;
+  refId: string;
+  authority: string;
+  cost: string | number; // از backend decimal می‌آید؛ اینجا string/number
+  numberOfDays: SubscriptionPeriod;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentTransactionHistoryViewModel = PaymentTransactionHistory & {
+  fullName: string;
+  city: string;
+  expirationDate: string;
+};

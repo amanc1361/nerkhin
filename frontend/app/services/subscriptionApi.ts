@@ -25,7 +25,7 @@ export const subscriptionApi = {
   userByCity: (cityId: number | string) => ({ url: `/user-subscription/${cityId}`, method: "get" as const }),
   paymentGatewayInfo: { url: "/user-subscription/fetch-payment-gateway-info", method: "post" as const },
   createUserSubscription: { url: "/user-subscription", method: "post" as const },
-  paymentHistory: { url: "/user-subscription/payment-transactions-history", method: "get" as const },
+  paymentHistory: { url: "/user-subscription/fetch-payment-transactions", method: "get" as const },
   userSubscriptionList: { url: "/user-subscription/list", method: "get" as const },
 };
 

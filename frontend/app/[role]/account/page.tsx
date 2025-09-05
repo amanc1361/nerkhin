@@ -116,13 +116,13 @@ const HeartIcon = (
         />
         {isWholesale && (
           <AccountListItem
-            href={`/${roleSegment}/customers`}
+            href={`/${roleSegment}/favorites/my-customers`}
             title={t.list.customers}
             icon={<span className="text-lg">👥</span>}
           />
         )}
         <AccountListItem
-          href={`/${roleSegment}/transactions`}
+          href={`/${roleSegment}/subscription/payment-history`}
           title={t.list.transactions}
           icon={<span className="text-lg">💳</span>}
         />

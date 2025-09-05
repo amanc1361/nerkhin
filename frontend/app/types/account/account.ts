@@ -43,3 +43,9 @@ export interface FavoriteAccount {
   createdAt?: string;
   updatedAt?: string;
 };
+
+
+export type MyCustomersViewModel = FavoriteAccount & {
+  customerName: string;
+  customerShopType: number; // 0: شخصی/نامشخص, 1: خرده, 2: عمده, ...
+};

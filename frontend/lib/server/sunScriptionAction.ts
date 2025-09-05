@@ -95,7 +95,7 @@ export async function createUserSubscriptionSSR(authority: string): Promise<{ id
 }
 
 export async function fetchPaymentHistorySSR(): Promise<any[]> {
-  return sFetch<any[]>("/user-subscription/payment-transactions-history", "GET");
+  return sFetch<any[]>("/user-subscription/fetch-payment-transactions-history", "GET");
 }
 
 export async function fetchUserSubscriptionListSSR(): Promise<any[]> {
