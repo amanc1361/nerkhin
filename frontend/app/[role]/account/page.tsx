@@ -110,7 +110,7 @@ const HeartIcon = (
       {/* List items */}
       <div className="mt-4 space-y-3">
         <AccountListItem
-          href={`/${roleSegment}/likes`}
+          href={`/${roleSegment}/favorites`}
           title={t.list.likes}
           icon={HeartIcon}
         />
