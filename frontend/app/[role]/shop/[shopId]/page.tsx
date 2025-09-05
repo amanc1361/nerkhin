@@ -16,9 +16,11 @@ type Role = "wholesaler" | "retailer";
 export default async function Page({
   params,
 }: {
-  params: { role: Role; shopId: string }; // ← دیگر Promise نیست
+  // ✅ مطابق Next.js 15: params از نوع Promise است
+  params: Promise<{ role: Role; shopId: string }>;
 }) {
-  const { role, shopId } = params;
+  // ✅ await روی params
+  const { role, shopId } = await params;
 
   // ⚠️ در روت جدید uid همان ownerUserId است؛ ما از shopId موجود در URL به‌عنوان userId استفاده می‌کنیم.
   const vm = (await fetchShopByUserIdSSR({ userId: Number(shopId) })) as ShopViewModel;
@@ -31,12 +33,7 @@ export default async function Page({
   const labels = await buildShopLabels("fa", products.length);
 
   // --- استخراج ownerUserId و تزریق فلگ‌های علاقه‌مندی
-  const ownerUserId =
-    Number(shopInfo?.ownerUserId) ||
-    Number(shopInfo?.userId) ||
-    Number((vm as any)?.ownerUserId) ||
-    Number(shopId) || // از پارامتر URL به‌عنوان fallback
-    0;
+  const ownerUserId = Number(shopId) || 0;
 
   let favorites: any[] = [];
   try {
