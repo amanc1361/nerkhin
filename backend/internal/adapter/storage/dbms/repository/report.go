@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 
 	"github.com/nerkhin/internal/adapter/storage/util/gormutil"
 	"github.com/nerkhin/internal/core/domain"
@@ -119,8 +120,8 @@ func (rr *ReportRepository) GetReportsByFilter(
 	if domain.IsReportStateValid(int16(filter.State)) {
 		base = base.Where("r.state_c = ?", filter.State)
 	}
-	if filter.SearchText != "" {
-		search := "%" + filter.SearchText + "%"
+	if strings.TrimSpace(filter.SearchText) != "" {
+		search := "%" + strings.TrimSpace(filter.SearchText) + "%"
 		base = base.Where("(r.title ILIKE ? OR r.description ILIKE ?)", search, search)
 	}
 
@@ -133,12 +134,16 @@ func (rr *ReportRepository) GetReportsByFilter(
 	if err := countQ.Count(&totalCount).Error; err != nil {
 		return nil, 0, err
 	}
-	// اگر offset از total گذشت، خروجی منطقی خالی بده
-	if totalCount == 0 || offset >= int(totalCount) {
-		return []*domain.ReportViewModel{}, totalCount, nil
+	// فقط اگر واقعاً هیچ رکوردی نبود خالی برگردون
+	if totalCount == 0 {
+		return []*domain.ReportViewModel{}, 0, nil
+	}
+	// اگر offset نامعتبر بود، صفرش کن (یا می‌تونی به آخرین صفحه کلَمپ کنی)
+	if offset >= int(totalCount) {
+		offset = 0
 	}
 
-	// Data query
+	// Data query با LEFT JOIN
 	dataQ := base.
 		Joins("LEFT JOIN user_t AS u  ON u.id  = r.user_id").
 		Joins("LEFT JOIN user_t AS tu ON tu.id = r.target_user_id").
@@ -159,7 +164,9 @@ func (rr *ReportRepository) GetReportsByFilter(
 			"tuc.name     AS target_user_city",
 		)
 
-	if err := dataQ.Scan(&reports).Error; err != nil {
+	// اگر می‌خوای فعلاً همه بیاد، Limit/Offset رو نذار؛
+	// ولی بهتره نگهش داریم با offset کلَمپ‌شده:
+	if err := dataQ.Limit(limit).Offset(offset).Scan(&reports).Error; err != nil {
 		return nil, 0, err
 	}
 
