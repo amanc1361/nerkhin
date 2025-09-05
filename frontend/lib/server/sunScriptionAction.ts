@@ -91,7 +91,7 @@ export async function fetchPaymentGatewayInfoSSR(input: { cityId: number; subscr
 }
 
 export async function createUserSubscriptionSSR(authority: string): Promise<{ id: number }> {
-  return sFetch<{ id: number }>("/user-subscription", "POST", { authority });
+  return sFetch<{ id: number }>("/user-subscription/create", "POST", { authority });
 }
 
 export async function fetchPaymentHistorySSR(): Promise<any[]> {
