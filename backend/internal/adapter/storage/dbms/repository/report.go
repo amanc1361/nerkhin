@@ -106,33 +106,39 @@ func (rr *ReportRepository) GetReportsByFilter(
 		return nil, 0, err
 	}
 
+	// گاردهای صفحه‌بندی
+	if limit <= 0 || limit > 200 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
 	base := db.Table("report AS r")
 
-	// فیلتر وضعیت
 	if domain.IsReportStateValid(int16(filter.State)) {
 		base = base.Where("r.state_c = ?", filter.State)
 	}
-
-	// فیلتر جستجو (همون LIKE فعلی شما؛ اگر خواستید بعداً ILIKE کنید)
 	if filter.SearchText != "" {
 		search := "%" + filter.SearchText + "%"
-		base = base.Where("(r.title LIKE ? OR r.description LIKE ?)", search, search)
+		base = base.Where("(r.title ILIKE ? OR r.description ILIKE ?)", search, search)
 	}
 
-	// ---- Count: با LEFT JOIN و DISTINCT برای جلوگیری از کم/زیاد شدن تعداد ----
+	// Count با LEFT JOIN و DISTINCT
 	countQ := base.
-		Joins("LEFT JOIN user_t AS u ON u.id = r.user_id").
+		Joins("LEFT JOIN user_t AS u  ON u.id  = r.user_id").
 		Joins("LEFT JOIN user_t AS tu ON tu.id = r.target_user_id").
 		Distinct("r.id")
 
 	if err := countQ.Count(&totalCount).Error; err != nil {
 		return nil, 0, err
 	}
+	// اگر offset از total گذشت، خروجی منطقی خالی بده
 	if totalCount == 0 || offset >= int(totalCount) {
 		return []*domain.ReportViewModel{}, totalCount, nil
 	}
 
-	// ---- Data: با LEFT JOIN تا رکورد به خاطر نبودن شهر/یوزر حذف نشه ----
+	// Data query
 	dataQ := base.
 		Joins("LEFT JOIN user_t AS u  ON u.id  = r.user_id").
 		Joins("LEFT JOIN user_t AS tu ON tu.id = r.target_user_id").
