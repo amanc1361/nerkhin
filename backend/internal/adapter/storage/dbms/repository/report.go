@@ -145,8 +145,6 @@ func (rr *ReportRepository) GetReportsByFilter(
 		Joins("LEFT JOIN city   AS uc ON uc.id = u.city_id").
 		Joins("LEFT JOIN city   AS tuc ON tuc.id = tu.city_id").
 		Order("r.id DESC").
-		Limit(limit).
-		Offset(offset).
 		Select(
 			"r.*",
 			"u.full_name  AS user_full_name",
