@@ -101,6 +101,26 @@ type fetchSubscriptionRequest struct {
 	ID int64 `uri:"id" example:"1"`
 }
 
+
+
+func (pch *SubscriptionHandler) BatchDelete(c *gin.Context) {
+	var req deleteSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		validationError(c, err, pch.AppConfig.Lang)
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	err := pch.service.BatchDeleteSubscriptions(ctx, req.Ids)
+	if err != nil {
+		HandleError(c, err, pch.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, nil)
+}
+
 func (pch *SubscriptionHandler) Fetch(c *gin.Context) {
 	var req fetchSubscriptionRequest
 	if err := c.ShouldBindUri(&req); err != nil {
@@ -122,25 +142,6 @@ func (pch *SubscriptionHandler) Fetch(c *gin.Context) {
 type deleteSubscriptionRequest struct {
 	Ids []int64 `json:"ids" example:"[1, 2]"`
 }
-
-func (pch *SubscriptionHandler) BatchDelete(c *gin.Context) {
-	var req deleteSubscriptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		validationError(c, err, pch.AppConfig.Lang)
-		return
-	}
-
-	ctx := c.Request.Context()
-
-	err := pch.service.BatchDeleteSubscriptions(ctx, req.Ids)
-	if err != nil {
-		HandleError(c, err, pch.AppConfig.Lang)
-		return
-	}
-
-	handleSuccess(c, nil)
-}
-
 func (sh *SubscriptionHandler) FetchAllSubscriptions(c *gin.Context) {
 	ctx := c.Request.Context()
 	subscriptions, err := sh.service.GetAllSubscriptions(ctx)

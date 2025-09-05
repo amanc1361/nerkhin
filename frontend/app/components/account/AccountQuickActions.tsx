@@ -36,7 +36,7 @@ export default function AccountQuickActions({
       )}
       <button
         className="flex items-center justify-center gap-2 rounded-2xl bg-teal-600 px-4 py-3 text-white shadow-[0_10px_20px_-10px_rgba(13,148,136,.6)] hover:brightness-110"
-        onClick={() => router.push(`/${roleSegment}/account/extend`)}
+        onClick={() => router.push(`/${roleSegment}/account/subscriptions`)}
       >
         {Ic.bill} {t.actions.extendAccount}
       </button>
