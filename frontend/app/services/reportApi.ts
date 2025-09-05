@@ -17,4 +17,8 @@ export const reportApi = {
     method: 'post' as const,
     body: payload,
   }),
+  create: () => ({
+    url: '/report/create',
+    method: 'post' as const,
+  }),
 };

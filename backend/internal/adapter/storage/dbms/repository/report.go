@@ -106,51 +106,56 @@ func (rr *ReportRepository) GetReportsByFilter(
 		return nil, 0, err
 	}
 
-	query := db.Table("report AS r")
+	base := db.Table("report AS r")
 
+	// فیلتر وضعیت
 	if domain.IsReportStateValid(int16(filter.State)) {
-		query = query.Where("r.state_c = ?", filter.State)
+		base = base.Where("r.state_c = ?", filter.State)
 	}
 
+	// فیلتر جستجو (همون LIKE فعلی شما؛ اگر خواستید بعداً ILIKE کنید)
 	if filter.SearchText != "" {
-		searchQuery := "%" + filter.SearchText + "%"
-		query = query.Where("r.title LIKE ? OR r.description LIKE ?", searchQuery, searchQuery)
+		search := "%" + filter.SearchText + "%"
+		base = base.Where("(r.title LIKE ? OR r.description LIKE ?)", search, search)
 	}
 
-	query = query.
-		Joins("JOIN user_t AS u ON u.id = r.user_id").
-		Joins("JOIN user_t AS tu ON tu.id = r.target_user_id")
+	// ---- Count: با LEFT JOIN و DISTINCT برای جلوگیری از کم/زیاد شدن تعداد ----
+	countQ := base.
+		Joins("LEFT JOIN user_t AS u ON u.id = r.user_id").
+		Joins("LEFT JOIN user_t AS tu ON tu.id = r.target_user_id").
+		Distinct("r.id")
 
-	err = query.Model(&domain.Report{}).Count(&totalCount).Error
-	if err != nil {
+	if err := countQ.Count(&totalCount).Error; err != nil {
 		return nil, 0, err
 	}
-
-	if totalCount == 0 {
-		return []*domain.ReportViewModel{}, 0, nil
+	if totalCount == 0 || offset >= int(totalCount) {
+		return []*domain.ReportViewModel{}, totalCount, nil
 	}
 
-	err = query.
-		Joins("JOIN city AS uc ON uc.id = u.city_id").
-		Joins("JOIN city AS tuc ON tuc.id = tu.city_id").
+	// ---- Data: با LEFT JOIN تا رکورد به خاطر نبودن شهر/یوزر حذف نشه ----
+	dataQ := base.
+		Joins("LEFT JOIN user_t AS u  ON u.id  = r.user_id").
+		Joins("LEFT JOIN user_t AS tu ON tu.id = r.target_user_id").
+		Joins("LEFT JOIN city   AS uc ON uc.id = u.city_id").
+		Joins("LEFT JOIN city   AS tuc ON tuc.id = tu.city_id").
 		Order("r.id DESC").
 		Limit(limit).
 		Offset(offset).
 		Select(
 			"r.*",
-			"u.full_name         AS user_full_name",
-			"u.shop_name         AS user_shop_name",
-			"u.phone             AS user_phone",
-			"u.role              AS user_role",
-			"uc.name             AS user_city",
-			"tu.full_name        AS target_user_full_name",
-			"tu.shop_name        AS target_user_shop_name",
-			"tu.phone            AS target_user_phone",
-			"tu.role             AS target_user_role",
-			"tuc.name            AS target_user_city",
-		).
-		Scan(&reports).Error
-	if err != nil {
+			"u.full_name  AS user_full_name",
+			"u.shop_name  AS user_shop_name",
+			"u.phone      AS user_phone",
+			"u.role       AS user_role",
+			"uc.name      AS user_city",
+			"tu.full_name AS target_user_full_name",
+			"tu.shop_name AS target_user_shop_name",
+			"tu.phone     AS target_user_phone",
+			"tu.role      AS target_user_role",
+			"tuc.name     AS target_user_city",
+		)
+
+	if err := dataQ.Scan(&reports).Error; err != nil {
 		return nil, 0, err
 	}
 

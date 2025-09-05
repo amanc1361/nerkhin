@@ -29,6 +29,9 @@ async function ReportsDataView({
   const initialData: PaginatedReportsResponse | null =
     await getPaginatedReports(filters);
 
+  console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  console.log(initialData)  
+
   if (!initialData) return null;
 
   return (

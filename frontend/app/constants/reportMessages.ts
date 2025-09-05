@@ -25,6 +25,9 @@ export const reportMessages = {
 
   // Empty State
   noReportsFound: "هیچ گزارشی با این مشخصات یافت نشد.",
+  createValidation:"مقادیر را درست وارد نمایید",
+  createSuccess:"با موفقیت ثبت شد",
+  createError:"خطا در ثبت گزارش",
 
   // Buttons
   close: "بستن",
