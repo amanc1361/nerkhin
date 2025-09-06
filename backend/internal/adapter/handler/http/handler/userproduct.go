@@ -968,15 +968,15 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.AddPage()
 
 	// فونت (مسیر خودت را تنظیم کن)
-	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // یا Vazir.ttf
-	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
-	pdf.SetFont("Vazirmatn", "", 12)
+	fontPath := filepath.Join("/assets/fonts", "Vazirfd.ttf") // یا Vazir.ttf
+	pdf.AddUTF8Font("Vazirfd", "", fontPath)
+	pdf.SetFont("Vazirfd", "", 12)
 
 	/*──── Header ────*/
 	now := ptime.Now()
 
 	// تاریخ شمسی (چپ)
-	pdf.SetFont("Vazirmatn", "", 12)
+	pdf.SetFont("Vazirfd", "", 12)
 	pdf.SetXY(12, 10)
 	pdf.CellFormat(0, 6, faInline(jalaliDateLong(now)), "", 0, "L", false, 0, "")
 
@@ -985,13 +985,13 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	if shopName == "" {
 		shopName = "—"
 	}
-	pdf.SetFont("Vazirmatn", "", 18)
+	pdf.SetFont("Vazirfd", "", 18)
 	pdf.SetXY(12, 10)
 	pdf.CellFormat(186, 10, faInline(shopName), "", 0, "C", false, 0, "")
 	pdf.Ln(10)
 
 	// تلفن‌ها (راست‌چین)
-	pdf.SetFont("Vazirmatn", "", 11)
+	pdf.SetFont("Vazirma	tn", "", 11)
 	phones := strings.Join(vm.Shop.Phones, " , ")
 	pdf.CellFormat(186, 6, faInline(phones), "", 0, "R", false, 0, "")
 	pdf.Ln(6)
@@ -1012,11 +1012,11 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 
 	/*──── Table ────*/
 	colW := []float64{15, 100, 35, 36} // جمع=186
-	header := []string{"ردیف", "نام محصول (زیرشاخه / برند / مدل)", "قیمت", "آخرین بروزرسانی"}
+	header := []string{"ردیف", "نام محصول ", "قیمت", "آخرین بروزرسانی"}
 	aligns := []string{"C", "R", "C", "C"}
 
 	// هدر جدول
-	pdf.SetFont("Vazirmatn", "", 12)
+	pdf.SetFont("Vazirfd", "", 12)
 	pdf.SetFillColor(245, 245, 245)
 	for i, h := range header {
 		pdf.CellFormat(colW[i], 9, faInline(h), "1", 0, aligns[i], true, 0, "")
@@ -1029,7 +1029,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	}
 
 	// ردیف‌ها با ارتفاع پویا
-	pdf.SetFont("Vazirmatn", "", 11)
+	pdf.SetFont("Vazirfd", "", 11)
 	baseRowH := 7.0
 
 	for idx, it := range vm.Items {
