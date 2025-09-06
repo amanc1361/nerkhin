@@ -703,7 +703,7 @@ type shopVMInput struct {
 		BrandTitle       string          `json:"brandTitle"`
 		ModelName        string          `json:"modelName"`
 		Price            int64           `json:"price"`
-		FinalPrice       int64           `json:"finalPrice"`
+		FinalPrice       int64           `json:"finalPrice,string"`
 		UpdatedAtRaw     json.RawMessage `json:"updatedAt"`       // ممکن است رشته/عدد/آبجکت باشد
 		UpdatedAtString  string          `json:"updatedAtString"` // اگر جداگانه رشته باشد
 	} `json:"products"`
