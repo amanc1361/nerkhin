@@ -53,6 +53,7 @@ type ProductRepository interface {
 		search string,
 		pag pagination.Pagination,
 	) (pagination.PaginatedResult[*domain.ProductViewModel], error)
+	GetProductNameByBrandId(ctx context.Context, dbSession interface{}, BrandId int64) ([]*domain.ProductNameModel, error)
 }
 
 type ProductService interface {
@@ -92,4 +93,5 @@ type ProductService interface {
 		search string,
 		pag pagination.Pagination,
 	) (pagination.PaginatedResult[*domain.ProductViewModel], error)
+	GetProductNameByBrandId(ctx context.Context, BrandId int64) ([]*domain.ProductNameModel, error)
 }

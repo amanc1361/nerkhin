@@ -268,6 +268,27 @@ func (h *ProductHandler) ListByModel(c *gin.Context) {
 	}
 	handleSuccess(c, res)
 }
+
+func (h *ProductHandler) GetProductNameByBrandID(c *gin.Context) {
+	brandIDStr := c.Param("brandId")
+	brandID, err := strconv.ParseInt(brandIDStr, 10, 64)
+	if err != nil {
+		validationError(c, err, h.AppConfig.Lang)
+		return
+	}
+
+	result, err := h.service.GetProductNameByBrandId(
+		c.Request.Context(),
+		brandID,
+	)
+	if err != nil {
+		validationError(c, err, h.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, result)
+}
+
 func (h *ProductHandler) GetByBrand(c *gin.Context) {
 	brandIDStr := c.Param("brandId")
 	brandID, err := strconv.ParseInt(brandIDStr, 10, 64)

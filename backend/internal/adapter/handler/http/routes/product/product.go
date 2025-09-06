@@ -16,6 +16,7 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.ProductHandler) {
 	productGroup.GET("/fetch/:id", handler.Fetch)
 	productGroup.GET("/by-brand/:brandId", handler.GetByBrand)
 	productGroup.GET("/by-category/:categoryId", handler.GetByCategory)
+	productGroup.GET("/product-name/:brandId", handler.GetProductNameByBrandID)
 	fast.POST("/import-csv", handler.ImportFromCSV)
 
 	adminProductGroup := productGroup.Use(

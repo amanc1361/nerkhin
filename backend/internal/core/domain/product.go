@@ -14,6 +14,10 @@ type ProductViewModel struct {
 	FilterRelations  []*ProductFilterRelationViewModel `gorm:"-" json:"filterRelations"`
 	Tags             []*ProductTag                     `gorm:"-" json:"tags"`
 }
+type ProductNameModel struct {
+	ID        int64  `json:"id"`
+	ModelName string `json:"modelName"`
+}
 type PaginatedProductsViewModel struct {
 	Products   []*ProductViewModel `json:"products"`
 	TotalCount int64               `json:"totalCount"`

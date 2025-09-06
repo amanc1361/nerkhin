@@ -562,3 +562,13 @@ func (pr *ProductRepository) GetTagsByIDs(ctx context.Context, dbSession interfa
 	err = db.Where("id IN ?", tagIDs).Order("id ASC").Find(&tags).Error
 	return
 }
+
+func (pr *ProductRepository) GetProductNameByBrandId(ctx context.Context, dbSession interface{}, BrandId int64) ([]*domain.ProductNameModel, error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return nil, err
+	}
+	var products []*domain.ProductNameModel
+	err = db.Where("brand_id = ?", BrandId).Order("id ASC").Find(&products).Error
+	return products, err
+}

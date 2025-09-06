@@ -273,6 +273,14 @@ func (ps *ProductService) GetProductsByCategoryID(ctx context.Context, categoryI
 	return ps.GetProductsByFilter(ctx, filter, page, limit)
 }
 
+func (ps *ProductService) GetProductNameByBrandId(ctx context.Context, BrandId int64) ([]*domain.ProductNameModel, error) {
+	db, err := ps.dbms.NewDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ps.repo.GetProductNameByBrandId(ctx, db, BrandId)
+}
+
 // متد جدید برای دریافت محصولات یک برند خاص با صفحه‌بندی
 func (ps *ProductService) GetProductsByBrandID(ctx context.Context, brandID int64, page int, limit int) (*domain.PaginatedProductsViewModel, error) {
 	filter := &domain.ProductFilterQuery{BrandID: brandID}
