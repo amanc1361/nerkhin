@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	goarabic "github.com/01walid/goarabic"
 	"github.com/gin-gonic/gin"
 	"github.com/jung-kurt/gofpdf"
 	"github.com/nerkhin/internal/adapter/config"
@@ -625,7 +627,7 @@ type priceListRow struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-// ---------- کمکی‌ها ----------
+// -------------------- Helpers (money/date/str) --------------------
 func moneyIRR(n int64) string {
 	s := fmt.Sprintf("%d", n)
 	neg := ""
@@ -633,7 +635,6 @@ func moneyIRR(n int64) string {
 		neg = "-"
 		s = s[1:]
 	}
-	// گروه‌بندی هزارگان
 	var out []byte
 	c := 0
 	for i := len(s) - 1; i >= 0; i-- {
@@ -643,7 +644,6 @@ func moneyIRR(n int64) string {
 			out = append(out, ',')
 		}
 	}
-	// برعکس کردن
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 		out[i], out[j] = out[j], out[i]
 	}
@@ -678,7 +678,6 @@ func joinNonEmpty(parts ...string) string {
 	return strings.Join(out, " / ")
 }
 
-// از هر خروجی سرویس (هر نوع Go) با JSON به DTO خودمان می‌رسیم
 func toPriceListVM(raw any) (priceListVM, error) {
 	var vm priceListVM
 	b, err := json.Marshal(raw)
@@ -691,7 +690,19 @@ func toPriceListVM(raw any) (priceListVM, error) {
 	return vm, nil
 }
 
-// ---------- هندلر خروجی PDF ----------
+// -------------------- Persian shaping helper --------------------
+// فارسی/عربی را برای محیط بدون RTL آماده می‌کند:
+// 1) اتصال حروف (ToGlyph)
+// 2) معکوس‌سازی جهت برای رندر LTR (Reverse)
+func fa(s string) string {
+	if s == "" {
+		return s
+	}
+	shaped := goarabic.ToGlyph(s)
+	return goarabic.Reverse(shaped)
+}
+
+// -------------------- FetchPriceListPDF (FINAL) --------------------
 func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
@@ -703,14 +714,13 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	// ✅ بدون type assertion (پس خطای "not an interface" دیگر رخ نمی‌دهد)
 	vm, err := toPriceListVM(raw)
 	if err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
 
-	// مرتب‌سازی بر اساس نام محصول
+	// مرتب‌سازی بر اساس نام کامل محصول
 	sort.Slice(vm.Items, func(i, j int) bool {
 		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
 		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
@@ -720,45 +730,47 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	// ساخت PDF
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(12, 18, 12)
+	pdf.SetAutoPageBreak(true, 15)
 	pdf.AddPage()
 
-	// فونت (طبق Dockerfile: COPY ... /assets/fonts → مسیر ثابت)
-	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // نام فونت را طبق فایل واقعی‌ات بگذار
+	// فونت (مسیر فونت را مطابق ایمیج تنظیم کن)
+	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // یا Vazir.ttf
 	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
 	pdf.SetFont("Vazirmatn", "", 12)
 
-	// ── هدر ───────────────────────────────────────────────────────────────
+	// ── هدر ─────────────────────────────────────────────
 	now := ptime.Now()
 
-	// تاریخ شمسی در گوشه چپ بالا (نمایش بلند)
+	// تاریخ شمسی گوشه چپ بالا (نمایش بلند)
+	pdf.SetFont("Vazirmatn", "", 12)
 	pdf.SetXY(12, 10)
-	pdf.CellFormat(0, 6, jalaliDateLong(now), "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 6, fa(jalaliDateLong(now)), "", 0, "L", false, 0, "")
 
 	// نام فروشگاه وسط بالا
 	pdf.SetFont("Vazirmatn", "", 18)
 	pdf.SetXY(12, 10)
-	pdf.CellFormat(186, 10, vm.Shop.Name, "", 0, "C", false, 0, "")
+	pdf.CellFormat(186, 10, fa(strings.TrimSpace(vm.Shop.Name)), "", 0, "C", false, 0, "")
 	pdf.Ln(10)
 
 	// تلفن‌ها راست‌چین
 	pdf.SetFont("Vazirmatn", "", 11)
 	phones := strings.Join(vm.Shop.Phones, " , ")
-	pdf.CellFormat(186, 6, phones, "", 0, "R", false, 0, "")
+	pdf.CellFormat(186, 6, fa(phones), "", 0, "R", false, 0, "")
 	pdf.Ln(6)
 
 	// آدرس راست‌چین (چندخطی)
 	addr := strings.TrimSpace(vm.Shop.Address)
-	pdf.MultiCell(186, 6, addr, "", "R", false)
-	pdf.Ln(4)
+	pdf.MultiCell(186, 6, fa(addr), "", "R", false)
+	pdf.Ln(3)
 
 	// خط جداکننده
-	pdf.SetDrawColor(200, 200, 200)
-	pdf.Line(12, pdf.GetY(), 198, pdf.GetY())
+	pdf.SetDrawColor(210, 210, 210)
+	y := pdf.GetY()
+	pdf.Line(12, y, 198, y)
 	pdf.Ln(4)
 
-	// ── جدول ─────────────────────────────────────────────────────────────
-	// ستون‌ها: ردیف | نام محصول (زیرشاخه/برند/مدل) | قیمت | آخرین بروزرسانی
-	colW := []float64{15, 100, 35, 36} // ≈ 186mm
+	// ── جدول ───────────────────────────────────────────
+	colW := []float64{15, 100, 35, 36} // جمع = 186
 	header := []string{"ردیف", "نام محصول (زیرشاخه / برند / مدل)", "قیمت", "آخرین بروزرسانی"}
 	aligns := []string{"C", "R", "C", "C"}
 
@@ -766,30 +778,53 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.SetFont("Vazirmatn", "", 12)
 	pdf.SetFillColor(245, 245, 245)
 	for i, h := range header {
-		pdf.CellFormat(colW[i], 9, h, "1", 0, aligns[i], true, 0, "")
+		pdf.CellFormat(colW[i], 9, fa(h), "1", 0, aligns[i], true, 0, "")
 	}
 	pdf.Ln(-1)
 
-	// ردیف‌ها
+	// ردیف‌ها با ارتفاع پویا
 	pdf.SetFont("Vazirmatn", "", 11)
-	rowH := 8.0
+	baseRowH := 7.0
+
 	for idx, it := range vm.Items {
 		title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
+		titleFA := fa(title)
 
-		// تاریخ آخرین آپدیت (شمسی، yyyy/mm/dd)
+		// تاریخ آخرین آپدیت (yyyy/mm/dd)
 		jt := ptime.New(it.UpdatedAt)
 		updatedStr := fmt.Sprintf("%d/%s/%s", jt.Year(), pad2(int(jt.Month())), pad2(jt.Day()))
 
-		cells := []string{
+		rowCells := []string{
 			fmt.Sprintf("%d", idx+1),
-			title,
+			titleFA,
 			moneyIRR(it.Price),
-			updatedStr,
+			fa(updatedStr),
 		}
-		for i, txt := range cells {
-			pdf.CellFormat(colW[i], rowH, txt, "1", 0, aligns[i], false, 0, "")
-		}
-		pdf.Ln(-1)
+
+		// محاسبه ارتفاع لازم برای ستون عنوان
+		lines := pdf.SplitText(rowCells[1], colW[1]-2)
+		h := math.Max(baseRowH, float64(len(lines))*baseRowH)
+
+		x, y := pdf.GetX(), pdf.GetY()
+
+		// ستون 1: ردیف
+		pdf.CellFormat(colW[0], h, fa(rowCells[0]), "1", 0, "C", false, 0, "")
+
+		// ستون 2: عنوان چندخطی راست‌چین
+		pdf.SetXY(x+colW[0], y)
+		pdf.MultiCell(colW[1], baseRowH, rowCells[1], "1", "R", false)
+		ny := pdf.GetY()
+
+		// ستون 3: قیمت
+		pdf.SetXY(x+colW[0]+colW[1], y)
+		pdf.CellFormat(colW[2], h, rowCells[2], "1", 0, "C", false, 0, "")
+
+		// ستون 4: تاریخ
+		pdf.SetXY(x+colW[0]+colW[1]+colW[2], y)
+		pdf.CellFormat(colW[3], h, rowCells[3], "1", 0, "C", false, 0, "")
+
+		// رفتن به سطر بعدی
+		pdf.SetXY(x, ny)
 	}
 
 	// خروجی
@@ -799,7 +834,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	// نام فایل
 	fileName := fmt.Sprintf(
 		"price-list-%s-%04d%02d%02d.pdf",
 		strings.ReplaceAll(strings.TrimSpace(vm.Shop.Name), " ", "-"),
