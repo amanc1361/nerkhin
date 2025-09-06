@@ -900,7 +900,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.AddPage()
 
 	// فونت (مسیر را مطابق ایمیج تنظیم کن)
-	fontPath := filepath.Join("/assets/fonts", "Vazirmatn-Regular.ttf") // یا Vazir.ttf
+	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // یا Vazir.ttf
 	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
 	pdf.SetFont("Vazirmatn", "", 12)
 
