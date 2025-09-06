@@ -1,14 +1,24 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/jung-kurt/gofpdf"
 	"github.com/nerkhin/internal/adapter/config"
-  	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
+	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
 	"github.com/nerkhin/internal/core/domain"
 	"github.com/nerkhin/internal/core/port"
 	"github.com/shopspring/decimal"
+	ptime "github.com/yaa110/go-persian-calendar"
 )
 
 type UserProductHandler struct {
@@ -61,13 +71,11 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 
 	viewerID := currentUserIDOrZero(c)
 
-
 	limit := atoiDefault(c.Query("limit"), 100)
 	offset := atoiDefault(c.Query("offset"), 0)
 
 	sortBy := strings.TrimSpace(c.Query("sortBy"))
 	sortUpdated := domain.SortUpdated(strings.ToLower(strings.TrimSpace(c.Query("sortDir"))))
-
 
 	categoryID := int64(atoiDefault(c.Query("categoryId"), 0))
 	subCategoryID := int64(atoiDefault(c.Query("subCategoryId"), 0))
@@ -597,4 +605,208 @@ func (uph *UserProductHandler) ChangeVisibilityStatus(c *gin.Context) {
 	}
 
 	handleSuccess(c, nil)
+}
+
+// get pdf file
+type priceListVM struct {
+	Shop  shopInfo       `json:"shop"`
+	Items []priceListRow `json:"items"`
+}
+type shopInfo struct {
+	Name    string   `json:"name"`
+	Phones  []string `json:"phones"`
+	Address string   `json:"address"`
+}
+type priceListRow struct {
+	SubCategory string    `json:"subCategory"`
+	Brand       string    `json:"brand"`
+	ModelName   string    `json:"modelName"`
+	Price       int64     `json:"price"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// ---------- کمکی‌ها ----------
+func moneyIRR(n int64) string {
+	s := fmt.Sprintf("%d", n)
+	neg := ""
+	if n < 0 {
+		neg = "-"
+		s = s[1:]
+	}
+	// گروه‌بندی هزارگان
+	var out []byte
+	c := 0
+	for i := len(s) - 1; i >= 0; i-- {
+		out = append(out, s[i])
+		c++
+		if c%3 == 0 && i != 0 {
+			out = append(out, ',')
+		}
+	}
+	// برعکس کردن
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return neg + string(out)
+}
+
+var jalaliMonths = [...]string{
+	"", "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+	"مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+}
+
+func jalaliDateLong(t ptime.Time) string {
+	// مثال: ۱۴ شهریور ۱۴۰۴
+	return fmt.Sprintf("%d %s %d", t.Day(), jalaliMonths[int(t.Month())], t.Year())
+}
+
+func pad2(n int) string {
+	if n < 10 {
+		return fmt.Sprintf("0%d", n)
+	}
+	return fmt.Sprintf("%d", n)
+}
+
+func joinNonEmpty(parts ...string) string {
+	var out []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, " / ")
+}
+
+// از هر خروجی سرویس (هر نوع Go) با JSON به DTO خودمان می‌رسیم
+func toPriceListVM(raw any) (priceListVM, error) {
+	var vm priceListVM
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return vm, err
+	}
+	if err := json.Unmarshal(b, &vm); err != nil {
+		return vm, err
+	}
+	return vm, nil
+}
+
+// ---------- هندلر خروجی PDF ----------
+func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
+	authPayload := httputil.GetAuthPayload(c)
+	currentUserID := authPayload.UserID
+
+	ctx := c.Request.Context()
+	raw, err := uph.service.GetPriceList(ctx, currentUserID)
+	if err != nil {
+		HandleError(c, err, uph.AppConfig.Lang)
+		return
+	}
+
+	// ✅ بدون type assertion (پس خطای "not an interface" دیگر رخ نمی‌دهد)
+	vm, err := toPriceListVM(raw)
+	if err != nil {
+		HandleError(c, err, uph.AppConfig.Lang)
+		return
+	}
+
+	// مرتب‌سازی بر اساس نام محصول
+	sort.Slice(vm.Items, func(i, j int) bool {
+		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
+		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
+		return strings.Compare(pi, pj) < 0
+	})
+
+	// ساخت PDF
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(12, 18, 12)
+	pdf.AddPage()
+
+	// فونت (طبق Dockerfile: COPY ... /assets/fonts → مسیر ثابت)
+	fontPath := filepath.Join("/assets/fonts", "vazir.ttf") // نام فونت را طبق فایل واقعی‌ات بگذار
+	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
+	pdf.SetFont("Vazirmatn", "", 12)
+
+	// ── هدر ───────────────────────────────────────────────────────────────
+	now := ptime.Now()
+
+	// تاریخ شمسی در گوشه چپ بالا (نمایش بلند)
+	pdf.SetXY(12, 10)
+	pdf.CellFormat(0, 6, jalaliDateLong(now), "", 0, "L", false, 0, "")
+
+	// نام فروشگاه وسط بالا
+	pdf.SetFont("Vazirmatn", "", 16)
+	pdf.SetXY(12, 10)
+	pdf.CellFormat(186, 10, vm.Shop.Name, "", 0, "C", false, 0, "")
+	pdf.Ln(10)
+
+	// تلفن‌ها راست‌چین
+	pdf.SetFont("Vazirmatn", "", 11)
+	phones := strings.Join(vm.Shop.Phones, " , ")
+	pdf.CellFormat(186, 6, phones, "", 0, "R", false, 0, "")
+	pdf.Ln(6)
+
+	// آدرس راست‌چین (چندخطی)
+	addr := strings.TrimSpace(vm.Shop.Address)
+	pdf.MultiCell(186, 6, addr, "", "R", false)
+	pdf.Ln(4)
+
+	// خط جداکننده
+	pdf.SetDrawColor(200, 200, 200)
+	pdf.Line(12, pdf.GetY(), 198, pdf.GetY())
+	pdf.Ln(4)
+
+	// ── جدول ─────────────────────────────────────────────────────────────
+	// ستون‌ها: ردیف | نام محصول (زیرشاخه/برند/مدل) | قیمت | آخرین بروزرسانی
+	colW := []float64{15, 100, 35, 36} // ≈ 186mm
+	header := []string{"ردیف", "نام محصول (زیرشاخه / برند / مدل)", "قیمت", "آخرین بروزرسانی"}
+	aligns := []string{"C", "R", "C", "C"}
+
+	// هدر جدول
+	pdf.SetFont("Vazirmatn", "", 12)
+	pdf.SetFillColor(245, 245, 245)
+	for i, h := range header {
+		pdf.CellFormat(colW[i], 9, h, "1", 0, aligns[i], true, 0, "")
+	}
+	pdf.Ln(-1)
+
+	// ردیف‌ها
+	pdf.SetFont("Vazirmatn", "", 11)
+	rowH := 8.0
+	for idx, it := range vm.Items {
+		title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
+
+		// تاریخ آخرین آپدیت (شمسی، yyyy/mm/dd)
+		jt := ptime.New(it.UpdatedAt)
+		updatedStr := fmt.Sprintf("%d/%s/%s", jt.Year(), pad2(int(jt.Month())), pad2(jt.Day()))
+
+		cells := []string{
+			fmt.Sprintf("%d", idx+1),
+			title,
+			moneyIRR(it.Price),
+			updatedStr,
+		}
+		for i, txt := range cells {
+			pdf.CellFormat(colW[i], rowH, txt, "1", 0, aligns[i], false, 0, "")
+		}
+		pdf.Ln(-1)
+	}
+
+	// خروجی
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		HandleError(c, err, uph.AppConfig.Lang)
+		return
+	}
+
+	// نام فایل
+	fileName := fmt.Sprintf(
+		"price-list-%s-%04d%02d%02d.pdf",
+		strings.ReplaceAll(strings.TrimSpace(vm.Shop.Name), " ", "-"),
+		now.Year(), int(now.Month()), now.Day(),
+	)
+
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
+	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
 }

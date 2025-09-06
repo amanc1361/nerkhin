@@ -37,6 +37,7 @@ RUN apk add --no-cache \
 # کپی باینری و فایل‌های مورد نیاز
 COPY --from=builder /nerkhin-app /nerkhin-app
 COPY --from=builder /app/scripts/db/migrations /migrations
+COPY --from=builder /app/assets/fonts /assets/fonts
 
 # ایجاد یوزر امن
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

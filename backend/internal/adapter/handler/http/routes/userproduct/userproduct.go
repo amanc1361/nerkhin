@@ -19,6 +19,7 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.UserProductHandler) {
 	userProductGroup.POST("/fetch-products", handler.FetchProductsByFilter)
 	userProductGroup.GET("/fetch-shops/:productId", handler.FetchShops)
 	userProductGroup.GET("/fetch-price-list", handler.FetchPriceList)
+	userProductGroup.GET("/fetch-price-list-pdf", handler.FetchPriceListPDF)
 	userProductGroup.GET("/fetch-shop/:uid", handler.FetchShopByUserId)
 	userProductGroup.GET("/fetch/:upId", handler.Fetch)
 	userProductGroup.GET("/search", handler.Search)
