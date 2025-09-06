@@ -27,10 +27,8 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
   const { products, loading: loadingProducts, refresh } = useProductsSmallByBrand(brandId || 0);
   const [productId, setProductId] = useState<number | "">("");
 
-  // نرخ دلار کاربر (به‌صورت digits؛ بخش صحیح، بدون اعشار)
   const [usdRateDigits, setUsdRateDigits] = useState<string>("");
 
-  // حالت قیمت دلاری/ریالی
   const [isDollar, setIsDollar] = useState(true);
   const [dollarPrice, setDollarPrice] = useState(""); // formatted (می‌تواند اعشار داشته باشد)
   const [otherCosts, setOtherCosts] = useState("");   // formatted (تومان؛ بخش صحیح)
@@ -43,7 +41,6 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
     if (brandId) refresh();
   }, [brandId, refresh]);
 
-  // گرفتن نرخ دلار کاربر از بک‌اند؛ اعشار حذف می‌شود (فقط بخش صحیح)
   useEffect(() => {
     if (status !== "authenticated") return;
     const uid = (session?.user as any)?.id;
