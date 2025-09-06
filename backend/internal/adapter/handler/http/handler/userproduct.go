@@ -735,7 +735,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.CellFormat(0, 6, jalaliDateLong(now), "", 0, "L", false, 0, "")
 
 	// نام فروشگاه وسط بالا
-	pdf.SetFont("Vazirmatn", "", 16)
+	pdf.SetFont("Vazirmatn", "", 18)
 	pdf.SetXY(12, 10)
 	pdf.CellFormat(186, 10, vm.Shop.Name, "", 0, "C", false, 0, "")
 	pdf.Ln(10)
