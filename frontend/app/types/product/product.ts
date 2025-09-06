@@ -46,6 +46,11 @@ export interface ProductFilterRelationViewModel {
   filterTitle: string;
   optionTitle: string;
 }
+export interface ProductSmallViewModel {
+  id: number;
+  modelName:string;
+ 
+}
 
 export interface ProductViewModel {
   id: number;

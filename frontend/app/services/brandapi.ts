@@ -23,6 +23,10 @@ getByBrand: (brandId: string | number, page = 1, pageSize = 200) => ({
   url: `/product/by-brand/${brandId}?page=${page}&page_size=${pageSize}`,
   method: "get" as const,
 }),
+getProductNameByBrand: (brandId: string | number) => ({
+  url: `/product/product-name/${brandId}`,
+  method: "get" as const,
+}),
   delete: (id: number | string) => ({ url: `/product/delete/${id}`, method: "delete" as const }),
   update: (data: FormData) => ({ url: "/product/update", method: "post" as const, body: data }),
    createWithUrl: "/product/create",

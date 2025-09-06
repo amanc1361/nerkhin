@@ -6,12 +6,13 @@ import { useSession } from "next-auth/react";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 import { getUserProductMessages } from "@/lib/server/texts/userProdutMessages";
 import { useBrandsByCategory } from "@/app/hooks/useBrandCategory";
-import { useProductsByBrand } from "@/app/hooks/useProductsBy‌Brand";
+import { useProductsByBrand, useProductsSmallByBrand } from "@/app/hooks/useProductsBy‌Brand";
 import { toast } from "react-toastify";
 import SearchableSelect from "../shared/SearchableSelect";
 import MoneyInput, { formatMoneyInput, parseMoney, toEnDigits } from "../shared/MonyInput"; // ← فقط از همین‌ها استفاده می‌کنیم
 import Link from "next/link";
 import { useRouter } from "next/navigation"; 
+import { ProductSmallViewModel } from "@/app/types/product/product";
 
 export default function AddUserProductForm({ subCategoryId }: { subCategoryId: number }) {
   const t = getUserProductMessages("fa");
@@ -23,7 +24,7 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
   const [brandId, setBrandId] = useState<number | "">("");
 
   // محصولاتِ برند
-  const { products, loading: loadingProducts, refresh } = useProductsByBrand(brandId || 0, 1);
+  const { products, loading: loadingProducts, refresh } = useProductsSmallByBrand(brandId || 0);
   const [productId, setProductId] = useState<number | "">("");
 
   // نرخ دلار کاربر (به‌صورت digits؛ بخش صحیح، بدون اعشار)
@@ -151,7 +152,7 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
           disabled={!brandId || loadingProducts}
           value={productId}
           onChange={(v) => setProductId(v === "" ? "" : Number(v))}
-          items={products.map((p: any) => ({ value: p.id, label: p.modelName }))}
+          items={products.map((p: ProductSmallViewModel) => ({ value: p.id, label: p.modelName }))}
           placeholder={t.form.productLabel}
           searchPlaceholder={t.form.searchPlaceholder}
           noOptionsText={t.empty.title}

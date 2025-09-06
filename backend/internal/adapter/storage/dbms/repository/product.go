@@ -569,6 +569,6 @@ func (pr *ProductRepository) GetProductNameByBrandId(ctx context.Context, dbSess
 		return nil, err
 	}
 	var products []*domain.ProductNameModel
-	err = db.Where("brand_id = ?", BrandId).Order("id ASC").Find(&products).Error
+	err = db.Model(&domain.Product{}).Where("brand_id = ?", BrandId).Order("id ASC").Find(&products).Error
 	return products, err
 }

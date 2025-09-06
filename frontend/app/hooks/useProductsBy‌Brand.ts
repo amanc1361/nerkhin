@@ -3,10 +3,44 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 import { productMessages } from "@/app/constants/productMessages";
 import { productApi } from "@/app/services/brandapi";
-import { ProductViewModel } from "@/app/types/product/product";
+import { ProductSmallViewModel, ProductViewModel } from "@/app/types/product/product";
 import { PaginatedResult } from "@/app/types/paginate/pagination";
 
-const PAGE_SIZE = 200; // می‌تونی تغییر بدی یا از بیرون بفرستی
+const PAGE_SIZE = 20; // می‌تونی تغییر بدی یا از بیرون بفرستی
+
+export function useProductsSmallByBrand(brandId: string | number) {
+  const { api } = useAuthenticatedApi();
+
+  const [products, setProducts] = useState<ProductSmallViewModel[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [stamp,setStamp] = useState(0);
+
+  const refresh = useCallback(() => setStamp((s) => s + 1), []);
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await api.get<ProductSmallViewModel[]>(
+          productApi.getProductNameByBrand(brandId)
+        );
+
+        setProducts(res);
+
+      } catch (err) {
+        setError(productMessages.loadError);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (brandId) fetch();
+  }, [brandId,  api, stamp]);
+  return {products,loading,error,refresh}
+
+}
 
 export function useProductsByBrand(brandId: string | number, page: number = 1) {
   const { api } = useAuthenticatedApi();
