@@ -58,6 +58,15 @@ export default function ProductsToolbar({
         <span>{messages.toolbar.priceList}</span>
         <div className="flex items-center gap-2">
           <div>
+            
+            <Link
+
+             href={"/api/price-list"}
+             >
+              <span>
+                Link pdf
+              </span>
+             </Link>
             <button
               type="button"
               onClick={onSharePdf}

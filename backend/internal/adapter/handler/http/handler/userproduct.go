@@ -723,7 +723,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.AddPage()
 
 	// فونت (طبق Dockerfile: COPY ... /assets/fonts → مسیر ثابت)
-	fontPath := filepath.Join("/assets/fonts", "vazir.ttf") // نام فونت را طبق فایل واقعی‌ات بگذار
+	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // نام فونت را طبق فایل واقعی‌ات بگذار
 	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
 	pdf.SetFont("Vazirmatn", "", 12)
 
