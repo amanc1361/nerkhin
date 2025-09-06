@@ -628,7 +628,198 @@ type priceListRow struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-// -------------------- Helpers (money/date/str) --------------------
+func normalizeFa(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.NewReplacer(
+		"ي", "ی", // Arabic Yeh → Persian Yeh
+		"ك", "ک", // Arabic Kaf → Persian Kaf
+	).Replace(s)
+}
+
+func isArabicRune(r rune) bool {
+	return (r >= 0x0600 && r <= 0x06FF) || // Arabic
+		(r >= 0x0750 && r <= 0x077F) || // Arabic Supplement
+		(r >= 0x08A0 && r <= 0x08FF) || // Arabic Ext-A
+		(r >= 0xFB50 && r <= 0xFDFF) || // Arabic Pres-A
+		(r >= 0xFE70 && r <= 0xFEFF) || // Arabic Pres-B
+		unicode.Is(unicode.Arabic, r)
+}
+
+// جهت پرانتزها داخل ران فارسی
+func fixParensRTL(s string) string {
+	repl := strings.NewReplacer(
+		"(", "⟨", ")", "⟩",
+		"[", "⟦", "]", "⟧",
+		"{", "⦃", "}", "⦄",
+		"«", "⟪", "»", "⟫",
+	)
+	back := strings.NewReplacer(
+		"⟨", ")", "⟩", "(",
+		"⟦", "]", "⟧", "[",
+		"⦃", "}", "⦄", "{",
+		"⟪", "»", "⟫", "«",
+	)
+	return back.Replace(repl.Replace(s))
+}
+
+// فقط ران‌های فارسی را ToGlyph + Reverse می‌کند (اعداد/لاتین دست‌نخورده)
+func faInline(s string) string {
+	s = normalizeFa(s)
+	if s == "" {
+		return s
+	}
+	rs := []rune(s)
+	var out []rune
+	i := 0
+	for i < len(rs) {
+		// ران فارسی (به‌همراه فاصله/ZWNJ)
+		if isArabicRune(rs[i]) || rs[i] == ' ' || rs[i] == '‌' {
+			j := i
+			for j < len(rs) && (isArabicRune(rs[j]) || rs[j] == ' ' || rs[j] == '‌') {
+				j++
+			}
+			seg := string(rs[i:j])
+			seg = goarabic.ToGlyph(seg)
+			seg = goarabic.Reverse(seg)
+			seg = fixParensRTL(seg)
+			out = append(out, []rune(seg)...)
+			i = j
+			continue
+		}
+		// ران غیرفارسی
+		j := i
+		for j < len(rs) && !isArabicRune(rs[j]) && rs[j] != '‌' {
+			j++
+		}
+		out = append(out, rs[i:j]...)
+		i = j
+	}
+	return string(out)
+}
+
+// --- Input DTOs matching ShopViewModel JSON ---
+type shopVMInput struct {
+	ShopInfo *struct {
+		ShopName    string   `json:"shopName"`
+		FullName    string   `json:"fullName"`
+		Phones      []string `json:"phones"`
+		Phone       string   `json:"phone"`
+		Address     string   `json:"address"`
+		ShopAddress string   `json:"shopAddress"`
+	} `json:"shopInfo"`
+	Products []struct {
+		SubCategory      string    `json:"subCategory"`
+		SubCategoryTitle string    `json:"subCategoryTitle"`
+		Brand            string    `json:"brand"`
+		BrandTitle       string    `json:"brandTitle"`
+		ModelName        string    `json:"modelName"`
+		Price            int64     `json:"price"`
+		FinalPrice       int64     `json:"finalPrice"`
+		UpdatedAt        time.Time `json:"updatedAt"`
+		// گاهی تاریخ به‌صورت رشته ISO می‌آید:
+		UpdatedAtString string `json:"updatedAtString"`
+	} `json:"products"`
+}
+
+// مپ ShopViewModel → priceListVM (امن و منعطف نسبت به نام فیلدها)
+func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
+	var in shopVMInput
+	var out priceListVM
+
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return out, err
+	}
+	if err := json.Unmarshal(b, &in); err != nil {
+		return out, err
+	}
+
+	// --- Shop ---
+	var name, addr string
+	var phones []string
+	if in.ShopInfo != nil {
+		name = strings.TrimSpace(firstNonEmpty(
+			in.ShopInfo.ShopName,
+			in.ShopInfo.FullName,
+		))
+		addr = strings.TrimSpace(firstNonEmpty(
+			in.ShopInfo.Address,
+			in.ShopInfo.ShopAddress,
+		))
+		phones = append(phones, in.ShopInfo.Phones...)
+		if p := strings.TrimSpace(in.ShopInfo.Phone); p != "" {
+			// اگر تک‌رشته بود و با کاما جدا، اسپلیت کن
+			if strings.Contains(p, ",") {
+				for _, part := range strings.Split(p, ",") {
+					if s := strings.TrimSpace(part); s != "" {
+						phones = append(phones, s)
+					}
+				}
+			} else {
+				phones = append(phones, p)
+			}
+		}
+	}
+	out.Shop = shopInfo{
+		Name:    name,
+		Phones:  uniqueStr(phones),
+		Address: addr,
+	}
+
+	// --- Items ---
+	out.Items = make([]priceListRow, 0, len(in.Products))
+	for _, p := range in.Products {
+		row := priceListRow{
+			SubCategory: firstNonEmpty(p.SubCategory, p.SubCategoryTitle),
+			Brand:       firstNonEmpty(p.Brand, p.BrandTitle),
+			ModelName:   p.ModelName,
+			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
+			UpdatedAt:   p.UpdatedAt,
+		}
+		// اگر UpdatedAt تهی بود و رشته داشت:
+		if row.UpdatedAt.IsZero() && strings.TrimSpace(p.UpdatedAtString) != "" {
+			if tt, err := time.Parse(time.RFC3339, p.UpdatedAtString); err == nil {
+				row.UpdatedAt = tt
+			}
+		}
+		out.Items = append(out.Items, row)
+	}
+
+	return out, nil
+}
+
+// کمکی‌های کوچک
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
+}
+func firstNonEmptyInt64(a, b int64) int64 {
+	if a != 0 {
+		return a
+	}
+	return b
+}
+func uniqueStr(ss []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; !ok {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// --- Money/Date/Text helpers for PDF ---
 func moneyIRR(n int64) string {
 	s := fmt.Sprintf("%d", n)
 	neg := ""
@@ -657,17 +848,14 @@ var jalaliMonths = [...]string{
 }
 
 func jalaliDateLong(t ptime.Time) string {
-	// مثال: ۱۴ شهریور ۱۴۰۴
 	return fmt.Sprintf("%d %s %d", t.Day(), jalaliMonths[int(t.Month())], t.Year())
 }
-
 func pad2(n int) string {
 	if n < 10 {
 		return fmt.Sprintf("0%d", n)
 	}
 	return fmt.Sprintf("%d", n)
 }
-
 func joinNonEmpty(parts ...string) string {
 	var out []string
 	for _, p := range parts {
@@ -679,89 +867,7 @@ func joinNonEmpty(parts ...string) string {
 	return strings.Join(out, " / ")
 }
 
-func toPriceListVM(raw any) (priceListVM, error) {
-	var vm priceListVM
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return vm, err
-	}
-	if err := json.Unmarshal(b, &vm); err != nil {
-		return vm, err
-	}
-	return vm, nil
-}
-func isArabicRune(r rune) bool {
-	return (r >= 0x0600 && r <= 0x06FF) || // Arabic
-		(r >= 0x0750 && r <= 0x077F) || // Arabic Supplement
-		(r >= 0x08A0 && r <= 0x08FF) || // Arabic Extended-A
-		(r >= 0xFB50 && r <= 0xFDFF) || // Arabic Presentation Forms-A
-		(r >= 0xFE70 && r <= 0xFEFF) || // Arabic Presentation Forms-B
-		unicode.Is(unicode.Arabic, r)
-}
-
-// در ران‌های فارسی، جهت پرانتزها را بعد از Reverse اصلاح می‌کنیم
-func fixParensRTL(s string) string {
-	repl := strings.NewReplacer(
-		"(", "⟨", ")", "⟩", // نگه‌دار موقت
-		"[", "⟦", "]", "⟧",
-		"{", "⦃", "}", "⦄",
-		"«", "⟪", "»", "⟫",
-	)
-	back := strings.NewReplacer(
-		"⟨", ")", "⟩", "(",
-		"⟦", "]", "⟧", "[",
-		"⦃", "}", "⦄", "{",
-		"⟪", "»", "⟫", "«",
-	)
-	return back.Replace(repl.Replace(s))
-}
-
-// فقط ران‌های فارسی/عربی را ToGlyph + Reverse می‌کنیم
-// بقیهٔ متن (اعداد/لاتین/علائم) به همان صورت می‌ماند تا به‌هم نریزد.
-func faInline(s string) string {
-	if s == "" {
-		return s
-	}
-	rs := []rune(s)
-	var out []rune
-	i := 0
-	for i < len(rs) {
-		// ران فارسی/عربی (با فاصله‌ها)
-		if isArabicRune(rs[i]) || rs[i] == ' ' || rs[i] == '‌' /* ZWNJ */ {
-			j := i
-			for j < len(rs) && (isArabicRune(rs[j]) || rs[j] == ' ' || rs[j] == '‌') {
-				j++
-			}
-			seg := string(rs[i:j])
-			seg = goarabic.ToGlyph(seg)
-			seg = goarabic.Reverse(seg)
-			seg = fixParensRTL(seg) // جهت پرانتز و گیومه
-			out = append(out, []rune(seg)...)
-			i = j
-			continue
-		}
-		// ران غیر فارسی/عربی (اعداد/لاتین/علائم)
-		j := i
-		for j < len(rs) && !(isArabicRune(rs[j])) && rs[j] != '‌' {
-			j++
-		}
-		out = append(out, rs[i:j]...)
-		i = j
-	}
-	return string(out)
-}
-
-// -------------------- Persian shaping helper --------------------
-// فارسی/عربی را برای محیط بدون RTL آماده می‌کند:
-// 1) اتصال حروف (ToGlyph)
-// 2) معکوس‌سازی جهت برای رندر LTR (Reverse)
-func fa(s string) string {
-	if s == "" {
-		return s
-	}
-	shaped := goarabic.ToGlyph(s)
-	return goarabic.Reverse(shaped)
-}
+// --- FINAL: PDF handler using ShopViewModel ---
 func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
@@ -773,13 +879,14 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	vm, err := toPriceListVM(raw)
+	// مپ ShopViewModel → priceListVM
+	vm, err := mapShopVMToPriceListVM(raw)
 	if err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
 
-	// سورت منطقی بر اساس نام کامل محصول
+	// سورت بر اساس نام کامل محصول
 	sort.Slice(vm.Items, func(i, j int) bool {
 		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
 		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
@@ -792,8 +899,8 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.SetAutoPageBreak(true, 15)
 	pdf.AddPage()
 
-	// فونت UTF-8 (مسیر را با ایمیج خودت هماهنگ کن)
-	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // یا Vazir.ttf
+	// فونت (مسیر را مطابق ایمیج تنظیم کن)
+	fontPath := filepath.Join("/assets/fonts", "Vazirmatn-Regular.ttf") // یا Vazir.ttf
 	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
 	pdf.SetFont("Vazirmatn", "", 12)
 
@@ -805,7 +912,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.SetXY(12, 10)
 	pdf.CellFormat(0, 6, faInline(jalaliDateLong(now)), "", 0, "L", false, 0, "")
 
-	// نام فروشگاه (وسط) — اگر تهی بود، "—"
+	// نام فروشگاه (وسط)
 	shopName := strings.TrimSpace(vm.Shop.Name)
 	if shopName == "" {
 		shopName = "—"
@@ -821,7 +928,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.CellFormat(186, 6, faInline(phones), "", 0, "R", false, 0, "")
 	pdf.Ln(6)
 
-	// آدرس (راست‌چین چندخطی)
+	// آدرس (راست‌چین، چندخطی)
 	addr := strings.TrimSpace(vm.Shop.Address)
 	if addr == "" {
 		addr = " "
@@ -854,7 +961,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 
 	}
 
-	// ردیف‌ها (ارتفاع پویا)
+	// ردیف‌ها با ارتفاع پویا
 	pdf.SetFont("Vazirmatn", "", 11)
 	baseRowH := 7.0
 
@@ -879,7 +986,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		pdf.SetXY(x+colW[0], y)
 		pdf.MultiCell(colW[1], baseRowH, titleFA, "1", "R", false)
 
-		// ستون 3: قیمت (عدد را همان‌طور چاپ می‌کنیم تا به‌هم نریزد)
+		// ستون 3: قیمت (اعداد دست‌نخورده بمانند)
 		pdf.SetXY(x+colW[0]+colW[1], y)
 		pdf.CellFormat(colW[2], h, moneyIRR(it.Price), "1", 0, "C", false, 0, "")
 
@@ -891,7 +998,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		pdf.SetXY(x, y+h)
 	}
 
-	// خروجی
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
@@ -903,7 +1009,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		strings.ReplaceAll(strings.TrimSpace(shopName), " ", "-"),
 		now.Year(), int(now.Month()), now.Day(),
 	)
-
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
