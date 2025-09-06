@@ -611,23 +611,8 @@ func (uph *UserProductHandler) ChangeVisibilityStatus(c *gin.Context) {
 }
 
 // get pdf file
-type priceListVM struct {
-	Shop  shopInfo       `json:"shop"`
-	Items []priceListRow `json:"items"`
-}
-type shopInfo struct {
-	Name    string   `json:"name"`
-	Phones  []string `json:"phones"`
-	Address string   `json:"address"`
-}
-type priceListRow struct {
-	SubCategory string    `json:"subCategory"`
-	Brand       string    `json:"brand"`
-	ModelName   string    `json:"modelName"`
-	Price       int64     `json:"price"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
 
+// عربی↔فارسی: ی/ک
 func normalizeFa(s string) string {
 	if s == "" {
 		return s
@@ -647,7 +632,7 @@ func isArabicRune(r rune) bool {
 		unicode.Is(unicode.Arabic, r)
 }
 
-// جهت پرانتزها داخل ران فارسی
+// جهت پرانتز/گیومه داخل ران فارسی بعد از Reverse
 func fixParensRTL(s string) string {
 	repl := strings.NewReplacer(
 		"(", "⟨", ")", "⟩",
@@ -664,7 +649,7 @@ func fixParensRTL(s string) string {
 	return back.Replace(repl.Replace(s))
 }
 
-// فقط ران‌های فارسی را ToGlyph + Reverse می‌کند (اعداد/لاتین دست‌نخورده)
+// فقط ران‌های فارسی را ToGlyph + Reverse می‌کنیم؛ بقیه (اعداد/لاتین) دست‌نخورده.
 func faInline(s string) string {
 	s = normalizeFa(s)
 	if s == "" {
@@ -674,7 +659,7 @@ func faInline(s string) string {
 	var out []rune
 	i := 0
 	for i < len(rs) {
-		// ران فارسی (به‌همراه فاصله/ZWNJ)
+		// ران فارسی (با فاصله/ZWNJ)
 		if isArabicRune(rs[i]) || rs[i] == ' ' || rs[i] == '‌' {
 			j := i
 			for j < len(rs) && (isArabicRune(rs[j]) || rs[j] == ' ' || rs[j] == '‌') {
@@ -688,7 +673,7 @@ func faInline(s string) string {
 			i = j
 			continue
 		}
-		// ران غیرفارسی
+		// ران غیر فارسی/عربی
 		j := i
 		for j < len(rs) && !isArabicRune(rs[j]) && rs[j] != '‌' {
 			j++
@@ -699,7 +684,9 @@ func faInline(s string) string {
 	return string(out)
 }
 
-// --- Input DTOs matching ShopViewModel JSON ---
+/*──────────────────────── Input mapping (ShopViewModel → VM) ──────────────────*/
+
+// ShopViewModel سرویس شما این ساختار را در JSON می‌دهد:
 type shopVMInput struct {
 	ShopInfo *struct {
 		ShopName    string   `json:"shopName"`
@@ -710,20 +697,36 @@ type shopVMInput struct {
 		ShopAddress string   `json:"shopAddress"`
 	} `json:"shopInfo"`
 	Products []struct {
-		SubCategory      string    `json:"subCategory"`
-		SubCategoryTitle string    `json:"subCategoryTitle"`
-		Brand            string    `json:"brand"`
-		BrandTitle       string    `json:"brandTitle"`
-		ModelName        string    `json:"modelName"`
-		Price            int64     `json:"price"`
-		FinalPrice       int64     `json:"finalPrice"`
-		UpdatedAt        time.Time `json:"updatedAt"`
-		// گاهی تاریخ به‌صورت رشته ISO می‌آید:
-		UpdatedAtString string `json:"updatedAtString"`
+		SubCategory      string          `json:"subCategory"`
+		SubCategoryTitle string          `json:"subCategoryTitle"`
+		Brand            string          `json:"brand"`
+		BrandTitle       string          `json:"brandTitle"`
+		ModelName        string          `json:"modelName"`
+		Price            int64           `json:"price"`
+		FinalPrice       int64           `json:"finalPrice"`
+		UpdatedAtRaw     json.RawMessage `json:"updatedAt"`       // ممکن است رشته/عدد/آبجکت باشد
+		UpdatedAtString  string          `json:"updatedAtString"` // اگر جداگانه رشته باشد
 	} `json:"products"`
 }
 
-// مپ ShopViewModel → priceListVM (امن و منعطف نسبت به نام فیلدها)
+// خروجی داخلی برای PDF
+type priceListVM struct {
+	Shop  shopInfo       `json:"shop"`
+	Items []priceListRow `json:"items"`
+}
+type shopInfo struct {
+	Name    string   `json:"name"`
+	Phones  []string `json:"phones"`
+	Address string   `json:"address"`
+}
+type priceListRow struct {
+	SubCategory string    `json:"subCategory"`
+	Brand       string    `json:"brand"`
+	ModelName   string    `json:"modelName"`
+	Price       int64     `json:"price"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
 func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 	var in shopVMInput
 	var out priceListVM
@@ -736,21 +739,14 @@ func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 		return out, err
 	}
 
-	// --- Shop ---
+	// Shop
 	var name, addr string
 	var phones []string
 	if in.ShopInfo != nil {
-		name = strings.TrimSpace(firstNonEmpty(
-			in.ShopInfo.ShopName,
-			in.ShopInfo.FullName,
-		))
-		addr = strings.TrimSpace(firstNonEmpty(
-			in.ShopInfo.Address,
-			in.ShopInfo.ShopAddress,
-		))
+		name = strings.TrimSpace(firstNonEmpty(in.ShopInfo.ShopName, in.ShopInfo.FullName))
+		addr = strings.TrimSpace(firstNonEmpty(in.ShopInfo.Address, in.ShopInfo.ShopAddress))
 		phones = append(phones, in.ShopInfo.Phones...)
 		if p := strings.TrimSpace(in.ShopInfo.Phone); p != "" {
-			// اگر تک‌رشته بود و با کاما جدا، اسپلیت کن
 			if strings.Contains(p, ",") {
 				for _, part := range strings.Split(p, ",") {
 					if s := strings.TrimSpace(part); s != "" {
@@ -768,21 +764,16 @@ func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 		Address: addr,
 	}
 
-	// --- Items ---
+	// Items
 	out.Items = make([]priceListRow, 0, len(in.Products))
 	for _, p := range in.Products {
+		tm := parseFlexibleTime(p.UpdatedAtRaw, p.UpdatedAtString)
 		row := priceListRow{
 			SubCategory: firstNonEmpty(p.SubCategory, p.SubCategoryTitle),
 			Brand:       firstNonEmpty(p.Brand, p.BrandTitle),
 			ModelName:   p.ModelName,
 			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
-			UpdatedAt:   p.UpdatedAt,
-		}
-		// اگر UpdatedAt تهی بود و رشته داشت:
-		if row.UpdatedAt.IsZero() && strings.TrimSpace(p.UpdatedAtString) != "" {
-			if tt, err := time.Parse(time.RFC3339, p.UpdatedAtString); err == nil {
-				row.UpdatedAt = tt
-			}
+			UpdatedAt:   tm,
 		}
 		out.Items = append(out.Items, row)
 	}
@@ -790,36 +781,79 @@ func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 	return out, nil
 }
 
-// کمکی‌های کوچک
-func firstNonEmpty(a, b string) string {
-	if strings.TrimSpace(a) != "" {
-		return a
-	}
-	return b
-}
-func firstNonEmptyInt64(a, b int64) int64 {
-	if a != 0 {
-		return a
-	}
-	return b
-}
-func uniqueStr(ss []string) []string {
-	seen := map[string]struct{}{}
-	out := make([]string, 0, len(ss))
-	for _, s := range ss {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-		if _, ok := seen[s]; !ok {
-			seen[s] = struct{}{}
-			out = append(out, s)
+/*──────────────────────── Flexible time parsing ───────────────────────────────*/
+
+func parseFlexibleTime(raw json.RawMessage, fallback string) time.Time {
+	// 1) رشته RFC3339؟
+	if len(raw) > 0 && raw[0] == '"' {
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			if t, ok := tryParseTimeString(strings.TrimSpace(s)); ok {
+				return t
+			}
 		}
 	}
-	return out
+	// 2) عدد یونیکس (ثانیه/میلی‌ثانیه)؟
+	if len(raw) > 0 {
+		var f float64
+		if err := json.Unmarshal(raw, &f); err == nil {
+			if f > 1e12 {
+				sec := int64(f / 1000)
+				ms := int64(f) % 1000
+				return time.Unix(sec, ms*int64(time.Millisecond)).UTC()
+			}
+			return time.Unix(int64(f), 0).UTC()
+		}
+		// 3) آبجکت‌های رایج
+		var m map[string]any
+		if err := json.Unmarshal(raw, &m); err == nil {
+			if v, ok := m["Time"].(string); ok {
+				if t, ok2 := tryParseTimeString(strings.TrimSpace(v)); ok2 {
+					return t
+				}
+			}
+			if v, ok := m["Unix"].(float64); ok {
+				return time.Unix(int64(v), 0).UTC()
+			}
+			if v, ok := m["Seconds"].(float64); ok {
+				return time.Unix(int64(v), 0).UTC()
+			}
+			if v, ok := m["Millis"].(float64); ok {
+				sec := int64(v / 1000)
+				ms := int64(v) % 1000
+				return time.Unix(sec, ms*int64(time.Millisecond)).UTC()
+			}
+		}
+	}
+	// 4) fallback رشته‌ای
+	if strings.TrimSpace(fallback) != "" {
+		if t, ok := tryParseTimeString(strings.TrimSpace(fallback)); ok {
+			return t
+		}
+	}
+	// 5) در نهایت: zero
+	return time.Time{}
 }
 
-// --- Money/Date/Text helpers for PDF ---
+func tryParseTimeString(s string) (time.Time, bool) {
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02 15:04:05",
+		"2006/01/02 15:04:05",
+		"2006-01-02",
+	}
+	for _, l := range layouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+/*──────────────────────── Small helpers (money/date/str) ─────────────────────*/
+
 func moneyIRR(n int64) string {
 	s := fmt.Sprintf("%d", n)
 	neg := ""
@@ -850,12 +884,14 @@ var jalaliMonths = [...]string{
 func jalaliDateLong(t ptime.Time) string {
 	return fmt.Sprintf("%d %s %d", t.Day(), jalaliMonths[int(t.Month())], t.Year())
 }
+
 func pad2(n int) string {
 	if n < 10 {
 		return fmt.Sprintf("0%d", n)
 	}
 	return fmt.Sprintf("%d", n)
 }
+
 func joinNonEmpty(parts ...string) string {
 	var out []string
 	for _, p := range parts {
@@ -867,7 +903,39 @@ func joinNonEmpty(parts ...string) string {
 	return strings.Join(out, " / ")
 }
 
-// --- FINAL: PDF handler using ShopViewModel ---
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
+}
+
+func firstNonEmptyInt64(a, b int64) int64 {
+	if a != 0 {
+		return a
+	}
+	return b
+}
+
+func uniqueStr(ss []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		if _, ok := seen[s]; !ok {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+/*──────────────────────── Handlers: JSON + PDF ───────────────────────────────*/
+
+// 2) PDF نهایی
 func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
@@ -879,14 +947,14 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	// مپ ShopViewModel → priceListVM
+	// مپ ShopViewModel → VM
 	vm, err := mapShopVMToPriceListVM(raw)
 	if err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
 
-	// سورت بر اساس نام کامل محصول
+	// مرتب‌سازی بر اساس نام کامل محصول
 	sort.Slice(vm.Items, func(i, j int) bool {
 		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
 		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
@@ -899,12 +967,12 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.SetAutoPageBreak(true, 15)
 	pdf.AddPage()
 
-	// فونت (مسیر را مطابق ایمیج تنظیم کن)
+	// فونت (مسیر خودت را تنظیم کن)
 	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // یا Vazir.ttf
 	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
 	pdf.SetFont("Vazirmatn", "", 12)
 
-	// ── Header
+	/*──── Header ────*/
 	now := ptime.Now()
 
 	// تاریخ شمسی (چپ)
@@ -928,7 +996,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.CellFormat(186, 6, faInline(phones), "", 0, "R", false, 0, "")
 	pdf.Ln(6)
 
-	// آدرس (راست‌چین، چندخطی)
+	// آدرس (راست‌چین و چندخطی)
 	addr := strings.TrimSpace(vm.Shop.Address)
 	if addr == "" {
 		addr = " "
@@ -942,7 +1010,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.Line(12, y, 198, y)
 	pdf.Ln(4)
 
-	// ── Table
+	/*──── Table ────*/
 	colW := []float64{15, 100, 35, 36} // جمع=186
 	header := []string{"ردیف", "نام محصول (زیرشاخه / برند / مدل)", "قیمت", "آخرین بروزرسانی"}
 	aligns := []string{"C", "R", "C", "C"}
@@ -955,7 +1023,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	}
 	pdf.Ln(-1)
 
-	// اگر آیتمی نیست
 	if len(vm.Items) == 0 {
 		pdf.CellFormat(186, 10, faInline("هیچ موردی یافت نشد"), "1", 0, "C", false, 0, "")
 
@@ -982,11 +1049,11 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		// ستون 1: ردیف
 		pdf.CellFormat(colW[0], h, faInline(fmt.Sprintf("%d", idx+1)), "1", 0, "C", false, 0, "")
 
-		// ستون 2: عنوان چندخطی
+		// ستون 2: عنوان چندخطی (راست‌چین)
 		pdf.SetXY(x+colW[0], y)
 		pdf.MultiCell(colW[1], baseRowH, titleFA, "1", "R", false)
 
-		// ستون 3: قیمت (اعداد دست‌نخورده بمانند)
+		// ستون 3: قیمت (اعداد را دست‌نخورده می‌گذاریم تا بهم نریزد)
 		pdf.SetXY(x+colW[0]+colW[1], y)
 		pdf.CellFormat(colW[2], h, moneyIRR(it.Price), "1", 0, "C", false, 0, "")
 
@@ -994,10 +1061,11 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		pdf.SetXY(x+colW[0]+colW[1]+colW[2], y)
 		pdf.CellFormat(colW[3], h, updatedFA, "1", 0, "C", false, 0, "")
 
-		// سطر بعد
+		// سطر بعدی
 		pdf.SetXY(x, y+h)
 	}
 
+	// خروجی PDF
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
@@ -1009,7 +1077,10 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		strings.ReplaceAll(strings.TrimSpace(shopName), " ", "-"),
 		now.Year(), int(now.Month()), now.Day(),
 	)
+
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
 }
+
+/*──────────────────────── Handler struct (تغییر ندارد) ───────────────────────*/
