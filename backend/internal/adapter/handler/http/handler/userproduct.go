@@ -991,7 +991,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.Ln(10)
 
 	// تلفن‌ها (راست‌چین)
-	pdf.SetFont("Vazirma	tn", "", 11)
+	pdf.SetFont("Vazirfd", "", 11)
 	phones := strings.Join(vm.Shop.Phones, " , ")
 	pdf.CellFormat(186, 6, faInline(phones), "", 0, "R", false, 0, "")
 	pdf.Ln(6)
