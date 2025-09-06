@@ -112,9 +112,7 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
         },
       });
       toast.success(t.toasts.updated);
-      // پاک‌سازی قیمت‌ها
-      //setDollarPrice(""); setOtherCosts(""); setFinalPrice("");
-      // هدایت به صفحه محصولات
+ 
       router.push('/wholesaler/products');
       } catch {
       toast.error(t.toasts.error);
