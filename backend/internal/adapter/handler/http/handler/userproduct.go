@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	goarabic "github.com/01walid/goarabic"
 	"github.com/gin-gonic/gin"
@@ -689,6 +690,66 @@ func toPriceListVM(raw any) (priceListVM, error) {
 	}
 	return vm, nil
 }
+func isArabicRune(r rune) bool {
+	return (r >= 0x0600 && r <= 0x06FF) || // Arabic
+		(r >= 0x0750 && r <= 0x077F) || // Arabic Supplement
+		(r >= 0x08A0 && r <= 0x08FF) || // Arabic Extended-A
+		(r >= 0xFB50 && r <= 0xFDFF) || // Arabic Presentation Forms-A
+		(r >= 0xFE70 && r <= 0xFEFF) || // Arabic Presentation Forms-B
+		unicode.Is(unicode.Arabic, r)
+}
+
+// در ران‌های فارسی، جهت پرانتزها را بعد از Reverse اصلاح می‌کنیم
+func fixParensRTL(s string) string {
+	repl := strings.NewReplacer(
+		"(", "⟨", ")", "⟩", // نگه‌دار موقت
+		"[", "⟦", "]", "⟧",
+		"{", "⦃", "}", "⦄",
+		"«", "⟪", "»", "⟫",
+	)
+	back := strings.NewReplacer(
+		"⟨", ")", "⟩", "(",
+		"⟦", "]", "⟧", "[",
+		"⦃", "}", "⦄", "{",
+		"⟪", "»", "⟫", "«",
+	)
+	return back.Replace(repl.Replace(s))
+}
+
+// فقط ران‌های فارسی/عربی را ToGlyph + Reverse می‌کنیم
+// بقیهٔ متن (اعداد/لاتین/علائم) به همان صورت می‌ماند تا به‌هم نریزد.
+func faInline(s string) string {
+	if s == "" {
+		return s
+	}
+	rs := []rune(s)
+	var out []rune
+	i := 0
+	for i < len(rs) {
+		// ران فارسی/عربی (با فاصله‌ها)
+		if isArabicRune(rs[i]) || rs[i] == ' ' || rs[i] == '‌' /* ZWNJ */ {
+			j := i
+			for j < len(rs) && (isArabicRune(rs[j]) || rs[j] == ' ' || rs[j] == '‌') {
+				j++
+			}
+			seg := string(rs[i:j])
+			seg = goarabic.ToGlyph(seg)
+			seg = goarabic.Reverse(seg)
+			seg = fixParensRTL(seg) // جهت پرانتز و گیومه
+			out = append(out, []rune(seg)...)
+			i = j
+			continue
+		}
+		// ران غیر فارسی/عربی (اعداد/لاتین/علائم)
+		j := i
+		for j < len(rs) && !(isArabicRune(rs[j])) && rs[j] != '‌' {
+			j++
+		}
+		out = append(out, rs[i:j]...)
+		i = j
+	}
+	return string(out)
+}
 
 // -------------------- Persian shaping helper --------------------
 // فارسی/عربی را برای محیط بدون RTL آماده می‌کند:
@@ -701,8 +762,6 @@ func fa(s string) string {
 	shaped := goarabic.ToGlyph(s)
 	return goarabic.Reverse(shaped)
 }
-
-// -------------------- FetchPriceListPDF (FINAL) --------------------
 func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
@@ -720,7 +779,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	// مرتب‌سازی بر اساس نام کامل محصول
+	// سورت منطقی بر اساس نام کامل محصول
 	sort.Slice(vm.Items, func(i, j int) bool {
 		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
 		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
@@ -733,34 +792,41 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.SetAutoPageBreak(true, 15)
 	pdf.AddPage()
 
-	// فونت (مسیر فونت را مطابق ایمیج تنظیم کن)
+	// فونت UTF-8 (مسیر را با ایمیج خودت هماهنگ کن)
 	fontPath := filepath.Join("/assets/fonts", "Vazir.ttf") // یا Vazir.ttf
 	pdf.AddUTF8Font("Vazirmatn", "", fontPath)
 	pdf.SetFont("Vazirmatn", "", 12)
 
-	// ── هدر ─────────────────────────────────────────────
+	// ── Header
 	now := ptime.Now()
 
-	// تاریخ شمسی گوشه چپ بالا (نمایش بلند)
+	// تاریخ شمسی (چپ)
 	pdf.SetFont("Vazirmatn", "", 12)
 	pdf.SetXY(12, 10)
-	pdf.CellFormat(0, 6, fa(jalaliDateLong(now)), "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 6, faInline(jalaliDateLong(now)), "", 0, "L", false, 0, "")
 
-	// نام فروشگاه وسط بالا
+	// نام فروشگاه (وسط) — اگر تهی بود، "—"
+	shopName := strings.TrimSpace(vm.Shop.Name)
+	if shopName == "" {
+		shopName = "—"
+	}
 	pdf.SetFont("Vazirmatn", "", 18)
 	pdf.SetXY(12, 10)
-	pdf.CellFormat(186, 10, fa(strings.TrimSpace(vm.Shop.Name)), "", 0, "C", false, 0, "")
+	pdf.CellFormat(186, 10, faInline(shopName), "", 0, "C", false, 0, "")
 	pdf.Ln(10)
 
-	// تلفن‌ها راست‌چین
+	// تلفن‌ها (راست‌چین)
 	pdf.SetFont("Vazirmatn", "", 11)
 	phones := strings.Join(vm.Shop.Phones, " , ")
-	pdf.CellFormat(186, 6, fa(phones), "", 0, "R", false, 0, "")
+	pdf.CellFormat(186, 6, faInline(phones), "", 0, "R", false, 0, "")
 	pdf.Ln(6)
 
-	// آدرس راست‌چین (چندخطی)
+	// آدرس (راست‌چین چندخطی)
 	addr := strings.TrimSpace(vm.Shop.Address)
-	pdf.MultiCell(186, 6, fa(addr), "", "R", false)
+	if addr == "" {
+		addr = " "
+	}
+	pdf.MultiCell(186, 6, faInline(addr), "", "R", false)
 	pdf.Ln(3)
 
 	// خط جداکننده
@@ -769,8 +835,8 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.Line(12, y, 198, y)
 	pdf.Ln(4)
 
-	// ── جدول ───────────────────────────────────────────
-	colW := []float64{15, 100, 35, 36} // جمع = 186
+	// ── Table
+	colW := []float64{15, 100, 35, 36} // جمع=186
 	header := []string{"ردیف", "نام محصول (زیرشاخه / برند / مدل)", "قیمت", "آخرین بروزرسانی"}
 	aligns := []string{"C", "R", "C", "C"}
 
@@ -778,53 +844,51 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.SetFont("Vazirmatn", "", 12)
 	pdf.SetFillColor(245, 245, 245)
 	for i, h := range header {
-		pdf.CellFormat(colW[i], 9, fa(h), "1", 0, aligns[i], true, 0, "")
+		pdf.CellFormat(colW[i], 9, faInline(h), "1", 0, aligns[i], true, 0, "")
 	}
 	pdf.Ln(-1)
 
-	// ردیف‌ها با ارتفاع پویا
+	// اگر آیتمی نیست
+	if len(vm.Items) == 0 {
+		pdf.CellFormat(186, 10, faInline("هیچ موردی یافت نشد"), "1", 0, "C", false, 0, "")
+
+	}
+
+	// ردیف‌ها (ارتفاع پویا)
 	pdf.SetFont("Vazirmatn", "", 11)
 	baseRowH := 7.0
 
 	for idx, it := range vm.Items {
 		title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
-		titleFA := fa(title)
+		titleFA := faInline(title)
 
-		// تاریخ آخرین آپدیت (yyyy/mm/dd)
 		jt := ptime.New(it.UpdatedAt)
-		updatedStr := fmt.Sprintf("%d/%s/%s", jt.Year(), pad2(int(jt.Month())), pad2(jt.Day()))
+		updated := fmt.Sprintf("%d/%s/%s", jt.Year(), pad2(int(jt.Month())), pad2(jt.Day()))
+		updatedFA := faInline(updated)
 
-		rowCells := []string{
-			fmt.Sprintf("%d", idx+1),
-			titleFA,
-			moneyIRR(it.Price),
-			fa(updatedStr),
-		}
-
-		// محاسبه ارتفاع لازم برای ستون عنوان
-		lines := pdf.SplitText(rowCells[1], colW[1]-2)
+		// ارتفاع لازم برای ستون عنوان
+		lines := pdf.SplitText(titleFA, colW[1]-2)
 		h := math.Max(baseRowH, float64(len(lines))*baseRowH)
 
 		x, y := pdf.GetX(), pdf.GetY()
 
 		// ستون 1: ردیف
-		pdf.CellFormat(colW[0], h, fa(rowCells[0]), "1", 0, "C", false, 0, "")
+		pdf.CellFormat(colW[0], h, faInline(fmt.Sprintf("%d", idx+1)), "1", 0, "C", false, 0, "")
 
-		// ستون 2: عنوان چندخطی راست‌چین
+		// ستون 2: عنوان چندخطی
 		pdf.SetXY(x+colW[0], y)
-		pdf.MultiCell(colW[1], baseRowH, rowCells[1], "1", "R", false)
-		ny := pdf.GetY()
+		pdf.MultiCell(colW[1], baseRowH, titleFA, "1", "R", false)
 
-		// ستون 3: قیمت
+		// ستون 3: قیمت (عدد را همان‌طور چاپ می‌کنیم تا به‌هم نریزد)
 		pdf.SetXY(x+colW[0]+colW[1], y)
-		pdf.CellFormat(colW[2], h, rowCells[2], "1", 0, "C", false, 0, "")
+		pdf.CellFormat(colW[2], h, moneyIRR(it.Price), "1", 0, "C", false, 0, "")
 
 		// ستون 4: تاریخ
 		pdf.SetXY(x+colW[0]+colW[1]+colW[2], y)
-		pdf.CellFormat(colW[3], h, rowCells[3], "1", 0, "C", false, 0, "")
+		pdf.CellFormat(colW[3], h, updatedFA, "1", 0, "C", false, 0, "")
 
-		// رفتن به سطر بعدی
-		pdf.SetXY(x, ny)
+		// سطر بعد
+		pdf.SetXY(x, y+h)
 	}
 
 	// خروجی
@@ -836,7 +900,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 
 	fileName := fmt.Sprintf(
 		"price-list-%s-%04d%02d%02d.pdf",
-		strings.ReplaceAll(strings.TrimSpace(vm.Shop.Name), " ", "-"),
+		strings.ReplaceAll(strings.TrimSpace(shopName), " ", "-"),
 		now.Year(), int(now.Month()), now.Day(),
 	)
 
