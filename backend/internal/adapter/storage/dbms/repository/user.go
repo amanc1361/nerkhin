@@ -127,37 +127,6 @@ func (ur *UserRepository) GetUsersByFilter(ctx context.Context, dbSession interf
 	query := db.Table("user_t AS u")
 	countQuery := db.Table("user_t AS u")
 
-	// if domain.IsUserRoleValid(filter.Role) {
-	// 	query = query.Where("u.role = ?", filter.Role)
-	// }
-
-	// if domain.IsUserStateValid(filter.State) {
-	// 	query = query.Where("u.state_c = ?", filter.State)
-	// }
-
-	// if filter.SearchText != "" {
-	// 	searchQuery := "%" + filter.SearchText + "%"
-	// 	query = query.Where("u.phone LIKE ? OR u.full_name LIKE ?", searchQuery, searchQuery)
-	// }
-
-	// if filter.CityID > 0 {
-	// 	query = query.Where("u.city_id = ?", filter.CityID)
-	// }
-
-	// err = query.
-	// 	Joins("JOIN city AS c ON c.id = u.city_id").
-	// 	Order("u.id ASC").
-	// 	Select(
-	// 		"u.*",
-	// 		"c.name AS city_name",
-	// 	).
-	// 	Scan(&users).Error
-	// if err != nil {
-	// 	return
-	// }
-
-	// return users, nil
-
 	applyFilters := func(q *gorm.DB) *gorm.DB {
 		if domain.IsUserRoleValid(filter.Role) {
 			q = q.Where("u.role = ?", filter.Role)
@@ -259,6 +228,12 @@ func (ur *UserRepository) UpdateDollarPrice(ctx context.Context, dbSession inter
 	err = db.Select(
 		"dollar_price",
 	).Updates(user).Error
+	if err != nil {
+		return
+	}
+	err = db.Model(&domain.UserProduct{}).
+		Where("user_id = ? AND is_dollar = ?", user.ID, true).
+		Update("final_price", gorm.Expr("(dollar_price * ?) + other_costs", user.DollarPrice)).Error
 	if err != nil {
 		return
 	}

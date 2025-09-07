@@ -203,27 +203,7 @@ func (us *UserService) GetUsersByFilter(
 	return users, totalCount, nil
 }
 
-// func (us *UserService) GetUsersByFilter(ctx context.Context, filter domain.UserFilter) (
-// 	users []*domain.UserViewModel, err error) {
-// 	db, err := us.dbms.NewDB(ctx)
-// 	if err != nil {
-// 		return
-// 	}
 
-// 	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-// 		users, err = us.repo.GetUsersByFilter(ctx, txSession, filter)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		return nil
-// 	})
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	return users, nil
-// }
 
 func (s *UserService) ChangeUserState(ctx context.Context, userID int64,
 	targetState domain.UserState) (err error) {
