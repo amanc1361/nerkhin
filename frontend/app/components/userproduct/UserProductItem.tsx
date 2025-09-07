@@ -74,7 +74,7 @@ export default function UserProductItem({
   const UNOPTIMIZED = process.env.NEXT_PUBLIC_IMAGE_UNOPTIMIZED === "1";
 
   return (
-    <div className={`border-b pb-3 ${hidden ? "opacity-60" : ""}`} dir="rtl" aria-hidden={hidden}>
+    <div className={`border-b w-full pb-3 ${hidden ? "opacity-60" : ""}`} dir="rtl"  aria-hidden={hidden}>
       {/* ===== بالا ===== */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
@@ -104,7 +104,7 @@ export default function UserProductItem({
 
           <div className="text-right">
             <div className="text-[13px] font-semibold text-neutral-900">{price + " تومان "}</div>
-            <div className="text-[13px] text-neutral-800 leading-5 line-clamp-2">{title}</div>
+            <div className="text-[13px]  text-neutral-800 leading-5 line-clamp-2">{title}</div>
           </div>
         </div>
         <div className="text-[11px] text-neutral-400">
