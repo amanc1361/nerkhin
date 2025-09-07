@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/nerkhin/internal/adapter/storage/util/gormutil"
@@ -218,27 +219,52 @@ func (ur *UserRepository) UpdateShop(ctx context.Context, dbSession interface{},
 	return nil
 }
 
-func (ur *UserRepository) UpdateDollarPrice(ctx context.Context, dbSession interface{},
-	user *domain.User) (err error) {
+func (ur *UserRepository) UpdateDollarPrice(
+	ctx context.Context,
+	dbSession interface{},
+	user *domain.User,
+) error {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return
+		return err
 	}
 
-	err = db.Select(
-		"dollar_price",
-	).Updates(user).Error
-	if err != nil {
-		return
-	}
-	err = db.Model(&domain.UserProduct{}).
-		Where("user_id = ? AND is_dollar = ?", user.ID, true).
-		Update("final_price", gorm.Expr("(base_dollar_price * ?) + other_costs", user.DollarPrice)).Error
-	if err != nil {
-		return
-	}
+	// ====== تنظیم نام جداول/ستون‌ها مطابق دیتابیس خودت ======
+	const (
+		userTable     = "user_t"       // جدول کاربران شما
+		upTable       = "user_product" // جدول user_product(s) شما
+		userDollarCol = "dollar_price" // 👈 نام واقعی ستون نرخ دلار در user_t (اگر ‘usd_rate’ است، همین را عوض کن)
+		baseDollarCol = "dollar_price" // 👈 قیمت دلاری پایه هر محصول (اگر اسمش چیز دیگری است عوض کن)
+		rialCostsCol  = "other_costs"  // 👈 هزینه‌های ریالی (در up)
+		finalPriceCol = "final_price"  // 👈 قیمت نهایی (در up)
+	)
 
-	return nil
+	return db.Transaction(func(tx *gorm.DB) error {
+		// 1) آپدیت نرخ دلار خود کاربر
+		if err := tx.Table(userTable).
+			Where("id = ?", user.ID).
+			Update(userDollarCol, user.DollarPrice).Error; err != nil {
+			return err
+		}
+
+		// 2) بازمحاسبه قیمت همه محصولات دلاری این کاربر
+		// final_price = (base_dollar_price * user_t.dollar) + rial_costs
+		raw := fmt.Sprintf(`
+			UPDATE %s AS up
+			SET %s = (COALESCE(up.%s, 0) * u.%s) + COALESCE(up.%s, 0),
+			    updated_at = NOW()
+			
+			WHERE 
+			   up.user_id = ?
+			  AND up.is_dollar = TRUE
+		`, upTable, finalPriceCol, baseDollarCol, userDollarCol, rialCostsCol)
+
+		if err := tx.Exec(raw, user.ID).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (*UserRepository) CreateAdminAccess(ctx context.Context, dbSession interface{}, userID int64) (
