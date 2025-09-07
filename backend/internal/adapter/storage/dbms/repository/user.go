@@ -253,11 +253,11 @@ func (ur *UserRepository) UpdateDollarPrice(
 			UPDATE %s AS up
 			SET %s = (COALESCE(up.%s, 0) * u.%s) + COALESCE(up.%s, 0),
 			    updated_at = NOW()
-			
-			WHERE 
-			   up.user_id = ?
+			FROM %s AS u
+			WHERE up.user_id = u.id
+			  AND up.user_id = ?
 			  AND up.is_dollar = TRUE
-		`, upTable, finalPriceCol, baseDollarCol, userDollarCol, rialCostsCol)
+		`, upTable, finalPriceCol, baseDollarCol, userDollarCol, rialCostsCol, userTable)
 
 		if err := tx.Exec(raw, user.ID).Error; err != nil {
 			return err
