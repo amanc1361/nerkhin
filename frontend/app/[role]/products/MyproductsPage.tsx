@@ -15,7 +15,9 @@ import { useDollarPriceAction } from "@/app/hooks/useDollarPriceAction";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 import { formatMoneyInput, toEnDigits } from "@/app/components/shared/MonyInput";
 
-import FilterControls, { type FilterControlsValue } from "@/app/components/shared/FilterControls";
+import FilterControls, {
+  type FilterControlsValue,
+} from "@/app/components/shared/FilterControls";
 
 type Role = "wholesaler" | "retailer";
 
@@ -46,7 +48,7 @@ export default function MyproductsPage({
   const { api } = useAuthenticatedApi();
   const canFetch = status === "authenticated" && !!(session?.user as any)?.id;
 
-  // --- state: USD modal ---
+  // --- USD modal state ---
   const [localUsd, setLocalUsd] = useState<string>(String(usdPrice ?? ""));
   useEffect(() => {
     setLocalUsd(String(usdPrice ?? ""));
@@ -61,6 +63,15 @@ export default function MyproductsPage({
   // --- products state ---
   const [items, setItems] = useState<any[]>(initialItems ?? []);
   const [loading, setLoading] = useState(false);
+
+  // آخرین فیلترهای اعمال‌شده (برای رفرش بعد از آپدیت دلار)
+  const lastFiltersRef = useRef<Partial<FilterControlsValue> | null>(null);
+
+  // برای جلوگیری از شلیک درخواست روی mount اولیه‌ی FilterControls
+  const firstFireRef = useRef(true);
+
+  // سیگنال محلی برای اجبار به رفرش بعد از آپدیت دلار
+  const [usdUpdatedAt, setUsdUpdatedAt] = useState<number>(0);
 
   // --- brand options با brandId واقعی (هر جا موجود باشد) ---
   const brandOptions = useMemo(() => {
@@ -78,7 +89,6 @@ export default function MyproductsPage({
         it?.brandTitle ??
         it?.product?.brand_title ??
         "";
-
       if (brandId && title && !map.has(Number(brandId))) {
         map.set(Number(brandId), String(title));
       }
@@ -86,13 +96,7 @@ export default function MyproductsPage({
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
   }, [initialItems]);
 
-  // برای جلوگیری از شلیک درخواست روی mount اولیه‌ی FilterControls
-  const firstFireRef = useRef(true);
-
-  // آخرین فیلترهای اعمال‌شده (برای رفرش بعد از آپدیت دلار)
-  const lastFiltersRef = useRef<Partial<FilterControlsValue> | null>(null);
-
-  // --- بدنه مشترک برای fetch محصولات (بدون گارد firstFire) ---
+  // --- بدنه مشترک برای fetch محصولات با فیلترهای اختیاری ---
   const doFetch = useCallback(
     async (v?: Partial<FilterControlsValue> | null) => {
       if (!canFetch) return;
@@ -103,7 +107,6 @@ export default function MyproductsPage({
         const shopId = (session?.user as any)?.id;
         if (shopId) params.set("shopId", String(shopId));
 
-        // normalize & set filters
         if (v?.brandIds?.length) params.set("brandIds", v.brandIds.join(","));
         if (v?.categoryId) params.set("categoryId", String(v.categoryId));
         if (v?.subCategoryId) params.set("subCategoryId", String(v.subCategoryId));
@@ -112,13 +115,17 @@ export default function MyproductsPage({
         }
         if (v?.search) params.set("search", v.search);
         params.set("sortUpdated", (v?.sortUpdated as string) || "desc");
+
+        // Cache-busting برای اطمینان از عدم برگشت پاسخ کش‌شده
         params.set("_", String(Date.now()));
+
         const url = `/user-product/fetch-shop${
           params.toString() ? `?${params.toString()}` : ""
         }`;
 
         const res: any = await api.get({ url });
-        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
+        const payload =
+          res && typeof res === "object" && "data" in res ? res.data : res;
 
         const products = Array.isArray(payload?.products)
           ? payload.products
@@ -136,13 +143,17 @@ export default function MyproductsPage({
     [api, canFetch, session?.user]
   );
 
+  // ---- رفرش سادهٔ محصولات با آخرین فیلترهای ذخیره‌شده ----
+  const refetchProducts = useCallback(async () => {
+    await doFetch(lastFiltersRef.current);
+  }, [doFetch]);
+
   // --- fetch روی تغییر فیلترها (با گارد firstFire) ---
   const fetchWithFilters = useCallback(
     async (v: FilterControlsValue) => {
-      // ذخیره آخرین فیلترها برای رفرش بعد از آپدیت دلار
       lastFiltersRef.current = v;
 
-      // اگر اولین بار است که FilterControls onChange را می‌زند (mount)، نادیده بگیر
+      // نادیده گرفتن اولین onChange هنگام mount
       if (firstFireRef.current) {
         firstFireRef.current = false;
         return;
@@ -153,10 +164,11 @@ export default function MyproductsPage({
     [doFetch]
   );
 
-  // --- رفرش محصولات با آخرین فیلترها (برای بعد از آپدیت دلار) ---
-  const refetchProductsNow = useCallback(async () => {
-    await doFetch(lastFiltersRef.current);
-  }, [doFetch]);
+  // --- وقتی سیگنال usdUpdatedAt تغییر کرد، فوراً رفرش کن
+  useEffect(() => {
+    if (!usdUpdatedAt) return;
+    void refetchProducts();
+  }, [usdUpdatedAt, refetchProducts]);
 
   // --- خواندن نرخ دلار کاربر (نمایش) ---
   useEffect(() => {
@@ -165,13 +177,17 @@ export default function MyproductsPage({
     (async () => {
       try {
         const res: any = await api.get({ url: `/user/dollar-price/${uid}` });
-        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
+        const payload =
+          res && typeof res === "object" && "data" in res ? res.data : res;
 
         const toIntegerDigits = (v: any): string => {
           if (v == null) return "";
           if (typeof v === "number") return String(Math.trunc(v));
           if (typeof v === "string") {
-            const s = toEnDigits(v).replace(/,/g, "").replace(/\s+/g, "").replace(/٫/g, ".");
+            const s = toEnDigits(v)
+              .replace(/,/g, "")
+              .replace(/\s+/g, "")
+              .replace(/٫/g, ".");
             const intPart = s.split(".")[0];
             return intPart.replace(/[^0-9]/g, "");
           }
@@ -189,14 +205,22 @@ export default function MyproductsPage({
     })();
   }, [canFetch, session?.user, api]);
 
-  // --- اکشن آپدیت دلار: بعد از موفقیت، لیست را رفرش کن
+  // --- آپدیت دلار: بعد از موفقیت، فقط رفرش محصولات ---
   const { update, isSubmitting } = useDollarPriceAction((digits) => {
     setLocalUsd(digits);
     setOpenUsdModal(false);
-    // رفرش لیست محصولات با آخرین فیلترها
-    void refetchProductsNow();
+    setUsdUpdatedAt(Date.now()); // 👈 تریگر قطعی برای رفرش
   });
-  const handleUsdSubmit = (digits: string) => update(digits);
+
+  // اگر update Promise برنگرداند، باز هم با این مسیر تریگر داریم
+  const handleUsdSubmit = async (digits: string) => {
+    try {
+      await Promise.resolve(update(digits));
+    } finally {
+      // تضمینی؛ حتی اگر onSuccess فوق دیرتر بخورد
+      setUsdUpdatedAt(Date.now());
+    }
+  };
 
   // اشتراک‌گذاری‌ها
   const onShareJpg = () => {};
@@ -205,7 +229,9 @@ export default function MyproductsPage({
 
   // key برای remount کردن ProductsList وقتی ترکیب آیتم‌ها عوض می‌شود
   const listKey = useMemo(() => {
-    const ids = (items ?? []).map((x: any) => x?.id ?? x?.productId ?? "").join("-");
+    const ids = (items ?? [])
+      .map((x: any) => x?.id ?? x?.productId ?? "")
+      .join("-");
     return ids || "empty";
   }, [items]);
 
@@ -242,13 +268,13 @@ export default function MyproductsPage({
             />
           </div>
 
-          {/* فیلترها (سمت سرور) */}
+          {/* فیلترها */}
           <div className="mb-3">
             <FilterControls
               messages={messages}
-              brands={brandOptions}     // شامل brandId واقعی
-              categories={[]}           // در صورت داشتن API پر کن
-              subCategories={[]}        // در صورت داشتن API پر کن
+              brands={brandOptions}
+              categories={[]}
+              subCategories={[]}
               onChange={fetchWithFilters}
               visible={{
                 brand: false,
@@ -269,10 +295,10 @@ export default function MyproductsPage({
             key={listKey}
             items={items ?? []}
             messages={messages}
-            // onRefresh={refetchProductsNow} // اگر لازم شد کنترل دستی بده
+            // onRefresh={refetchProducts} // اگر رفرش دستی خواستی
           />
 
-          {/* نمایش وضعیت بارگذاری فقط زمانی که واقعاً درخواست در جریانه */}
+          {/* وضعیت بارگذاری */}
           {loading && (
             <div className="mt-3 text-xs text-neutral-500">
               {messages?.loading ?? "در حال بارگذاری..."}
