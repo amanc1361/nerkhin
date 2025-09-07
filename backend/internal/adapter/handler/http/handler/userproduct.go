@@ -705,15 +705,15 @@ type shopVMInput struct {
 		ShopAddress string   `json:"shopAddress"`
 	} `json:"shopInfo"`
 	Products []struct {
-		SubCategory      string          `json:"subCategory"`
-		SubCategoryTitle string          `json:"subCategoryTitle"`
-		Brand            string          `json:"brand"`
-		BrandTitle       string          `json:"brandTitle"`
-		ModelName        string          `json:"modelName"`
-		Price            int64           `json:"price"`
-		FinalPrice       int64           `json:"finalPrice,string"`
-		UpdatedAtRaw     json.RawMessage `json:"updatedAt"`
-		UpdatedAtString  string          `json:"updatedAtString"`
+		SubCategory      string `json:"subCategory"`
+		SubCategoryTitle string `json:"subCategoryTitle"`
+		ProductBrand     string `json:"productBrand"`
+
+		ModelName       string          `json:"modelName"`
+		Price           int64           `json:"price"`
+		FinalPrice      int64           `json:"finalPrice,string"`
+		UpdatedAtRaw    json.RawMessage `json:"updatedAt"`
+		UpdatedAtString string          `json:"updatedAtString"`
 	} `json:"products"`
 }
 
@@ -778,7 +778,7 @@ func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 		}
 		out.Items = append(out.Items, priceListRow{
 			SubCategory: firstNonEmpty(p.SubCategory, p.SubCategoryTitle),
-			Brand:       firstNonEmpty(p.Brand, p.BrandTitle),
+			Brand:       p.ProductBrand,
 			ModelName:   p.ModelName,
 			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
 			UpdatedAt:   tm,
@@ -949,8 +949,8 @@ func uniqueStr(ss []string) []string {
 
 func addVazirmatnFonts(pdf *gofpdf.Fpdf) {
 	fontDir := "/assets/fonts"
-	pdf.AddUTF8Font("Vazirmatn", "", filepath.Join(fontDir, "Mitra.ttf"))
-	pdf.AddUTF8Font("Vazirmatn", "B", filepath.Join(fontDir, "Mitra.ttf"))
+	pdf.AddUTF8Font("Vazirmatn", "", filepath.Join(fontDir, "Vazirmatn-Regular.ttf"))
+	pdf.AddUTF8Font("Vazirmatn", "B", filepath.Join(fontDir, "Vazirmatn-Bold.ttf"))
 }
 
 // SplitText امن با recover (برای جلوگیری از panic داخلی gofpdf)
@@ -1072,10 +1072,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
-	fmt.Println("***********************************************")
-	fmt.Println(raw.ShopInfo)
-	fmt.Println("***********************************************")
-	fmt.Println(raw.Products)
+
 	vm, err := mapShopVMToPriceListVM(raw)
 	if err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
