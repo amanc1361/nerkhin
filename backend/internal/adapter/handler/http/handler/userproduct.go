@@ -705,7 +705,7 @@ type shopVMInput struct {
 		ShopAddress string   `json:"shopAddress"`
 	} `json:"shopInfo"`
 	Products []struct {
-		SubCategory      string `json:"subCategory"`
+		ProductCategory  string `json:"productCategory"`
 		SubCategoryTitle string `json:"subCategoryTitle"`
 		ProductBrand     string `json:"productBrand"`
 
@@ -777,7 +777,7 @@ func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 			tm = time.Now()
 		}
 		out.Items = append(out.Items, priceListRow{
-			SubCategory: firstNonEmpty(p.SubCategory, p.SubCategoryTitle),
+			SubCategory: p.ProductCategory,
 			Brand:       p.ProductBrand,
 			ModelName:   p.ModelName,
 			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
@@ -912,7 +912,7 @@ func joinNonEmpty(parts ...string) string {
 			out = append(out, p)
 		}
 	}
-	return strings.Join(out, " / ")
+	return strings.Join(out, " ")
 }
 
 func firstNonEmpty(a, b string) string {
