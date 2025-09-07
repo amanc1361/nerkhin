@@ -233,7 +233,7 @@ func (ur *UserRepository) UpdateDollarPrice(ctx context.Context, dbSession inter
 	}
 	err = db.Model(&domain.UserProduct{}).
 		Where("user_id = ? AND is_dollar = ?", user.ID, true).
-		Update("final_price", gorm.Expr("(dollar_price * ?) + other_costs", user.DollarPrice)).Error
+		Update("final_price", gorm.Expr("(base_dollar_price * ?) + other_costs", user.DollarPrice)).Error
 	if err != nil {
 		return
 	}
