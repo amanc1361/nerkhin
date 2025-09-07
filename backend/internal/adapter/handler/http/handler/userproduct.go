@@ -610,23 +610,18 @@ func (uph *UserProductHandler) ChangeVisibilityStatus(c *gin.Context) {
 	handleSuccess(c, nil)
 }
 
-// ─────────────────────────── Persian shaping helpers ───────────────────────────
+/* ───────── Persian shaping helpers ───────── */
 
-// عربی↔فارسی: ی/ک
 func normalizeFa(s string) string {
 	if s == "" {
 		return s
 	}
-	return strings.NewReplacer(
-		"ي", "ی", // Arabic Yeh → Persian Yeh
-		"ك", "ک", // Arabic Kaf → Persian Kaf
-	).Replace(s)
+	return strings.NewReplacer("ي", "ی", "ك", "ک").Replace(s)
 }
 
-// علائم/فاصله‌های خنثی که باید همراه ران فارسی باقی بمانند
 func isFaNeutral(r rune) bool {
 	switch r {
-	case ' ', '‌', // space, ZWNJ
+	case ' ', '‌',
 		'،', '؛', '؟', '٪', '٫', '٬',
 		'-', '/', '\\', '.', ':', '·', '—', '–',
 		'(', ')', '[', ']', '{', '}', '«', '»':
@@ -636,21 +631,19 @@ func isFaNeutral(r rune) bool {
 }
 
 func isArabicRune(r rune) bool {
-	// حروف و علائم عربی/فارسی + اعداد عربی-هندی و فارسی
-	if (r >= 0x0600 && r <= 0x06FF) || // Arabic
-		(r >= 0x0750 && r <= 0x077F) || // Arabic Supplement
-		(r >= 0x08A0 && r <= 0x08FF) || // Arabic Ext-A
-		(r >= 0xFB50 && r <= 0xFDFF) || // Arabic Pres-A
-		(r >= 0xFE70 && r <= 0xFEFF) || // Arabic Pres-B
-		(r >= 0x0660 && r <= 0x0669) || // Arabic-Indic digits
-		(r >= 0x06F0 && r <= 0x06F9) || // Persian digits
+	if (r >= 0x0600 && r <= 0x06FF) ||
+		(r >= 0x0750 && r <= 0x077F) ||
+		(r >= 0x08A0 && r <= 0x08FF) ||
+		(r >= 0xFB50 && r <= 0xFDFF) ||
+		(r >= 0xFE70 && r <= 0xFEFF) ||
+		(r >= 0x0660 && r <= 0x0669) ||
+		(r >= 0x06F0 && r <= 0x06F9) ||
 		unicode.Is(unicode.Arabic, r) {
 		return true
 	}
 	return false
 }
 
-// فقط ران‌های فارسی را ToGlyph + Reverse کنیم؛ علائم خنثی را هم همراه ران نگه‌دار
 func faInline(s string) string {
 	s = normalizeFa(s)
 	if s == "" {
@@ -660,7 +653,6 @@ func faInline(s string) string {
 	var out []rune
 	i := 0
 	for i < len(rs) {
-		// ران فارسی (به‌همراه فاصله/ZWNJ و علائم خنثی)
 		if isArabicRune(rs[i]) || isFaNeutral(rs[i]) {
 			j := i
 			for j < len(rs) && (isArabicRune(rs[j]) || isFaNeutral(rs[j])) {
@@ -668,7 +660,6 @@ func faInline(s string) string {
 			}
 			seg := string(rs[i:j])
 
-			// جهت پرانتز/گیومه قبل از Reverse
 			seg = strings.NewReplacer(
 				"(", "⟨", ")", "⟩",
 				"[", "⟦", "]", "⟧",
@@ -679,7 +670,6 @@ func faInline(s string) string {
 			seg = goarabic.ToGlyph(seg)
 			seg = goarabic.Reverse(seg)
 
-			// بازگردانی جایگزین‌ها
 			seg = strings.NewReplacer(
 				"⟨", ")", "⟩", "(",
 				"⟦", "]", "⟧", "[",
@@ -691,7 +681,6 @@ func faInline(s string) string {
 			i = j
 			continue
 		}
-		// ران غیر فارسی/عربی
 		j := i
 		for j < len(rs) && !(isArabicRune(rs[j]) || isFaNeutral(rs[j])) {
 			j++
@@ -702,9 +691,8 @@ func faInline(s string) string {
 	return string(out)
 }
 
-// ─────────────────────────── Input mapping (ShopViewModel → VM) ───────────────────────────
+/* ───────── Input mapping (ShopViewModel → VM) ───────── */
 
-// ShopViewModel سرویس شما این ساختار را در JSON می‌دهد:
 type shopVMInput struct {
 	ShopInfo *struct {
 		ShopName    string   `json:"shopName"`
@@ -722,12 +710,11 @@ type shopVMInput struct {
 		ModelName        string          `json:"modelName"`
 		Price            int64           `json:"price"`
 		FinalPrice       int64           `json:"finalPrice,string"`
-		UpdatedAtRaw     json.RawMessage `json:"updatedAt"`       // ممکن است رشته/عدد/آبجکت باشد
-		UpdatedAtString  string          `json:"updatedAtString"` // اگر جداگانه رشته باشد
+		UpdatedAtRaw     json.RawMessage `json:"updatedAt"`
+		UpdatedAtString  string          `json:"updatedAtString"`
 	} `json:"products"`
 }
 
-// خروجی داخلی برای PDF
 type priceListVM struct {
 	Shop  shopInfo       `json:"shop"`
 	Items []priceListRow `json:"items"`
@@ -757,7 +744,6 @@ func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 		return out, err
 	}
 
-	// Shop
 	var name, addr string
 	var phones []string
 	if in.ShopInfo != nil {
@@ -782,27 +768,26 @@ func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
 		Address: addr,
 	}
 
-	// Items
 	out.Items = make([]priceListRow, 0, len(in.Products))
 	for _, p := range in.Products {
 		tm := parseFlexibleTime(p.UpdatedAtRaw, p.UpdatedAtString)
-		row := priceListRow{
+		if tm.IsZero() {
+			tm = time.Now()
+		}
+		out.Items = append(out.Items, priceListRow{
 			SubCategory: firstNonEmpty(p.SubCategory, p.SubCategoryTitle),
 			Brand:       firstNonEmpty(p.Brand, p.BrandTitle),
 			ModelName:   p.ModelName,
 			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
 			UpdatedAt:   tm,
-		}
-		out.Items = append(out.Items, row)
+		})
 	}
-
 	return out, nil
 }
 
-// ─────────────────────────── Flexible time parsing ───────────────────────────
+/* ───────── Flexible time parsing ───────── */
 
 func parseFlexibleTime(raw json.RawMessage, fallback string) time.Time {
-	// 1) رشته RFC3339؟
 	if len(raw) > 0 && raw[0] == '"' {
 		var s string
 		if err := json.Unmarshal(raw, &s); err == nil {
@@ -811,7 +796,6 @@ func parseFlexibleTime(raw json.RawMessage, fallback string) time.Time {
 			}
 		}
 	}
-	// 2) عدد یونیکس (ثانیه/میلی‌ثانیه)؟
 	if len(raw) > 0 {
 		var f float64
 		if err := json.Unmarshal(raw, &f); err == nil {
@@ -822,7 +806,6 @@ func parseFlexibleTime(raw json.RawMessage, fallback string) time.Time {
 			}
 			return time.Unix(int64(f), 0).UTC()
 		}
-		// 3) آبجکت‌های رایج
 		var m map[string]any
 		if err := json.Unmarshal(raw, &m); err == nil {
 			if v, ok := m["Time"].(string); ok {
@@ -843,14 +826,12 @@ func parseFlexibleTime(raw json.RawMessage, fallback string) time.Time {
 			}
 		}
 	}
-	// 4) fallback رشته‌ای
 	if strings.TrimSpace(fallback) != "" {
 		if t, ok := tryParseTimeString(strings.TrimSpace(fallback)); ok {
 			return t
 		}
 	}
-	// 5) در نهایت: امروز (برای PDF خالی نماند)
-	return time.Now()
+	return time.Time{}
 }
 
 func tryParseTimeString(s string) (time.Time, bool) {
@@ -870,7 +851,7 @@ func tryParseTimeString(s string) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// ─────────────────────────── Small helpers (money/date/str) ───────────────────────────
+/* ───────── Small helpers ───────── */
 
 func moneyIRR(n int64) string {
 	s := fmt.Sprintf("%d", n)
@@ -894,7 +875,7 @@ func moneyIRR(n int64) string {
 	return neg + string(out)
 }
 
-const lrm = "\u200E" // Left-to-Right Mark
+const lrm = "\u200E"
 
 func moneyIRR_LTR(n int64) string {
 	return lrm + moneyIRR(n) + lrm
@@ -962,37 +943,56 @@ func uniqueStr(ss []string) []string {
 	return out
 }
 
-// ─────────────────────────── PDF helpers (fonts + RTL table) ───────────────────────────
+/* ───────── PDF helpers (fonts + RTL) ───────── */
 
 func addVazirmatnFonts(pdf *gofpdf.Fpdf) {
-	// مسیر ثابت داخل ایمیج — اگر متفاوت است، فقط این را عوض کن
 	fontDir := "/app/assets/fonts"
 	pdf.AddUTF8Font("Vazirmatn", "", filepath.Join(fontDir, "Vazirmatn-Regular.ttf"))
 	pdf.AddUTF8Font("Vazirmatn", "B", filepath.Join(fontDir, "Vazirmatn-Bold.ttf"))
 }
 
-// برگرداندن X شروع (راست) و Y فعلی
+// SplitText امن با recover (برای جلوگیری از panic داخلی gofpdf)
+func splitTextSafe(pdf *gofpdf.Fpdf, s string, w float64) (lines []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			// اگر SplitText کرش کرد، حداقل یک خط برگردونیم
+			if strings.TrimSpace(s) == "" {
+				lines = []string{""}
+			} else {
+				lines = []string{s}
+			}
+		}
+	}()
+	if w < 1 {
+		w = 1
+	}
+	if strings.TrimSpace(s) == "" {
+		return []string{""}
+	}
+	// خیلی مهم: قبل از SplitText باید فونت ست شده باشد
+	// (ما در رندر اصلی این را رعایت کرده‌ایم)
+	return pdf.SplitText(s, w)
+}
+
+// نقطهٔ شروع از سمت راست
 func innerRight(pdf *gofpdf.Fpdf) (xRight, y float64) {
-	// اندازه صفحه
 	w, _ := pdf.GetPageSize()
-	_, _, rm, _ := pdf.GetMargins()
+	_, tm, rm, _ := pdf.GetMargins()
+	_ = tm
 	return w - rm, pdf.GetY()
 }
 
-// رسم هدر جدول به‌صورت راست‌به‌چپ
 func drawRTLHeader(pdf *gofpdf.Fpdf, headers []string, colW []float64, aligns []string) {
 	pdf.SetFillColor(245, 245, 245)
 	pdf.SetFont("Vazirmatn", "B", 12)
 
 	xRight, y := innerRight(pdf)
 	h := 9.0
-
-	// از راست به چپ
 	x := xRight
 	for i := 0; i < len(headers); i++ {
 		w := colW[i]
 		xCell := x - w
-		pdf.Rect(xCell, y, w, h, "DF") // با Fill
+		pdf.Rect(xCell, y, w, h, "DF")
 		pdf.SetXY(xCell, y)
 		pdf.CellFormat(w, h, faInline(headers[i]), "", 0, aligns[i], false, 0, "")
 		x = xCell
@@ -1001,25 +1001,26 @@ func drawRTLHeader(pdf *gofpdf.Fpdf, headers []string, colW []float64, aligns []
 	pdf.SetFont("Vazirmatn", "", 11)
 }
 
-// رسم یک سطر RTL با عنوان چندخطیِ راست‌چین
 func drawRTLRow(pdf *gofpdf.Fpdf, colW []float64, aligns []string, idx int, titleFA string, price string, updated string, baseRowH float64) {
-	// محاسبه ارتفاع بر اساس عنوان
-	wTitle := colW[1] - 2 // کمی حاشیه داخلی
-	lines := pdf.SplitText(titleFA, wTitle)
+	// محاسبهٔ ارتفاع سطر
+	wTitle := colW[1] - 2
+	if wTitle < 1 {
+		wTitle = colW[1] // نهایتاً خودش
+	}
+	lines := splitTextSafe(pdf, titleFA, wTitle)
 	h := math.Max(baseRowH, float64(len(lines))*baseRowH)
 
-	// مختصات شروع از راست
 	xRight, y := innerRight(pdf)
 	x := xRight
 
-	// ستون‌ها به‌ترتیب RTL: [ردیف][نام محصول][قیمت][تاریخ]
 	// 0: ردیف
 	{
 		w := colW[0]
 		xCell := x - w
 		pdf.Rect(xCell, y, w, h, "D")
 		pdf.SetXY(xCell, y)
-		pdf.CellFormat(w, h, faInline(fmt.Sprintf("%d", idx+1)), "", 0, aligns[0], false, 0, "")
+		nStr := fmt.Sprintf("%d", idx+1)
+		pdf.CellFormat(w, h, faInline(nStr), "", 0, aligns[0], false, 0, "")
 		x = xCell
 	}
 	// 1: نام محصول (چندخطی راست‌چین)
@@ -1027,16 +1028,13 @@ func drawRTLRow(pdf *gofpdf.Fpdf, colW []float64, aligns []string, idx int, titl
 		w := colW[1]
 		xCell := x - w
 		pdf.Rect(xCell, y, w, h, "D")
-
-		// رسم خطوط داخل کادر
-		pdf.SetXY(xCell+1, y) // +1 برای حاشیه داخلی
+		pdf.SetXY(xCell+1, y)
 		remainY := y
 		for _, ln := range lines {
 			pdf.SetXY(xCell+1, remainY)
 			pdf.CellFormat(w-2, baseRowH, ln, "", 0, "R", false, 0, "")
 			remainY += baseRowH
 		}
-
 		x = xCell
 	}
 	// 2: قیمت (LTR)
@@ -1057,14 +1055,11 @@ func drawRTLRow(pdf *gofpdf.Fpdf, colW []float64, aligns []string, idx int, titl
 		pdf.CellFormat(w, h, updated, "", 0, aligns[3], false, 0, "")
 		x = xCell
 	}
-
-	// رفتن به سطر بعد
 	pdf.SetY(y + h)
 }
 
-// ─────────────────────────── Handlers: JSON + PDF ───────────────────────────
+/* ───────── Handler (PDF) — جدول کاملاً RTL ───────── */
 
-// 2) PDF نهایی — جدول کاملاً RTL
 func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
@@ -1076,39 +1071,34 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	// مپ ShopViewModel → VM
 	vm, err := mapShopVMToPriceListVM(raw)
 	if err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
 
-	// مرتب‌سازی بر اساس نام کامل محصول
 	sort.Slice(vm.Items, func(i, j int) bool {
 		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
 		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
 		return strings.Compare(pi, pj) < 0
 	})
 
-	// ساخت PDF
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(12, 18, 12)
 	pdf.SetAutoPageBreak(true, 15)
 	pdf.AddPage()
 
-	// فونت Vazirmatn (TTF)
+	// فونت باید قبل از هر SplitText ست بشه
 	addVazirmatnFonts(pdf)
 	pdf.SetFont("Vazirmatn", "", 12)
 
-	/*──── Header ────*/
+	/* Header */
 	now := ptime.Now()
 
-	// تاریخ شمسی (چپ)
 	pdf.SetFont("Vazirmatn", "", 12)
 	pdf.SetXY(12, 10)
 	pdf.CellFormat(60, 6, faInline(jalaliDateLong(now)), "", 0, "L", false, 0, "")
 
-	// نام فروشگاه (وسط)
 	shopName := strings.TrimSpace(vm.Shop.Name)
 	if shopName == "" {
 		shopName = "—"
@@ -1118,13 +1108,11 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.CellFormat(186, 10, faInline(shopName), "", 0, "C", false, 0, "")
 	pdf.Ln(10)
 
-	// تلفن‌ها (راست‌چین)
 	pdf.SetFont("Vazirmatn", "", 11)
 	phones := strings.Join(vm.Shop.Phones, " , ")
 	pdf.SetXY(12, 18)
 	pdf.CellFormat(186, 6, faInline(phones), "", 0, "R", false, 0, "")
 
-	// آدرس (راست‌چین و چندخطی)
 	addr := strings.TrimSpace(vm.Shop.Address)
 	if addr == "" {
 		addr = " "
@@ -1133,43 +1121,42 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	pdf.MultiCell(186, 6, faInline(addr), "", "R", false)
 	pdf.Ln(3)
 
-	// خط جداکننده
 	pdf.SetDrawColor(210, 210, 210)
 	y := pdf.GetY()
 	pdf.Line(12, y, 198, y)
 	pdf.Ln(4)
 
-	/*──── Table (RTL) ────*/
-	// ترتیب ستون‌ها از راست به چپ:
-	// [ردیف][نام محصول][قیمت][آخرین بروزرسانی]
-	colW := []float64{15, 100, 35, 36} // جمع=186
+	/* Table (RTL) */
+	colW := []float64{15, 100, 35, 36} // مجموع = 186
 	header := []string{"ردیف", "نام محصول", "قیمت", "آخرین بروزرسانی"}
 	aligns := []string{"C", "R", "C", "C"}
 
-	// هدر جدول (RTL)
 	drawRTLHeader(pdf, header, colW, aligns)
 
 	if len(vm.Items) == 0 {
-		// یک سلول تمام‌عرض (از راست به چپ فرقی ندارد چون تمام عرض است)
 		pdf.CellFormat(186, 10, faInline("هیچ موردی یافت نشد"), "1", 0, "C", false, 0, "")
 	} else {
-		// ردیف‌ها با ارتفاع پویا و کشیدن کادر سلول‌ها
 		baseRowH := 7.0
 		pdf.SetFont("Vazirmatn", "", 11)
 
 		for idx, it := range vm.Items {
 			title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
 			titleFA := faInline(title)
+			if strings.TrimSpace(titleFA) == "" {
+				titleFA = " "
+			}
 
 			jt := ptime.New(it.UpdatedAt)
-			updated := ymdJalali_LTR(jt) // LTR تضمین‌شده
+			if jt.Time().IsZero() {
+				jt = ptime.Now()
+			}
+			updated := ymdJalali_LTR(jt)
 			price := moneyIRR_LTR(it.Price)
 
 			drawRTLRow(pdf, colW, aligns, idx, titleFA, price, updated, baseRowH)
 		}
 	}
 
-	// خروجی PDF
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
@@ -1186,7 +1173,3 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
 }
-
-// ─────────────────────────── Handler struct (بدون تغییر) ───────────────────────────
-
-// تابع HandleError و سایر اجزای handler/service در پروژه‌ی خودت موجودند.
