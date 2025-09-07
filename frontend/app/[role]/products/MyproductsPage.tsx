@@ -41,55 +41,24 @@ export default function MyproductsPage({
     [locale]
   );
 
-  // USD modal
-  const [localUsd, setLocalUsd] = useState<string>(String(usdPrice ?? ""));
-  useEffect(() => { setLocalUsd(String(usdPrice ?? "")); }, [usdPrice]);
-  const displayUsd = useMemo(() => formatMoneyInput(String(localUsd ?? ""), false), [localUsd]);
-  const addHref = `/${role}/products/create`;
-  const [openUsdModal, setOpenUsdModal] = useState(false);
-  const { update, isSubmitting } = useDollarPriceAction((digits) => {
-    setLocalUsd(digits);
-    setOpenUsdModal(false);
-  });
-  const handleUsdSubmit = (digits: string) => update(digits);
-
   // session & api
   const { data: session, status } = useSession();
   const { api } = useAuthenticatedApi();
   const canFetch = status === "authenticated" && !!(session?.user as any)?.id;
 
-  // fetch user USD
+  // --- state: USD modal ---
+  const [localUsd, setLocalUsd] = useState<string>(String(usdPrice ?? ""));
   useEffect(() => {
-    if (!canFetch) return;
-    const uid = (session?.user as any)?.id;
-    (async () => {
-      try {
-        const res: any = await api.get({ url: `/user/dollar-price/${uid}` });
-        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
+    setLocalUsd(String(usdPrice ?? ""));
+  }, [usdPrice]);
+  const displayUsd = useMemo(
+    () => formatMoneyInput(String(localUsd ?? ""), false),
+    [localUsd]
+  );
+  const addHref = `/${role}/products/create`;
+  const [openUsdModal, setOpenUsdModal] = useState(false);
 
-        const toIntegerDigits = (v: any): string => {
-          if (v == null) return "";
-          if (typeof v === "number") return String(Math.trunc(v));
-          if (typeof v === "string") {
-            const s = toEnDigits(v).replace(/,/g, "").replace(/\s+/g, "").replace(/٫/g, ".");
-            const intPart = s.split(".")[0];
-            return intPart.replace(/[^0-9]/g, "");
-          }
-          if (typeof v === "object" && "value" in (v as any)) {
-            return toIntegerDigits((v as any).value);
-          }
-          return toIntegerDigits(String(v));
-        };
-
-        const digits = toIntegerDigits(payload);
-        if (digits !== "") setLocalUsd(digits);
-      } catch (e) {
-        console.log("[DollarPrice][ERROR] =>", e);
-      }
-    })();
-  }, [canFetch, session?.user, api]);
-
-  // products state
+  // --- products state ---
   const [items, setItems] = useState<any[]>(initialItems ?? []);
   const [loading, setLoading] = useState(false);
 
@@ -120,16 +89,13 @@ export default function MyproductsPage({
   // برای جلوگیری از شلیک درخواست روی mount اولیه‌ی FilterControls
   const firstFireRef = useRef(true);
 
-  // fetch with filters (stable)
-  const fetchWithFilters = useCallback(
-    async (v: FilterControlsValue) => {
-      if (!canFetch) return;
+  // آخرین فیلترهای اعمال‌شده (برای رفرش بعد از آپدیت دلار)
+  const lastFiltersRef = useRef<Partial<FilterControlsValue> | null>(null);
 
-      // اگر اولین بار است که FilterControls onChange را می‌زند (mount)، نادیده بگیر
-      if (firstFireRef.current) {
-        firstFireRef.current = false;
-        return;
-      }
+  // --- بدنه مشترک برای fetch محصولات (بدون گارد firstFire) ---
+  const doFetch = useCallback(
+    async (v?: Partial<FilterControlsValue> | null) => {
+      if (!canFetch) return;
 
       setLoading(true);
       try {
@@ -137,18 +103,22 @@ export default function MyproductsPage({
         const shopId = (session?.user as any)?.id;
         if (shopId) params.set("shopId", String(shopId));
 
-        if (v.brandIds?.length) params.set("brandIds", v.brandIds.join(","));
-        if (v.categoryId) params.set("categoryId", String(v.categoryId));
-        if (v.subCategoryId) params.set("subCategoryId", String(v.subCategoryId));
-        if (v.isDollar !== null && typeof v.isDollar === "boolean") {
+        // normalize & set filters
+        if (v?.brandIds?.length) params.set("brandIds", v.brandIds.join(","));
+        if (v?.categoryId) params.set("categoryId", String(v.categoryId));
+        if (v?.subCategoryId) params.set("subCategoryId", String(v.subCategoryId));
+        if (v?.isDollar !== null && typeof v?.isDollar === "boolean") {
           params.set("isDollar", v.isDollar ? "1" : "0");
         }
-        if (v.search) params.set("search", v.search);
-        params.set("sortUpdated", v.sortUpdated);
+        if (v?.search) params.set("search", v.search);
+        params.set("sortUpdated", (v?.sortUpdated as string) || "desc");
 
-        const url = `/user-product/fetch-shop${params.toString() ? `?${params.toString()}` : ""}`;
+        const url = `/user-product/fetch-shop${
+          params.toString() ? `?${params.toString()}` : ""
+        }`;
+
         const res: any = await api.get({ url });
-        const payload = (res && typeof res === "object" && "data" in res) ? res.data : res;
+        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
 
         const products = Array.isArray(payload?.products)
           ? payload.products
@@ -158,13 +128,75 @@ export default function MyproductsPage({
 
         setItems(products);
       } catch (e) {
-        console.error("[FilterFetch][ERROR]", e);
+        console.error("[Products][fetch][ERROR]", e);
       } finally {
         setLoading(false);
       }
     },
     [api, canFetch, session?.user]
   );
+
+  // --- fetch روی تغییر فیلترها (با گارد firstFire) ---
+  const fetchWithFilters = useCallback(
+    async (v: FilterControlsValue) => {
+      // ذخیره آخرین فیلترها برای رفرش بعد از آپدیت دلار
+      lastFiltersRef.current = v;
+
+      // اگر اولین بار است که FilterControls onChange را می‌زند (mount)، نادیده بگیر
+      if (firstFireRef.current) {
+        firstFireRef.current = false;
+        return;
+      }
+
+      await doFetch(v);
+    },
+    [doFetch]
+  );
+
+  // --- رفرش محصولات با آخرین فیلترها (برای بعد از آپدیت دلار) ---
+  const refetchProductsNow = useCallback(async () => {
+    await doFetch(lastFiltersRef.current);
+  }, [doFetch]);
+
+  // --- خواندن نرخ دلار کاربر (نمایش) ---
+  useEffect(() => {
+    if (!canFetch) return;
+    const uid = (session?.user as any)?.id;
+    (async () => {
+      try {
+        const res: any = await api.get({ url: `/user/dollar-price/${uid}` });
+        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
+
+        const toIntegerDigits = (v: any): string => {
+          if (v == null) return "";
+          if (typeof v === "number") return String(Math.trunc(v));
+          if (typeof v === "string") {
+            const s = toEnDigits(v).replace(/,/g, "").replace(/\s+/g, "").replace(/٫/g, ".");
+            const intPart = s.split(".")[0];
+            return intPart.replace(/[^0-9]/g, "");
+          }
+          if (typeof v === "object" && "value" in (v as any)) {
+            return toIntegerDigits((v as any).value);
+          }
+          return toIntegerDigits(String(v));
+        };
+
+        const digits = toIntegerDigits(payload);
+        if (digits !== "") setLocalUsd(digits);
+      } catch (e) {
+        console.log("[DollarPrice][ERROR] =>", e);
+      }
+    })();
+  }, [canFetch, session?.user, api]);
+
+  // --- اکشن آپدیت دلار: بعد از موفقیت، لیست را رفرش کن
+  const { update, isSubmitting } = useDollarPriceAction((digits) => {
+    setLocalUsd(digits);
+    setOpenUsdModal(false);
+    // رفرش لیست محصولات با آخرین فیلترها
+    void refetchProductsNow();
+  });
+  const handleUsdSubmit = (digits: string) => update(digits);
 
   // اشتراک‌گذاری‌ها
   const onShareJpg = () => {};
@@ -237,7 +269,7 @@ export default function MyproductsPage({
             key={listKey}
             items={items ?? []}
             messages={messages}
-            // onRefresh={refetchProducts}
+            // onRefresh={refetchProductsNow} // اگر لازم شد کنترل دستی بده
           />
 
           {/* نمایش وضعیت بارگذاری فقط زمانی که واقعاً درخواست در جریانه */}
