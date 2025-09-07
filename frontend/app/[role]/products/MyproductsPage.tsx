@@ -112,7 +112,7 @@ export default function MyproductsPage({
         }
         if (v?.search) params.set("search", v.search);
         params.set("sortUpdated", (v?.sortUpdated as string) || "desc");
-
+        params.set("_", String(Date.now()));
         const url = `/user-product/fetch-shop${
           params.toString() ? `?${params.toString()}` : ""
         }`;
