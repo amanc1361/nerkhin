@@ -412,7 +412,9 @@ type updateUserProductRequest struct {
 // ?shopId=...&brandIds=1,2&categoryId=...&subCategoryId=...&isDollar=1|0&sortUpdated=asc|desc&search=...&limit=...&offset=...
 func (psh *UserProductHandler) FetchShopProducts(c *gin.Context) {
 	ctx := c.Request.Context()
-
+	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
 	userID := currentUserID
