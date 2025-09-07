@@ -946,7 +946,7 @@ func uniqueStr(ss []string) []string {
 /* ───────── PDF helpers (fonts + RTL) ───────── */
 
 func addVazirmatnFonts(pdf *gofpdf.Fpdf) {
-	fontDir := "/app/assets/fonts"
+	fontDir := "/assets/fonts"
 	pdf.AddUTF8Font("Vazirmatn", "", filepath.Join(fontDir, "Vazirmatn-Regular.ttf"))
 	pdf.AddUTF8Font("Vazirmatn", "B", filepath.Join(fontDir, "Vazirmatn-Bold.ttf"))
 }
