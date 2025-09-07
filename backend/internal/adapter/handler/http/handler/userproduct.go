@@ -949,8 +949,8 @@ func uniqueStr(ss []string) []string {
 
 func addVazirmatnFonts(pdf *gofpdf.Fpdf) {
 	fontDir := "/assets/fonts"
-	pdf.AddUTF8Font("Vazirmatn", "", filepath.Join(fontDir, "Vazirmatn-Regular.ttf"))
-	pdf.AddUTF8Font("Vazirmatn", "B", filepath.Join(fontDir, "Vazirmatn-Bold.ttf"))
+	pdf.AddUTF8Font("Vazirmatn", "", filepath.Join(fontDir, "Mitra.ttf"))
+	pdf.AddUTF8Font("Vazirmatn", "B", filepath.Join(fontDir, "Mitra.ttf"))
 }
 
 // SplitText امن با recover (برای جلوگیری از panic داخلی gofpdf)
@@ -1072,7 +1072,10 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
-
+	fmt.Println("***********************************************")
+	fmt.Println(raw.ShopInfo)
+	fmt.Println("***********************************************")
+	fmt.Println(raw.Products)
 	vm, err := mapShopVMToPriceListVM(raw)
 	if err != nil {
 		HandleError(c, err, uph.AppConfig.Lang)
