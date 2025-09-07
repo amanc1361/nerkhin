@@ -57,9 +57,14 @@ export default function MyproductsPage({
   const [items, setItems] = useState<any[]>(initialItems ?? []);
   const [loading, setLoading] = useState(false);
 
-  // --- brand options با brandId واقعی (هر جا موجود باشد) ---
+  // برای جلوگیری از شلیک درخواست روی mount اولیه‌ی FilterControls
+  const firstFireRef = useRef(true);
+  // آخرین فیلترها برای refetch بعد از تغییرات
+  const lastFiltersRef = useRef<Partial<FilterControlsValue> | null>(null);
+
+  // --- برندها از initialItems (بدون تغییر در ریکوئست) ---
   const brandOptions = useMemo(() => {
-    const map = new Map<number, string>(); // brandId -> title
+    const map = new Map<number, string>();
     (initialItems ?? []).forEach((it: any) => {
       const brandId =
         it?.brandId ??
@@ -73,7 +78,6 @@ export default function MyproductsPage({
         it?.brandTitle ??
         it?.product?.brand_title ??
         "";
-
       if (brandId && title && !map.has(Number(brandId))) {
         map.set(Number(brandId), String(title));
       }
@@ -81,13 +85,79 @@ export default function MyproductsPage({
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
   }, [initialItems]);
 
-  // برای جلوگیری از شلیک درخواست روی mount اولیه‌ی FilterControls
-  const firstFireRef = useRef(true);
+  // --- نرمالایزر: فیلدها را یکدست می‌کند (بدون تغییر ساختار ریکوئست) ---
+  function normalizeProducts(arr: any[]): any[] {
+    return (arr ?? []).map((it) => {
+      const id =
+        it?.id ?? it?.productId ?? it?.product_id ?? it?.product?.id ?? null;
 
-  // آخرین فیلترهای اعمال‌شده (برای رفرش بعد از آپدیت دلار)
-  const lastFiltersRef = useRef<Partial<FilterControlsValue> | null>(null);
+      const finalPrice =
+        it?.finalPrice ??
+        it?.final_price ??
+        it?.product?.final_price ??
+        it?.product?.finalPrice ??
+        null;
 
-  // --- بدنه مشترک برای fetch محصولات (بدون تغییر ساختار ریکوئست) ---
+      const updatedAt =
+        it?.updatedAt ??
+        it?.updated_at ??
+        it?.product?.updated_at ??
+        it?.product?.updatedAt ??
+        null;
+
+      const brandId =
+        it?.brandId ??
+        it?.product?.brandId ??
+        it?.productBrandId ??
+        it?.product?.brand_id ??
+        null;
+
+      const brandTitle =
+        it?.brandTitle ??
+        it?.product?.brandTitle ??
+        it?.productBrand ??
+        it?.product?.brand_title ??
+        null;
+
+      // کپی سطح بالا + همسان‌سازی فیلدها
+      const out = {
+        ...it,
+        id,
+        finalPrice,
+        updatedAt,
+        brandId,
+        brandTitle,
+      };
+
+      // اگر آبجکت product هست، همانجا هم فیلدهای camelCase را ست کن
+      if (out.product && typeof out.product === "object") {
+        out.product = {
+          ...out.product,
+          id: out.product.id ?? id,
+          finalPrice:
+            out.product.finalPrice ??
+            out.product.final_price ??
+            finalPrice,
+          brandId:
+            out.product.brandId ??
+            out.product.brand_id ??
+            brandId,
+          brandTitle:
+            out.product.brandTitle ??
+            out.product.brand_title ??
+            brandTitle,
+          updatedAt:
+            out.product.updatedAt ??
+            out.product.updated_at ??
+            updatedAt,
+        };
+      }
+
+      return out;
+    });
+  }
+
+  // ---- بدنه fetch (بدون تغییر در URL/Query/Headers) ----
   const doFetch = useCallback(
     async (v?: Partial<FilterControlsValue> | null) => {
       if (!canFetch) return;
@@ -117,7 +187,8 @@ export default function MyproductsPage({
           ? payload
           : [];
 
-        setItems(products);
+        // ⬅️ نرمالایز و سپس ست در state
+        setItems(normalizeProducts(products));
       } catch (e) {
         console.error("[Products][fetch][ERROR]", e);
       } finally {
@@ -127,13 +198,11 @@ export default function MyproductsPage({
     [api, canFetch, session?.user]
   );
 
-  // --- fetch روی تغییر فیلترها (با گارد firstFire) ---
+  // --- تغییر فیلترها (بدون تغییر ساختار ریکوئست) ---
   const fetchWithFilters = useCallback(
     async (v: FilterControlsValue) => {
-      // ذخیره آخرین فیلترها برای رفرش بعد از آپدیت دلار
       lastFiltersRef.current = v;
 
-      // اگر اولین بار است که FilterControls onChange را می‌زند (mount)، نادیده بگیر
       if (firstFireRef.current) {
         firstFireRef.current = false;
         return;
@@ -144,7 +213,7 @@ export default function MyproductsPage({
     [doFetch]
   );
 
-  // --- خواندن نرخ دلار کاربر (نمایش) — بدون تغییر ساختار
+  // --- خواندن نرخ دلار کاربر برای نمایش (بدون تغییر ریکوئست) ---
   useEffect(() => {
     if (!canFetch) return;
     const uid = (session?.user as any)?.id;
@@ -175,27 +244,46 @@ export default function MyproductsPage({
     })();
   }, [canFetch, session?.user, api]);
 
-  // --- آپدیت دلار: بعد از موفقیت، دقیقاً همان ریکوئست قبلی محصولات را بزن ---
-  const { update, isSubmitting } = useDollarPriceAction((digits) => {
+  // --- آپدیت دلار: بعد از موفقیت، همان fetch قبلی + آخرین فیلترها ---
+  const { update, isSubmitting } = useDollarPriceAction(async (digits) => {
     setLocalUsd(digits);
     setOpenUsdModal(false);
-    // رفرش با آخرین فیلترهای کاربر (بدون هیچ پارام/هدر اضافی)
-    void doFetch(lastFiltersRef.current);
+    await doFetch(lastFiltersRef.current);
   });
 
-  // همان ساختار قبلی (اگر جایی call می‌کنی)
-  const handleUsdSubmit = (digits: string) => update(digits);
+  const handleUsdSubmit = async (digits: string) => {
+    await update(digits);
+    await doFetch(lastFiltersRef.current);
+  };
+
+  // --- کلید ریمونت لیست: وابسته به id + finalPrice + updatedAt (برای رندر قطعی) ---
+  const listKey = useMemo(() => {
+    const sig = (items ?? [])
+      .map((x: any) => {
+        const id =
+          x?.id ?? x?.productId ?? x?.product?.id ?? "";
+        const fp =
+          x?.finalPrice ??
+          x?.final_price ??
+          x?.product?.finalPrice ??
+          x?.product?.final_price ??
+          "";
+        const up =
+          x?.updatedAt ??
+          x?.updated_at ??
+          x?.product?.updatedAt ??
+          x?.product?.updated_at ??
+          "";
+        return `${id}:${fp}:${up}`;
+      })
+      .join("|");
+    return sig || "empty";
+  }, [items]);
 
   // اشتراک‌گذاری‌ها
   const onShareJpg = () => {};
   const onSharePdf = () => {};
   const onShare = () => {};
-
-  // key برای remount کردن ProductsList وقتی ترکیب آیتم‌ها عوض می‌شود
-  const listKey = useMemo(() => {
-    const ids = (items ?? []).map((x: any) => x?.id ?? x?.productId ?? "").join("-");
-    return ids || "empty";
-  }, [items]);
 
   return (
     <div dir="rtl" className="container mx-auto px-3 py-4 lg:py-6 text-right">
@@ -230,13 +318,13 @@ export default function MyproductsPage({
             />
           </div>
 
-          {/* فیلترها (سمت سرور) */}
+          {/* فیلترها */}
           <div className="mb-3">
             <FilterControls
               messages={messages}
-              brands={brandOptions}     // شامل brandId واقعی
-              categories={[]}           // در صورت داشتن API پر کن
-              subCategories={[]}        // در صورت داشتن API پر کن
+              brands={brandOptions}
+              categories={[]}
+              subCategories={[]}
               onChange={fetchWithFilters}
               visible={{
                 brand: false,
@@ -252,15 +340,14 @@ export default function MyproductsPage({
           {/* هدر تعداد */}
           <ProductsHeader count={items?.length ?? 0} messages={messages} />
 
-          {/* لیست محصولات — با key برای remount در تغییر داده‌ها */}
+          {/* لیست محصولات — با key برای remount در تغییر قیمت/آپدیت */}
           <ProductsList
             key={listKey}
             items={items ?? []}
             messages={messages}
-            // onRefresh={() => doFetch(lastFiltersRef.current)} // در صورت نیاز
           />
 
-          {/* نمایش وضعیت بارگذاری فقط زمانی که واقعاً درخواست در جریانه */}
+          {/* وضعیت بارگذاری */}
           {loading && (
             <div className="mt-3 text-xs text-neutral-500">
               {messages?.loading ?? "در حال بارگذاری..."}

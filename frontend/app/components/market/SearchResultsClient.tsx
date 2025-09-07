@@ -275,7 +275,7 @@ export default function SearchResultsClient({
         {mergedItems.length === 0 && !loading && (
           <div className="text-center text-gray-500 py-8">{t.list.empty}</div>
         )}
-        <ul className="flex flex-col divide-y w-full">
+        <ul className="flex flex-col divide-y">
           {mergedItems.map((item) => (
             <MarketProductItem key={item.id} item={item} t={t} role={role} />
           ))}
