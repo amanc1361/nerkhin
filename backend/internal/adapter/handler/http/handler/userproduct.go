@@ -393,7 +393,9 @@ func (uph *UserProductHandler) FetchShopByUserId(c *gin.Context) {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
-
+	fmt.Println("***********************************************")
+	fmt.Println(priceList)
+	fmt.Println("***********************************************")
 	handleSuccess(c, priceList)
 }
 
@@ -612,12 +614,12 @@ func (uph *UserProductHandler) ChangeVisibilityStatus(c *gin.Context) {
 
 /* ───────── Persian shaping helpers ───────── */
 
-func normalizeFa(s string) string {
-	if s == "" {
-		return s
-	}
-	return strings.NewReplacer("ي", "ی", "ك", "ک").Replace(s)
-}
+// func normalizeFa(s string) string {
+// 	if s == "" {
+// 		return s
+// 	}
+// 	return strings.NewReplacer("ي", "ی", "ك", "ک").Replace(s)
+// }
 
 func isFaNeutral(r rune) bool {
 	switch r {
@@ -645,7 +647,7 @@ func isArabicRune(r rune) bool {
 }
 
 func faInline(s string) string {
-	s = normalizeFa(s)
+	//	s = normalizeFa(s)
 	if s == "" {
 		return s
 	}
