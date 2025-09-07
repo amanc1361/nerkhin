@@ -393,9 +393,7 @@ func (uph *UserProductHandler) FetchShopByUserId(c *gin.Context) {
 		HandleError(c, err, uph.AppConfig.Lang)
 		return
 	}
-	fmt.Println("***********************************************")
-	fmt.Println(priceList)
-	fmt.Println("***********************************************")
+
 	handleSuccess(c, priceList)
 }
 
