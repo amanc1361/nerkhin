@@ -231,13 +231,7 @@ export default function SearchResultsClient({
     () => Math.max(1, Math.ceil((data.total || 0) / limit)),
     [data.total, limit]
   );
-  const hasBrandIds = useMemo(() => {
-    const ids = (sp.get("brandIds") || "")
-      .split(",")
-      .map(Number)
-      .filter((n) => Number.isFinite(n) && n > 0);
-    return ids.length > 0;
-  }, [sp]);
+
   // — موبایل: اسکرول بی‌نهایت —
   const hasMore = page * limit < (data.total || 0);
   const loadNext = useCallback(() => {
@@ -266,7 +260,7 @@ export default function SearchResultsClient({
             {/* دکمهٔ باز کردن مودال فیلتر */}
        
        
-            {hasBrandIds && (
+            {catId!==undefined && catId >0 && (
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
