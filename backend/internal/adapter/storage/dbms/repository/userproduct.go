@@ -26,7 +26,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		q = &domain.UserProductSearchQuery{}
 	}
 
-	// صفحه‌بندی
+	// صفحه‌بندی امن
 	limit := q.Limit
 	offset := q.Offset
 	if limit <= 0 || limit > 200 {
@@ -36,29 +36,16 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		offset = 0
 	}
 
-	// سورت
-	sortDir := strings.ToLower(string(q.SortUpdated))
-	if sortDir != "asc" && sortDir != "desc" {
-		sortDir = "desc"
-	}
-	sortBy := strings.ToLower(strings.TrimSpace(q.SortBy))
-	if sortBy == "" {
-		sortBy = "updated"
-	}
-	orderExpr := fmt.Sprintf("Cup.updated_at %s, up.final_price %s", sortDir, sortDir)
-	if sortBy == "order" {
-		orderExpr = fmt.Sprintf("up.order_c %s, up.id %s", sortDir, sortDir)
-	}
-
-	// فقط محصولات قابل نمایش
+	// فقط محصولات قابل نمایش؟
 	onlyVisible := true
 	if q.OnlyVisible != nil {
 		onlyVisible = *q.OnlyVisible
 	}
 
-	// اگر بیننده مشخص باشد، is_favorite را از طریق جوین بسازیم
+	// برای is_favorite
 	isFavExpr := "FALSE AS is_favorite"
-	qb := db.Table("user_product AS up").
+
+	base := db.Table("user_product AS up").
 		Joins("JOIN user_t AS u  ON u.id = up.user_id").
 		Joins("JOIN product AS p ON p.id = up.product_id").
 		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
@@ -66,12 +53,87 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		Joins("LEFT JOIN city AS c ON c.id = u.city_id")
 
 	if q.ViewerID > 0 {
-		qb = qb.Joins("LEFT JOIN favorite_product AS fp ON fp.product_id = up.product_id AND fp.user_id = ?", q.ViewerID)
+		base = base.Joins("LEFT JOIN favorite_product AS fp ON fp.product_id = up.product_id AND fp.user_id = ?", q.ViewerID)
 		isFavExpr = "(fp.user_id IS NOT NULL) AS is_favorite"
 	}
 
-	// انتخاب ستون‌ها (اضافه شدن is_favorite در انتها)
-	qb = qb.Select(fmt.Sprintf(`
+	// فیلترها
+	if onlyVisible {
+		base = base.Where("up.is_hidden = FALSE")
+	}
+	if q.CategoryID > 0 {
+		base = base.Where("pb.category_id = ?", q.CategoryID)
+	}
+	if len(q.BrandIDs) > 0 {
+		base = base.Where("pb.id IN (?)", q.BrandIDs)
+	}
+	if q.IsDollar != nil {
+		base = base.Where("up.is_dollar = ?", *q.IsDollar)
+	}
+	if q.CityID != nil && *q.CityID > 0 {
+		base = base.Where("u.city_id = ?", *q.CityID)
+	}
+	if q.EnforceSubscription && q.ViewerID > 0 {
+		base = base.Joins(`
+			JOIN user_subscription uss
+			  ON uss.user_id = ?
+			 AND uss.city_id = u.city_id
+			 AND uss.expires_at > NOW()
+		`, q.ViewerID)
+	}
+	if len(q.TagList) > 0 {
+		base = base.Where(`
+			EXISTS (
+				SELECT 1 FROM product_tag pt
+				WHERE pt.product_id = up.product_id AND pt.tag IN (?)
+			)
+		`, q.TagList)
+	}
+	if len(q.FilterIDs) > 0 {
+		base = base.Where(`
+			up.product_id IN (
+				SELECT pfr.product_id
+				FROM product_filter_relation pfr
+				WHERE pfr.filter_id IN (?)
+				GROUP BY pfr.product_id
+				HAVING COUNT(DISTINCT pfr.filter_id) = ?
+			)
+		`, q.FilterIDs, len(q.FilterIDs))
+	}
+	if len(q.OptionIDs) > 0 {
+		base = base.Where(`
+			up.product_id IN (
+				SELECT pfr2.product_id
+				FROM product_filter_relation pfr2
+				WHERE pfr2.filter_option_id IN (?)
+				GROUP BY pfr2.product_id
+				HAVING COUNT(DISTINCT pfr2.filter_option_id) = ?
+			)
+		`, q.OptionIDs, len(q.OptionIDs))
+	}
+	if s := strings.TrimSpace(q.Search); s != "" {
+		like := "%" + s + "%"
+		base = base.Where(`
+			p.model_name ILIKE ? OR
+			p.description ILIKE ? OR
+			pb.title      ILIKE ? OR
+			pc.title      ILIKE ? OR
+			u.shop_name   ILIKE ? OR
+			EXISTS (SELECT 1 FROM product_tag pt2 WHERE pt2.product_id = up.product_id AND pt2.tag ILIKE ?) OR
+			EXISTS (
+				SELECT 1
+				FROM product_filter_relation pfr3
+				JOIN product_filter pf   ON pf.id  = pfr3.filter_id
+				JOIN product_filter_option pfo ON pfo.id = pfr3.filter_option_id
+				WHERE pfr3.product_id = up.product_id
+				  AND (pf.display_name ILIKE ? OR pfo.name ILIKE ?)
+			)
+		`, like, like, like, like, like, like, like, like)
+	}
+
+	// زیرکوئری با Window Function: انتخاب ردیف شماره 1 برای هر product_id
+	// معیار: updated_at DESC NULLS LAST, بعد final_price ASC NULLS LAST
+	sub := base.Select(fmt.Sprintf(`
 		up.id,
 		up.user_id,
 		up.product_id,
@@ -91,121 +153,22 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		c.name AS city_name,
 		up.updated_at AS updated_at,
 		up.created_at AS created_at,
-		%s
+		%s,
+		ROW_NUMBER() OVER (
+			PARTITION BY up.product_id
+			ORDER BY up.updated_at DESC NULLS LAST, up.final_price ASC NULLS LAST, up.id ASC
+		) AS rn
 	`, isFavExpr))
 
-	if onlyVisible {
-		qb = qb.Where("up.is_hidden = FALSE")
-	}
-	if q.CategoryID > 0 {
-		qb = qb.Where("pb.category_id = ?", q.CategoryID)
-	}
-	if len(q.BrandIDs) > 0 {
-		qb = qb.Where("pb.id IN (?)", q.BrandIDs)
-	}
-
-	if q.CityID != nil && *q.CityID > 0 {
-		qb = qb.Where("u.city_id = ?", *q.CityID)
-	}
-	if q.EnforceSubscription && q.ViewerID > 0 {
-		qb = qb.Joins(`
-			JOIN user_subscription uss
-			  ON uss.user_id = ?
-			 AND uss.city_id = u.city_id
-			 AND uss.expires_at > NOW()
-		`, q.ViewerID)
-	}
-	if len(q.TagList) > 0 {
-		qb = qb.Where(`
-			EXISTS (
-				SELECT 1 FROM product_tag pt
-				WHERE pt.product_id = up.product_id AND pt.tag IN (?)
-			)
-		`, q.TagList)
-	}
-
-	// AND برای filterIdها
-	if len(q.FilterIDs) > 0 {
-		qb = qb.Where(`
-			up.product_id IN (
-				SELECT pfr.product_id
-				FROM product_filter_relation pfr
-				WHERE pfr.filter_id IN (?)
-				GROUP BY pfr.product_id
-				HAVING COUNT(DISTINCT pfr.filter_id) = ?
-			)
-		`, q.FilterIDs, len(q.FilterIDs))
-	}
-
-	// AND برای optionIdها
-	if len(q.OptionIDs) > 0 {
-		qb = qb.Where(`
-			up.product_id IN (
-				SELECT pfr2.product_id
-				FROM product_filter_relation pfr2
-				WHERE pfr2.filter_option_id IN (?)
-				GROUP BY pfr2.product_id
-				HAVING COUNT(DISTINCT pfr2.filter_option_id) = ?
-			)
-		`, q.OptionIDs, len(q.OptionIDs))
-	}
-
-	// جست‌وجوی متنی
-	if s := strings.TrimSpace(q.Search); s != "" {
-		like := "%" + s + "%"
-		qb = qb.Where(`
-			p.model_name ILIKE ? OR
-			p.description ILIKE ? OR
-			pb.title      ILIKE ? OR
-			pc.title      ILIKE ? OR
-			u.shop_name   ILIKE ? OR
-			EXISTS (SELECT 1 FROM product_tag pt2 WHERE pt2.product_id = up.product_id AND pt2.tag ILIKE ?) OR
-			EXISTS (
-				SELECT 1
-				FROM product_filter_relation pfr3
-				JOIN product_filter pf   ON pf.id  = pfr3.filter_id
-				JOIN product_filter_option pfo ON pfo.id = pfr3.filter_option_id
-				WHERE pfr3.product_id = up.product_id
-				  AND (pf.display_name ILIKE ? OR pfo.name ILIKE ?)
-			)
-		`, like, like, like, like, like, like, like, like)
-	}
-
-	// DISTINCT ON برای انتخاب یک ردیف از هر product_id
-	distinctPicker := qb.
-		Select(fmt.Sprintf(`
-			DISTINCT ON (up.product_id)
-			up.id,
-			up.user_id,
-			up.product_id,
-			up.is_dollar,
-			up.final_price,
-			up.order_c,
-			p.model_name,
-			p.brand_id,
-			p.default_image_url,
-			p.images_count,
-			p.description,
-			pb.category_id,
-			pc.title AS category_title,
-			pb.title AS brand_title,
-			u.shop_name,
-			u.city_id,
-			c.name AS city_name,
-			up.updated_at AS updated_at,
-			up.created_at AS created_at,
-			%s
-		`, isFavExpr)).
-		Order(`
-			up.updated_at ASC,
-			up.final_price ASC
-		`)
-
-	finalOrderExpr := strings.ReplaceAll(orderExpr, "up.", "x.")
-	rows := db.Table("(?) AS x", distinctPicker).
-		// در صورت تمایل، نمایش لایک‌شده‌ها در ابتدای لیست:
-		Order(clause.Expr{SQL: "is_favorite DESC"}).
-		Order(clause.Expr{SQL: finalOrderExpr}).
+	// انتخاب فقط rn=1 و سپس سورت نهایی بر اساس همان اولویت
+	rows := db.Table("(?) AS x", sub).
+		Where("x.rn = 1").
+		// اگر می‌خواهی مورد علاقه‌ها اول بیایند این را نگه دار، وگرنه حذفش کن:
+		Order("x.is_favorite DESC").
+		// سورت اصلی خروجی: تاریخ آپدیت نزولی، سپس قیمت صعودی، سپس شناسه برای ثبات
+		Order("x.updated_at DESC NULLS LAST").
+		Order("x.final_price ASC NULLS LAST").
+		Order("x.product_id ASC").
 		Limit(limit).
 		Offset(offset)
 
@@ -215,8 +178,6 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	}
 	return out, nil
 }
-
-// نسخهٔ Count برای صفحه‌بندی — هم‌راستا با Fetch
 func (upr *UserProductRepository) CountMarketProductsFiltered(
 	ctx context.Context,
 	dbSession interface{},
@@ -230,35 +191,34 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		q = &domain.UserProductSearchQuery{}
 	}
 
-	// پایهٔ همان JOINها مثل Fetch (city هم اضافه شود تا فیلتر شهر کار کند)
-	qb := db.Table("user_product AS up").
+	base := db.Table("user_product AS up").
 		Joins("JOIN user_t AS u  ON u.id = up.user_id").
 		Joins("JOIN product AS p ON p.id = up.product_id").
 		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
 		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
 		Joins("LEFT JOIN city AS c ON c.id = u.city_id")
 
-	// فقط محصولات قابل نمایش (عین Fetch)
 	onlyVisible := true
 	if q.OnlyVisible != nil {
 		onlyVisible = *q.OnlyVisible
 	}
 	if onlyVisible {
-		qb = qb.Where("up.is_hidden = FALSE")
+		base = base.Where("up.is_hidden = FALSE")
 	}
-
-	// فیلترهای همسان با Fetch (دقت: بدون Role و بدون بازهٔ قیمت، چون در Fetch نداریم)
 	if q.CategoryID > 0 {
-		qb = qb.Where("pb.category_id = ?", q.CategoryID)
+		base = base.Where("pb.category_id = ?", q.CategoryID)
 	}
 	if len(q.BrandIDs) > 0 {
-		qb = qb.Where("pb.id IN (?)", q.BrandIDs) // در صورت تمایل: "IN ?" هم قابل استفاده است
+		base = base.Where("pb.id IN (?)", q.BrandIDs)
+	}
+	if q.IsDollar != nil {
+		base = base.Where("up.is_dollar = ?", *q.IsDollar)
 	}
 	if q.CityID != nil && *q.CityID > 0 {
-		qb = qb.Where("u.city_id = ?", *q.CityID)
+		base = base.Where("u.city_id = ?", *q.CityID)
 	}
 	if q.EnforceSubscription && q.ViewerID > 0 {
-		qb = qb.Joins(`
+		base = base.Joins(`
 			JOIN user_subscription uss
 			  ON uss.user_id = ?
 			 AND uss.city_id = u.city_id
@@ -266,17 +226,15 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, q.ViewerID)
 	}
 	if len(q.TagList) > 0 {
-		qb = qb.Where(`
+		base = base.Where(`
 			EXISTS (
 				SELECT 1 FROM product_tag pt
 				WHERE pt.product_id = up.product_id AND pt.tag IN (?)
 			)
 		`, q.TagList)
 	}
-
-	// AND برای filterIdها (عین Fetch)
 	if len(q.FilterIDs) > 0 {
-		qb = qb.Where(`
+		base = base.Where(`
 			up.product_id IN (
 				SELECT pfr.product_id
 				FROM product_filter_relation pfr
@@ -286,10 +244,8 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 			)
 		`, q.FilterIDs, len(q.FilterIDs))
 	}
-
-	// AND برای optionIdها (عین Fetch)
 	if len(q.OptionIDs) > 0 {
-		qb = qb.Where(`
+		base = base.Where(`
 			up.product_id IN (
 				SELECT pfr2.product_id
 				FROM product_filter_relation pfr2
@@ -299,11 +255,9 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 			)
 		`, q.OptionIDs, len(q.OptionIDs))
 	}
-
-	// جست‌وجوی متنی (عین Fetch)
 	if s := strings.TrimSpace(q.Search); s != "" {
 		like := "%" + s + "%"
-		qb = qb.Where(`
+		base = base.Where(`
 			p.model_name ILIKE ? OR
 			p.description ILIKE ? OR
 			pb.title      ILIKE ? OR
@@ -321,9 +275,9 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, like, like, like, like, like, like, like, like)
 	}
 
-	// شمارش متمایز product_id برای هم‌راستایی با DISTINCT ON در Fetch
-	sub := qb.Select("DISTINCT up.product_id")
+	// شمارش متمایز product_id
 	var total int64
+	sub := base.Select("DISTINCT up.product_id")
 	if err := db.Table("(?) AS t", sub).Count(&total).Error; err != nil {
 		return 0, err
 	}
