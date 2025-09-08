@@ -147,7 +147,7 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
   const t = getUserProductMessages(locale);
 
   const [query, setQuery] = useState<MarketSearchQuery>(() => ({
-    limit: 24,
+    limit: 30,
     offset: 0,
     sortBy: "updated",
     sortUpdated: "desc",

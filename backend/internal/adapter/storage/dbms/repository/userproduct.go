@@ -45,7 +45,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	if sortBy == "" {
 		sortBy = "updated"
 	}
-	orderExpr := fmt.Sprintf("COALESCE(up.updated_at, up.created_at) %s, up.final_price %s", sortDir, sortDir)
+	orderExpr := fmt.Sprintf("Cup.updated_at %s, up.final_price %s", sortDir, sortDir)
 	if sortBy == "order" {
 		orderExpr = fmt.Sprintf("up.order_c %s, up.id %s", sortDir, sortDir)
 	}
@@ -103,9 +103,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	if len(q.BrandIDs) > 0 {
 		qb = qb.Where("pb.id IN (?)", q.BrandIDs)
 	}
-	if q.IsDollar != nil {
-		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
-	}
+
 	if q.CityID != nil && *q.CityID > 0 {
 		qb = qb.Where("u.city_id = ?", *q.CityID)
 	}
@@ -199,8 +197,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			%s
 		`, isFavExpr)).
 		Order(`
-			up.product_id,
-			COALESCE(up.updated_at,up.updated_at) ASC,
+			up.updated_at ASC,
 			up.final_price ASC
 		`)
 
@@ -256,9 +253,6 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 	}
 	if len(q.BrandIDs) > 0 {
 		qb = qb.Where("pb.id IN (?)", q.BrandIDs) // در صورت تمایل: "IN ?" هم قابل استفاده است
-	}
-	if q.IsDollar != nil {
-		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
 	}
 	if q.CityID != nil && *q.CityID > 0 {
 		qb = qb.Where("u.city_id = ?", *q.CityID)

@@ -56,8 +56,9 @@ export default function MarketProductItem({
               {item.shopName} • {item.cityName}
             </div>
                {/* تاریخ */}
-          <div className="shrink-0 w-16 text-xs text-gray-500 text-left">
-            <PersianDate value={item.updatedAt} />
+          <div className="shrink-0 w-28 text-xs text-gray-500 text-left">
+            {item.updatedAt.slice(0,10)}
+            {/* <PersianDate value={item.updatedAt} /> */}
           </div> 
            </div>
           </div>

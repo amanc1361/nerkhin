@@ -75,7 +75,7 @@ export default function SearchResultsClient({
       priceMin,
       priceMax,
       cityId,
-      limit: 20,
+      limit: 40,
       sortBy: "updated" as const,
       sortUpdated: "desc" as const,
       onlyVisible: true,
