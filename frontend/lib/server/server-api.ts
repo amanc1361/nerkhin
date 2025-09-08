@@ -97,7 +97,8 @@ async function authenticatedFetch<T = any>(
     };
     throw apiErr;
   }
-
+  console.log("****************************************")
+  console.log(res.json())
   return res.status === 204 ? (null as any) : res.json();
 }
 

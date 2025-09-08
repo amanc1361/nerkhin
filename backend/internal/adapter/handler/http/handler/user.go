@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+
 	"strconv"
 	"time"
 
@@ -435,23 +436,22 @@ func (uh *UserHandler) DeleteAdmin(c *gin.Context) {
 	handleSuccess(c, nil)
 }
 
-
 type subscriptionStatusVM struct {
 	CityID         int64     `json:"cityId"`
-	City           string    `json:"city"`           // نام شهر (اختیاری، اگر جوین می‌زنی)
+	City           string    `json:"city"` // نام شهر (اختیاری، اگر جوین می‌زنی)
 	SubscriptionID int64     `json:"subscriptionId"`
 	ExpiresAt      time.Time `json:"expiresAt"`
 	IsActive       bool      `json:"isActive"`
-	DaysRemaining  int       `json:"daysRemaining"`  // اگر منقضی شده = 0
-	DaysOverdue    int       `json:"daysOverdue"`    // اگر فعال است = 0
+	DaysRemaining  int       `json:"daysRemaining"` // اگر منقضی شده = 0
+	DaysOverdue    int       `json:"daysOverdue"`   // اگر فعال است = 0
 }
 
 type fetchUserInfoResponse struct {
-	User              domain.User `json:"user"`
-	AdminAccessInfo   any         `json:"adminAccessInfo"`
-	Subscriptions     []subscriptionStatusVM `json:"subscriptions"`
-	HasActiveSubscription bool   `json:"hasActiveSubscription"`
-	ActiveCities      []int64    `json:"activeCities"`
+	User                  domain.User            `json:"user"`
+	AdminAccessInfo       *domain.AdminAccess    `json:"adminAccessInfo"`
+	Subscriptions         []subscriptionStatusVM `json:"subscriptions"`
+	HasActiveSubscription bool                   `json:"hasActiveSubscription"`
+	ActiveCities          []int64                `json:"activeCities"`
 }
 
 func (uh *UserHandler) FetchUserInfo(c *gin.Context) {
@@ -502,7 +502,7 @@ func (uh *UserHandler) FetchUserInfo(c *gin.Context) {
 
 		vm := subscriptionStatusVM{
 			CityID:         s.CityID,
-			City:           s.City,          // اگر در کوئری جوین کردی
+			City:           s.City, // اگر در کوئری جوین کردی
 			SubscriptionID: s.SubscriptionID,
 			ExpiresAt:      s.ExpiresAt,
 			IsActive:       isActive,
@@ -517,11 +517,11 @@ func (uh *UserHandler) FetchUserInfo(c *gin.Context) {
 	}
 
 	response := &fetchUserInfoResponse{
-		User:                *fetchedUser,
-		AdminAccessInfo:     adminAccessInfo,
-		Subscriptions:       outSubs,
+		User:                  *fetchedUser,
+		AdminAccessInfo:       adminAccessInfo,
+		Subscriptions:         outSubs,
 		HasActiveSubscription: hasActive,
-		ActiveCities:        activeCities,
+		ActiveCities:          activeCities,
 	}
 
 	handleSuccess(c, response)
