@@ -135,11 +135,13 @@ func (usr *UserSubscriptionRepository) FetchUserPaymentTransactionsHistory(ctx c
 		Joins("JOIN user_t AS u ON u.id = pth.user_id").
 		Joins("JOIN city AS c ON c.id = pth.city_id").
 		Joins("JOIN user_subscription sub ON sub.user_id = u.id AND sub.city_id = c.id").
+		Joins("JOIN subscription s ON s.id = sub.subscription_id").
 		Where("pth.user_id = ?", userId).
 		Order("pth.id ASC").
 		Select(
 			"pth.*",
 			"pth.cost_c 		AS cost",
+			"s.number_of_days AS number_of_days",
 			"u.full_name 		AS full_name",
 			"c.name 			AS city",
 			"sub.expires_at     AS expiration_date",
