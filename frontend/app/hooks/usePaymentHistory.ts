@@ -27,6 +27,7 @@ export function usePaymentHistory(): UsePaymentHistoryOut {
     try {
       const def = subscriptionApi.paymentHistory; // { url: "...", method: "get" }
       const res = await api.get<PaymentTransactionHistoryViewModel[]>({ url: def.url });
+      console.log(res);
       setItems(res ?? []);
     } catch (e: any) {
       const msg = e?.message || "خطا در دریافت لیست واریزها";

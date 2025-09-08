@@ -28,10 +28,11 @@ type Props = {
   locale?: "fa" | "en";
   t: ShopEditMessages;
   user: AccountUser;
+  role:string;
 };
 const initialState: UpdateShopResult = { ok: false, error: "" };
 
-export default function ShopEditForm({ t, user }: Props) {
+export default function ShopEditForm({ t, user,role }: Props) {
   const [state, formAction] = useFormState<UpdateShopResult, FormData>(
     updateShopAction,
     initialState
@@ -58,7 +59,7 @@ export default function ShopEditForm({ t, user }: Props) {
     if (state?.ok) {
       // ساده: بعد از ذخیره موفق می‌تونیم پیام بدهیم یا رفرش کنیم
     //  alert(t.actions.saved);
-    router.push("/account");
+    router.back()
     } else if (state && !state.ok && state.error!="") {
       alert(state.error || t.errors.unknown);
     }
@@ -312,7 +313,7 @@ export default function ShopEditForm({ t, user }: Props) {
       <div className="flex flex-row gap-3">
 
       <SubmitBtn t={t} />
-      <button className="w-full border-2 border-purple-medium  text-purple-medium rounded-xl" onClick={() => router.push("/wholesaler/account")}>
+      <button className="w-full border-2 border-purple-medium  text-purple-medium rounded-xl" onClick={() => router.back()}>
         {t.actions.cancel}
       </button>
       </div>
