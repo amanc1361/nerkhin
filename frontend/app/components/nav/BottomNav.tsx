@@ -42,12 +42,12 @@ export default function BottomNav({
   const items =
     role === "wholesaler"
       ? ([
-          { key: "search" as const, href: `${base}/search`, label: t.menu.search },
+          { key: "search" as const, href: `${base}`, label: t.menu.search },
           { key: "account" as const, href: `${base}/account`, label: t.menu.myAccount },
           { key: "products" as const, href: `${base}/products`, label: t.menu.myProducts },
         ])
       : ([
-          { key: "search" as const, href: `${base}/search`, label: t.menu.search },
+          { key: "search" as const, href: `${base}`, label: t.menu.search },
           { key: "account" as const, href: `${base}/account`, label: t.menu.myAccount },
         ]);
 

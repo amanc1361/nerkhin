@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react'; // ⬅️ اضافه شد
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '@/app/components/Loading/Loading';
@@ -38,7 +38,7 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
       const result = await signIn("credentials", {
         phone,
         code,
-        redirect: false,
+        redirect: false, // نگه می‌داریم
       });
 
       if (!result || !result.ok) {
@@ -47,17 +47,29 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
 
       toast.success(verifyCodeMessages.success);
 
-      // نقش را از session بخوان
-      const sessionRes = await fetch("/api/auth/session");
-      const session = await sessionRes.json();
-      const role = session?.user?.role;
+      // ⬇️ کلید حل مشکل: رفرش رندر و خواندن سشن به‌روز از next-auth
+      await router.refresh();
+      const session = await getSession();
+
+      const role =
+        (session as any)?.role ??
+        (session?.user as any)?.role ??
+        (session as any)?.userRole ??
+        (session?.user as any)?.userRole ??
+        null;
 
       console.log("✅ Logged in, role =", role);
 
+      // نقش‌های شما (هم عددی هم متنی)
       if (role === 1 || role === 2 || role === "admin") {
         router.replace("/panel");
+      } else if (role === "wholesaler" || role === 3) {
+        router.replace("/wholesaler");
+      } else if (role === "retailer" || role === 4) {
+        router.replace("/retailer");
       } else {
-        router.replace("/bazaar");
+        // نقش نامشخص → نریز به bazaar؛ بگذار برود خانه تا middleware/SSR نقش را مشخص کند
+        router.replace("/");
       }
     } catch (error: any) {
       toast.error(error.message || verifyCodeMessages.invalidCodeError);
@@ -72,7 +84,7 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
         e.preventDefault();
         const form = e.target instanceof Element ? e.target.closest('form') : null;
         if (form) {
-          form.requestSubmit();
+          (form as HTMLFormElement).requestSubmit();
         }
       }
     };

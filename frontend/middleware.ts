@@ -46,6 +46,9 @@ export async function middleware(req: NextRequest) {
     (session as any)?.claims?.role ??
     null;
 
+  // ⬅️ تغییر 1: فقط اگر نقش «قطعاً شناخته‌شده» است، true می‌شود
+  const hasKnownRole = !!role && (isAdmin(role) || isWholesaler(role) || isRetailer(role));
+
   // انقضا با بافر 30 ثانیه
   const exp = typeof (session as any)?.accessTokenExpires === "number"
     ? ((session as any).accessTokenExpires as number)
@@ -58,8 +61,9 @@ export async function middleware(req: NextRequest) {
   const onHome      = pathname === HOME;
   const onProtected = PROTECTED.some((p) => pathname.startsWith(p));
 
-  // 1) اگر لاگین است و روی / یا /auth/*: بفرست به مسیر پیش‌فرض نقش
-  if (isAuth && (onAuth || onHome)) {
+  // 1) اگر لاگین است و روی / یا /auth/*:
+  // ⬅️ تغییر 2: فقط وقتی نقش «واقعاً مشخص» است ریدایرکت کن
+  if (isAuth && (onAuth || onHome) && hasKnownRole) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }
 
@@ -70,22 +74,23 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(to);
   }
 
-  // 3) اگر لاگین است و وارد /panel شده ولی ادمین نیست: بفرست مسیر نقش خودش
-  if (isAuth && pathname.startsWith(PANEL) && !isAdmin(role)) {
+  // 3) اگر لاگین است و وارد /panel شده ولی ادمین نیست:
+  // ⬅️ تغییر 3: فقط وقتی نقش مشخص و غیرادمینه، ریدایرکت کن
+  if (isAuth && pathname.startsWith(PANEL) && hasKnownRole && !isAdmin(role)) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }
 
   // 4) گارد تطابق مسیر با نقش — فقط وقتی نقش «قطعاً» خلاف مسیر است، ریدایرکت کن
-  if (isAuth && pathname.startsWith(WHOLESALER)) {
+  if (isAuth && pathname.startsWith(WHOLESALER) && hasKnownRole) {
     if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
     if (isRetailer(role))     return NextResponse.redirect(new URL(RETAILER, req.url));
-    // نقش نامشخص یا عمده‌فروش؟ دست نزن
+    // عمده‌فروش؟ دست نزن
   }
 
-  if (isAuth && pathname.startsWith(RETAILER)) {
+  if (isAuth && pathname.startsWith(RETAILER) && hasKnownRole) {
     if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
     if (isWholesaler(role))   return NextResponse.redirect(new URL(WHOLESALER, req.url));
-    // نقش نامشخص یا خرده‌فروش؟ دست نزن
+    // خرده‌فروش؟ دست نزن
   }
 
   return NextResponse.next();
