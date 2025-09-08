@@ -176,7 +176,18 @@ export default function PaymentHistoryTable({ t, items, loading }: Props) {
                     <td className="px-3 py-3 whitespace-nowrap">
                       {moneyFormat(r.cost)} <span className="text-xs text-gray-500">ریال</span>
                     </td>
-                    <td className="px-3 py-3">{r.numberOfDays ?? "—"}</td>
+                    <td className="px-3 py-3"> {t.days}: {r.numberOfDays === 1
+                    ? "۳۰"
+                    : r.numberOfDays === 2
+                    ? "۶۰"
+                    : r.numberOfDays === 3
+                    ? "۹۰"
+                    : r.numberOfDays === 4
+                    ? "۱۸۰"
+                    : r.numberOfDays === 5
+                    ? "۳۶۵"
+                    : "نامشخص"
+                  }</td>
                     <td className="px-3 py-3">{r.refId || "—"}</td>
                
                     <td className="px-3 py-3 whitespace-nowrap">{toJalali(r.expirationDate)}</td>
