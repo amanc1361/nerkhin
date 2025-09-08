@@ -24,7 +24,12 @@ type UserRepository interface {
 		adminAccess *domain.AdminAccess, err error)
 	UpdateAdminAccess(ctx context.Context, dbSession interface{}, adminAccess *domain.AdminAccess) (
 		err error)
-	GetDollarPrice(ctx context.Context, dbSession interface{}, id int64) (dollarPrice string, err error)	
+	GetDollarPrice(ctx context.Context, dbSession interface{}, id int64) (dollarPrice string, err error)
+	GetUserSubscriptionsWithCity(
+		ctx context.Context,
+		dbSession interface{},
+		userID int64,
+	) (subs []domain.UserSubscriptionWithCity, err error)
 }
 
 type UserService interface {
@@ -46,4 +51,5 @@ type UserService interface {
 	GetAdminAccess(ctx context.Context, adminId int64) (adminAccess *domain.AdminAccess, err error)
 	UpdateAdminAccess(ctx context.Context, adminAccess *domain.AdminAccess) (err error)
 	GetDollarPrice(ctx context.Context, id int64) (dollarPrice string, err error)
+	GetUserSubscriptionsWithCity(ctx context.Context, userID int64) ([]domain.UserSubscriptionWithCity, error)
 }

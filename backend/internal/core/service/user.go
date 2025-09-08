@@ -203,8 +203,6 @@ func (us *UserService) GetUsersByFilter(
 	return users, totalCount, nil
 }
 
-
-
 func (s *UserService) ChangeUserState(ctx context.Context, userID int64,
 	targetState domain.UserState) (err error) {
 	db, err := s.dbms.NewDB(ctx)
@@ -395,6 +393,13 @@ func (us *UserService) DeleteAdmin(ctx context.Context, adminID int64) (err erro
 	}
 
 	return nil
+}
+func (us *UserService) GetUserSubscriptionsWithCity(ctx context.Context, userID int64) ([]domain.UserSubscriptionWithCity, error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return us.repo.GetUserSubscriptionsWithCity(ctx, db, userID)
 }
 
 func (us *UserService) FetchUserInfo(ctx context.Context, id int64) (

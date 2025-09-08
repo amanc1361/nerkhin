@@ -33,7 +33,16 @@ type PaymentGatewayInfo struct {
 	PaymentUrl string `json:"paymentUrl"`
 	Authority  string `json:"authority"`
 }
-
+type UserSubscriptionWithCity struct {
+	ID             int64     `json:"id"`
+	UserID         int64     `json:"userId"`
+	CityID         int64     `json:"cityId"`
+	City           string    `json:"city"` // نام شهر
+	SubscriptionID int64     `json:"subscriptionId"`
+	ExpiresAt      time.Time `json:"expiresAt"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
 type PaymentTransactionHistory struct {
 	ID           int64              `json:"id"`
 	UserID       int64              `json:"userId"`

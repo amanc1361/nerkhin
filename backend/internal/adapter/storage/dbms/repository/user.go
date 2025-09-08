@@ -64,6 +64,43 @@ func (ur *UserRepository) GetUserByID(ctx context.Context, dbSession interface{}
 
 	return user, nil
 }
+// فقط اشتراک‌های فعالِ کاربر، یک رکورد به‌ازای هر شهر (جدیدترین بر اساس expires_at)
+func (ur *UserRepository) GetUserSubscriptionsWithCity(
+	ctx context.Context,
+	dbSession interface{},
+	userID int64,
+) (subs []domain.UserSubscriptionWithCity, err error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return
+	}
+
+	// نسخه مخصوص Postgres با DISTINCT ON:
+	// - فقط رکوردهای فعال: us.expires_at >= NOW()
+	// - یکی به‌ازای هر شهر: DISTINCT ON (us.city_id)
+	// - جدیدترین: ORDER BY us.city_id, us.expires_at DESC
+	err = db.
+		Table("user_subscription AS us").
+		Select(`
+			DISTINCT ON (us.city_id)
+			us.id,
+			us.user_id,
+			us.city_id,
+			c.name AS city,
+			us.subscription_id,
+			us.expires_at,
+			us.created_at,
+			us.updated_at
+		`).
+		Joins("LEFT JOIN city c ON c.id = us.city_id").
+		Where("us.user_id = ? AND us.expires_at >= NOW()", userID).
+		// توجه: ترتیب برای DISTINCT ON باید city_id اول بیاد
+		Order("us.city_id, us.expires_at DESC").
+		Scan(&subs).Error
+
+	return
+}
+
 
 func (ur *UserRepository) GetDollarPrice(ctx context.Context, dbSession interface{}, id int64) (dollarPrice string, err error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)

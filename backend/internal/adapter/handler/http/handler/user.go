@@ -3,7 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"strconv"
+	"time"
 
 	"strings"
 
@@ -433,25 +435,93 @@ func (uh *UserHandler) DeleteAdmin(c *gin.Context) {
 	handleSuccess(c, nil)
 }
 
+
+type subscriptionStatusVM struct {
+	CityID         int64     `json:"cityId"`
+	City           string    `json:"city"`           // نام شهر (اختیاری، اگر جوین می‌زنی)
+	SubscriptionID int64     `json:"subscriptionId"`
+	ExpiresAt      time.Time `json:"expiresAt"`
+	IsActive       bool      `json:"isActive"`
+	DaysRemaining  int       `json:"daysRemaining"`  // اگر منقضی شده = 0
+	DaysOverdue    int       `json:"daysOverdue"`    // اگر فعال است = 0
+}
+
 type fetchUserInfoResponse struct {
-	domain.User
-	AdminAccessInfo *domain.AdminAccess
+	User              domain.User `json:"user"`
+	AdminAccessInfo   any         `json:"adminAccessInfo"`
+	Subscriptions     []subscriptionStatusVM `json:"subscriptions"`
+	HasActiveSubscription bool   `json:"hasActiveSubscription"`
+	ActiveCities      []int64    `json:"activeCities"`
 }
 
 func (uh *UserHandler) FetchUserInfo(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
-	UserId := authPayload.UserID
+	userID := authPayload.UserID
 
 	ctx := c.Request.Context()
-	fetchedUser, adminAccessInfo, err := uh.service.FetchUserInfo(ctx, UserId)
+
+	// قبلی‌ها همون‌طور که هست:
+	fetchedUser, adminAccessInfo, err := uh.service.FetchUserInfo(ctx, userID)
 	if err != nil {
 		HandleError(c, err, uh.AppConfig.Lang)
 		return
 	}
 
+	// جدید: گرفتن سابسکرایب‌ها (برای همه شهرها)
+	subs, err := uh.service.GetUserSubscriptionsWithCity(ctx, userID)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	now := time.Now()
+	outSubs := make([]subscriptionStatusVM, 0, len(subs))
+	activeCities := make([]int64, 0, len(subs))
+	hasActive := false
+
+	for _, s := range subs {
+		// s.ExpiresAt از نوع time.Time است
+		diff := s.ExpiresAt.Sub(now).Hours() / 24.0
+		isActive := diff >= 0
+
+		var daysRemaining int
+		var daysOverdue int
+		if isActive {
+			// سقف به بالا تا اگر چند ساعت مانده بود، 1 روز حساب شود
+			daysRemaining = int(math.Ceil(diff))
+			if daysRemaining < 0 {
+				daysRemaining = 0
+			}
+		} else {
+			// منقضی‌شده: چند روز گذشته؟
+			daysOverdue = int(math.Ceil(-diff))
+			if daysOverdue < 0 {
+				daysOverdue = 0
+			}
+		}
+
+		vm := subscriptionStatusVM{
+			CityID:         s.CityID,
+			City:           s.City,          // اگر در کوئری جوین کردی
+			SubscriptionID: s.SubscriptionID,
+			ExpiresAt:      s.ExpiresAt,
+			IsActive:       isActive,
+			DaysRemaining:  daysRemaining,
+			DaysOverdue:    daysOverdue,
+		}
+		outSubs = append(outSubs, vm)
+		if isActive {
+			hasActive = true
+			activeCities = append(activeCities, s.CityID)
+		}
+	}
+
 	response := &fetchUserInfoResponse{
-		*fetchedUser,
-		adminAccessInfo,
+		User:                *fetchedUser,
+		AdminAccessInfo:     adminAccessInfo,
+		Subscriptions:       outSubs,
+		HasActiveSubscription: hasActive,
+		ActiveCities:        activeCities,
 	}
 
 	handleSuccess(c, response)
