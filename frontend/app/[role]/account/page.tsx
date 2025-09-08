@@ -152,7 +152,7 @@ export default async function AccountPage({
           icon={<span className="text-lg">💳</span>}
         />
         <AccountListItem
-          href={`/rules`}
+          href={`/${roleSegment}/rules`}
           title={t.list.rules}
           icon={<span className="text-lg">📘</span>}
         />
