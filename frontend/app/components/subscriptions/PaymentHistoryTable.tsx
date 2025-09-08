@@ -93,7 +93,18 @@ export default function PaymentHistoryTable({ t, items, loading }: Props) {
                   </div>
                 </div>
                 <span className="shrink-0 rounded-xl bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs text-gray-700 dark:text-gray-200">
-                  {t.days}: {r.numberOfDays ?? "—"}
+                  {t.days}: {r.numberOfDays === 1
+                    ? "۳۰"
+                    : r.numberOfDays === 2
+                    ? "۶۰"
+                    : r.numberOfDays === 3
+                    ? "۹۰"
+                    : r.numberOfDays === 4
+                    ? "۱۸۰"
+                    : r.numberOfDays === 5
+                    ? "۳۶۵"
+                    : "نامشخص"
+                  }
                 </span>
               </div>
 
