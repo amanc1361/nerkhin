@@ -57,8 +57,8 @@ export default function MarketProductItem({
             </div>
                {/* تاریخ */}
           <div className="shrink-0 w-28 text-xs text-gray-500 text-left">
-            {item.updatedAt.slice(0,10)}
-            {/* <PersianDate value={item.updatedAt} /> */}
+          
+            <PersianDate value={item.updatedAt} />
           </div> 
            </div>
           </div>
