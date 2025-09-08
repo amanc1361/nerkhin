@@ -7,6 +7,9 @@ export type AccountMessages = {
     validityPrefix: string;
     months: string;
     days: string;
+    map:string;
+    
+    activeTitle: string;
   };
   actions: {
     editShop: string;
@@ -28,9 +31,11 @@ export const getAccountMessages = (locale: "fa" | "en" = "fa"): AccountMessages 
     return {
       header: {
         roleWholesale: "Wholesaler",
+        activeTitle: "Active Subscriptions",
         roleRetail: "Retailer",
         badgeText: (r) => `Store | ${r}`,
         validityPrefix: "Account validity:",
+        map:"map",
         months: "months",
         days: "days",
       },
@@ -44,10 +49,12 @@ export const getAccountMessages = (locale: "fa" | "en" = "fa"): AccountMessages 
   return {
     header: {
       roleWholesale: "عمده‌فروش",
+      map:"نقشه",
       roleRetail: "خرده‌فروش",
       badgeText: (r) => `فروشگاه | ${r}`,
       validityPrefix: "اعتبار حساب:",
-      months: "ماه",
+      activeTitle: "اشتراک فعال",
+            months: "ماه",
       days: "روز",
     },
     actions: { editShop: "ویرایش فروشگاه", extendAccount: "تمدید حساب" },

@@ -1,12 +1,10 @@
 // components/account/AccountHeaderCard.tsx
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { normalizeRole, RoleInput, UserRole } from "@/app/types/role";
 import { AccountUser } from "@/app/types/account/account";
 import { getAccountMessages } from "@/lib/server/texts/accountMessages";
-
-
 
 type Props = {
   locale?: "fa" | "en";
@@ -64,6 +62,7 @@ export const AccountHeaderCard: FC<Props> = ({
   const t = getAccountMessages(locale);
   const nRole = normalizeRole(role);
   const isWholesale = nRole === UserRole.Wholesaler;
+
   const roleLabel =
     nRole === UserRole.Wholesaler ? t.header.roleWholesale :
     nRole === UserRole.Retailer   ? t.header.roleRetail   : "";
@@ -75,109 +74,137 @@ export const AccountHeaderCard: FC<Props> = ({
 
   const phones = [user.shopPhone1, user.shopPhone2, user.shopPhone3].filter(Boolean) as string[];
 
+  const imageSrc = useMemo(() => {
+    if (user?.imageUrl) return `https://nerkhin.com/uploads/${user.imageUrl}`;
+    return "/uploads/avatar-placeholder.png";
+  }, [user?.imageUrl]);
+
   return (
-    <section
-      className="relative overflow-hidden rounded-3xl border border-purple-200 bg-gradient-to-br from-[#EAD6FF] via-[#EFE7FF] to-[#E6F2FF] p-5 shadow-[0_12px_34px_-12px_rgba(109,40,217,.35)]"
-    >
-      {/* گرادینت تقویتی */}
-      <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-purple-300/35 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-28 -left-36 h-72 w-72 rounded-full bg-indigo-300/30 blur-3xl" />
-
-      {/* آواتار کاملاً بالا-راست (absolute) */}
-      <div className="absolute right-5 top-5">
-        <div className="relative h-16 w-16 overflow-hidden rounded-full ring-2 ring-purple-300">
-        
-          <Image
-            src={"https://nerkhin.com/uploads/"+ user.imageUrl || "/uploads/avatar-placeholder.png"}
-            alt={user.fullName || user.shopName || "avatar"}
-            fill
-            sizes="64px"
-            className="object-cover"
-          />
-        </div>
-      </div>
-
-      {/* بدنه: راست‌چین زیر آواتار با فاصله سمت راست */}
-      <div className="pr-20 text-right">
-        {/* چیپ‌ها */}
-        <div className="mb-2 inline-flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-1 text-xs text-purple-800">
-            فروشگاه | {roleLabel}
-          </span>
-          {validityText ? (
-            <span className="inline-flex items-center rounded-full bg-cyan-50 px-2 py-1 text-xs text-cyan-700">
-              {t.header.validityPrefix} {validityText}
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">
-              {t.empty.noSubscription}
-            </span>
-          )}
+    <section className="relative overflow-hidden rounded-3xl border border-purple-200/70 bg-white/60 p-5 sm:p-6 shadow-[0_20px_60px_-24px_rgba(109,40,217,0.35)] backdrop-blur">
+      {/* ردیف بالا: آواتار راست، ستون اطلاعات چپ آواتار (وسط‌چین عمودی) */}
+      <div className="flex flex-row items-center justify-between gap-4 sm:gap-6">
+        {/* آواتار راست */}
+        <div className="shrink-0">
+          <div className="relative h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-full ring-2 ring-purple-300/70 shadow-md">
+            <Image
+              src={imageSrc}
+              alt={user.fullName || user.shopName || "avatar"}
+              fill
+              sizes="80px"
+              className="object-cover"
+              priority
+            />
+          </div>
         </div>
 
-        {/* نام‌ها */}
-        <div className="text-sm font-semibold text-gray-900">
-          {isWholesale ? user.shopName || user.fullName || "" : user.fullName || ""}
-        </div>
-        {isWholesale && user.fullName && (
-          <div className="text-xs text-gray-500">{user.fullName}</div>
-        )}
+        {/* ستون اطلاعات (رول + مانده + نام‌ها) */}
+        <div className="flex w-full flex-col  text-right">
+          <div className="mb-2 flex flex-wrap items-center justify-start gap-2">
+            {roleLabel ? (
+              <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-medium text-purple-800">
+                {roleLabel}
+              </span>
+            ) : null}
 
-        {/* آدرس: راست‌چین، آیکن سمت راست متن */}
-        {isWholesale && user.shopAddress && (
-          <div className="mt-3 inline-flex items-center gap-2 text-xs text-gray-700">
-            <span className="text-gray-500">{Ic.pin}</span>
-            <span className="truncate">{user.shopAddress}</span>
-            {locHref && (
-              <Link href={locHref} target="_blank" className="rounded-full bg-gray-100 p-1 text-gray-600 hover:text-gray-800" aria-label="location">
-                {Ic.pin}
-              </Link>
+            {validityText ? (
+              <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[11px] font-medium text-cyan-700">
+                {t.header.validityPrefix} {validityText}
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700">
+                {t.empty.noSubscription}
+              </span>
             )}
           </div>
-        )}
 
-        {/* تلفن‌ها: آیکن در راست‌ترین نقطه + شماره‌ها با جداکننده عمودی */}
-        {isWholesale && phones.length > 0 && (
-          <div className="mt-3 flex items-center justify-end gap-2 text-[13px] text-gray-900">
-            {/* آیکن در راست */}
-            <span className="text-gray-500">{Ic.phone}</span>
-            {/* شماره‌ها کنار هم */}
-            <div className="flex items-center">
-              {phones.map((ph, i) => (
-                <span key={i} className="flex items-center">
-                  <a dir="ltr" href={`tel:${ph}`} className="hover:underline">
-                    {ph}
-                  </a>
-                  {i < phones.length - 1 && (
-                    <span className="mx-2 inline-block h-3 w-px bg-gray-300" />
-                  )}
-                </span>
-              ))}
+          <div className="space-y-0.5">
+            <div className="truncate text-base sm:text-lg font-bold leading-6 text-gray-900">
+              {isWholesale ? user.shopName || user.fullName || "" : user.fullName || ""}
             </div>
+            {isWholesale && user.fullName && (
+              <div className="text-xs text-gray-500">{user.fullName}</div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* شبکه‌های اجتماعی: وسط‌چینِ واقعی */}
+      {/* آدرس (دیو مستقل زیر بخش بالا) */}
+      {isWholesale && user.shopAddress && (
+        <div className="mt-4 flex items-start justify-start gap-2 text-xs text-gray-700">
+          <span className="shrink-0 text-gray-500">{Ic.pin}</span>
+          <span className=" truncate leading-5">{user.shopAddress}</span>
+          {locHref && (
+            <Link
+              href={locHref}
+              target="_blank"
+              className="rounded-full border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
+              aria-label="location"
+            >
+              {t.header?.map || " "}
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* تلفن‌ها (دیو مستقل زیر آدرس) */}
+      {isWholesale && phones.length > 0 && (
+        <div className="mt-3 flex items-center  gap-3 text-[13px] text-gray-900">
+          <span className="text-gray-500">{Ic.phone}</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {phones.map((ph, i) => (
+              <a
+                key={`${ph}-${i}`}
+                dir="ltr"
+                href={`tel:${ph}`}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 transition hover:border-gray-300 hover:bg-gray-50"
+              >
+                {ph}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* شبکه‌های اجتماعی (دیو مستقل زیر تلفن‌ها) */}
       {isWholesale && (
-        <div className="mt-4 flex items-center justify-center gap-10 text-gray-700">
+        <div className="mt-5 flex items-center justify-start gap-3 sm:gap-4 text-gray-700">
           {user.instagramUrl && (
-            <Link href={user.instagramUrl} target="_blank" className="grid h-9 w-9 place-items-center rounded-full bg-white/80 backdrop-blur hover:bg-white" aria-label="instagram">
+            <Link
+              href={user.instagramUrl}
+              target="_blank"
+              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
+              aria-label="instagram"
+            >
               {Ic.insta}
             </Link>
           )}
           {user.telegramUrl && (
-            <Link href={user.telegramUrl} target="_blank" className="grid h-9 w-9 place-items-center rounded-full bg-white/80 backdrop-blur hover:bg-white" aria-label="telegram">
+            <Link
+              href={user.telegramUrl}
+              target="_blank"
+              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
+              aria-label="telegram"
+            >
               {Ic.tg}
             </Link>
           )}
           {user.websiteUrl && (
-            <Link href={user.websiteUrl} target="_blank" className="grid h-9 w-9 place-items-center rounded-full bg-white/80 backdrop-blur hover:bg-white" aria-label="website">
+            <Link
+              href={user.websiteUrl}
+              target="_blank"
+              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
+              aria-label="website"
+            >
               {Ic.web}
             </Link>
           )}
           {user.whatsappUrl && (
-            <Link href={user.whatsappUrl} target="_blank" className="grid h-9 w-9 place-items-center rounded-full bg-white/80 backdrop-blur hover:bg-white" aria-label="whatsapp">
+            <Link
+              href={user.whatsappUrl}
+              target="_blank"
+              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
+              aria-label="whatsapp"
+            >
               {Ic.wa}
             </Link>
           )}

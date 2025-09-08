@@ -1,21 +1,26 @@
 // app/[role]/account/page.tsx
-
 import { AccountHeaderCard } from "@/app/components/account/AccountHeaderCard";
 import AccountListItem from "@/app/components/account/AccountListItem";
 import AccountQuickActions from "@/app/components/account/AccountQuickActions";
 import SignOutRow from "@/app/components/account/SignOutRow";
-import { UserSubscription } from "@/app/types/account/account";
+import ActiveSubscriptions from "@/app/components/account/ActiveSubscriptions";
+
 import { normalizeRole, UserRole } from "@/app/types/role";
-import { fetchUserInfo, fetchUserSubscriptions } from "@/lib/server/server-api";
 import { getAccountMessages } from "@/lib/server/texts/accountMessages";
+import { fetchUserInfo } from "@/lib/server/server-api";
+import { FetchUserInfoResponse, SubscriptionStatusVM } from "@/app/types/account/subscriptionstatus";
+
+// تایپ‌های جدید فقط ایمپورت می‌شن؛ هیچ تایپ قبلی‌ای بازتعریف نشده
+
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/* ---------- helpers ---------- */
-function toMonthDayDiff(now: Date, end?: string | null) {
-  if (!end) return null;
-  const endDt = new Date(end);
-  const ms = endDt.getTime() - now.getTime();
+/* ---------- helpers (بدون متن هاردکد) ---------- */
+function toMonthDayDiff(now: Date, endISO?: string | null) {
+  if (!endISO) return null;
+  const end = new Date(endISO);
+  const ms = end.getTime() - now.getTime();
   if (!Number.isFinite(ms) || ms <= 0) return null;
   const daysTotal = Math.floor(ms / (1000 * 60 * 60 * 24));
   const months = Math.floor(daysTotal / 30);
@@ -23,17 +28,31 @@ function toMonthDayDiff(now: Date, end?: string | null) {
   return { months, days };
 }
 
-function validityTextFromSubs(locale: "fa" | "en", subs: UserSubscription[]) {
-  if (!Array.isArray(subs) || subs.length === 0) return null;
-  const latest = subs
-    .map((s) => s.endAt)
+function validityTextFromSubs(locale: "fa" | "en", subs: SubscriptionStatusVM[]) {
+  // فقط از اشتراک‌های فعال اعتبار باقی‌مانده را حساب می‌کنیم
+  const actives = (subs || []).filter((s) => s.isActive && !!s.expiresAt);
+  if (actives.length === 0) return null;
+
+  const latest = actives
+    .map((s) => s.expiresAt)
     .filter(Boolean)
     .sort((a, b) => new Date(a!).getTime() - new Date(b!).getTime())
     .at(-1);
+
   const diff = toMonthDayDiff(new Date(), latest || null);
   if (!diff) return null;
+
   const t = getAccountMessages(locale);
-  return `${diff.months} ${t.header.months} و ${diff.days} ${t.header.days}`;
+  const monthsLbl = "header" in t && t.header?.months ? t.header.months : "";
+  const daysLbl = "header" in t && t.header?.days ? t.header.days : "";
+
+  if (diff.months === 0) {
+    // فقط روز
+    return `${diff.days} ${daysLbl}`.trim();
+  }
+
+  // ماه و روز
+  return `${diff.months} ${monthsLbl} و ${diff.days} ${daysLbl}`.trim();
 }
 
 /* ---------- page ---------- */
@@ -52,29 +71,32 @@ export default async function AccountPage({
   const locale: "fa" | "en" = "fa";
   const t = getAccountMessages(locale);
 
-  // SSR fetch با سشن
-  const [user, subs] = await Promise.all([
-    fetchUserInfo(),
-    fetchUserSubscriptions().catch(() => [] as UserSubscription[]),
-  ]);
+  // نکته مهم: امضای fetchUserInfo را تغییر نمی‌دهیم.
+  // در اینجا فقط خروجی را به تایپ جدید cast می‌کنیم تا به subscriptions دسترسی داشته باشیم.
+  const info = (await fetchUserInfo()) as unknown as FetchUserInfoResponse;
 
-  const validityText = validityTextFromSubs(locale, subs || []);
+  const { user, subscriptions } = info;
   const nRole = normalizeRole(roleSegment);
   const isWholesale = nRole === UserRole.Wholesaler;
 
-const HeartIcon = (
-  <svg
-    className="h-5 w-5"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
-  </svg>
-);
+  // فقط اشتراک‌های فعال (طبق خواسته شما)
+  const activeSubs = (subscriptions || []).filter((s) => s.isActive && s.daysRemaining > 0);
+
+  const validityText = validityTextFromSubs(locale, activeSubs);
+
+  const HeartIcon = (
+    <svg
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  );
 
   return (
     <main className="mx-auto max-w-screen-sm px-3 py-4">
@@ -99,6 +121,9 @@ const HeartIcon = (
         }}
         validityText={validityText || undefined}
       />
+
+      {/* فقط اشتراک‌های فعال (بدون نمایش منقضی‌ها) */}
+      <ActiveSubscriptions locale={locale} items={activeSubs} />
 
       {/* Quick actions */}
       <AccountQuickActions

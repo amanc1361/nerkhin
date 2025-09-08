@@ -190,7 +190,9 @@ export async function getFiltersByCategory(
 }
 
 export async function fetchUserInfo(): Promise<AccountUser> {
-  return authenticatedFetch("/user/fetch-user", { method: "GET" });
+  const data= await authenticatedFetch("/user/fetch-user", { method: "GET" });
+
+  return data
 }
 
 // --- USER SUBSCRIPTION ---
