@@ -231,7 +231,13 @@ export default function SearchResultsClient({
     () => Math.max(1, Math.ceil((data.total || 0) / limit)),
     [data.total, limit]
   );
-
+  const hasBrandIds = useMemo(() => {
+    const ids = (sp.get("brandIds") || "")
+      .split(",")
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0);
+    return ids.length > 0;
+  }, [sp]);
   // — موبایل: اسکرول بی‌نهایت —
   const hasMore = page * limit < (data.total || 0);
   const loadNext = useCallback(() => {
@@ -258,14 +264,20 @@ export default function SearchResultsClient({
               </button>
             </div>
             {/* دکمهٔ باز کردن مودال فیلتر */}
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(true)}
-              className="border rounded-md justify-center flex items-center gap-2 py-2 px-3 w-40 hover:bg-gray-50"
-            >
-              <Filter className="w-5 h-5" />
-              <span>فیلتر نتایج</span>
-            </button>
+       
+       
+            {hasBrandIds && (
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                className="border rounded-md justify-center flex items-center gap-2 py-2 px-3 w-40 hover:bg-gray-50"
+              >
+                <Filter className="w-5 h-5" />
+                <span>فیلتر نتایج</span>
+              </button>
+            )}
+
+
           </form>
         </div>
       </header>

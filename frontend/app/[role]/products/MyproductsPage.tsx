@@ -99,11 +99,8 @@ export default function MyproductsPage({
         null;
 
       const updatedAt =
-        it?.updatedAt ??
-        it?.updated_at ??
-        it?.product?.updated_at ??
-        it?.product?.updatedAt ??
-        null;
+        it?.product?.updatedAt 
+        
 
       const brandId =
         it?.brandId ??
@@ -179,6 +176,7 @@ export default function MyproductsPage({
 
         const url = `/user-product/fetch-shop${params.toString() ? `?${params.toString()}` : ""}`;
         const res: any = await api.get({ url });
+       
         const payload = (res && typeof res === "object" && "data" in res) ? res.data : res;
 
         const products = Array.isArray(payload?.products)

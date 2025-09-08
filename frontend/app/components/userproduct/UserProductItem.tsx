@@ -65,7 +65,7 @@ export default function UserProductItem({
   item, messages, onEdit, onDelete, onToggleVisible, onMoveUp, onMoveDown, disabled = false,showAction=true
 }: Props) {
   const { title, imgRel, final, hidden, productId } = pick(item as any);
-  const dateFa = item.createdAt;
+  const dateFa = item.updatedAt;
   const price  = final ? formatMoneyInput(String(final), false) : "—";
 
   const candidates = useMemo(() => buildImageCandidates(imgRel, productId), [imgRel, productId]);

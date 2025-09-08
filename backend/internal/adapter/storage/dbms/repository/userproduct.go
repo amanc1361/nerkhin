@@ -200,7 +200,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		`, isFavExpr)).
 		Order(`
 			up.product_id,
-			COALESCE(up.updated_at, up.created_at) ASC,
+			COALESCE(up.updated_at,up.updated_at) ASC,
 			up.final_price ASC
 		`)
 
