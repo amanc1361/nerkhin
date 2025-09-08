@@ -219,7 +219,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	return out, nil
 }
 
-// نسخهٔ Count برای صفحه‌بندی
+// نسخهٔ Count برای صفحه‌بندی — هم‌راستا با Fetch
 func (upr *UserProductRepository) CountMarketProductsFiltered(
 	ctx context.Context,
 	dbSession interface{},
@@ -233,14 +233,15 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		q = &domain.UserProductSearchQuery{}
 	}
 
+	// پایهٔ همان JOINها مثل Fetch (city هم اضافه شود تا فیلتر شهر کار کند)
 	qb := db.Table("user_product AS up").
 		Joins("JOIN user_t AS u  ON u.id = up.user_id").
 		Joins("JOIN product AS p ON p.id = up.product_id").
 		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
 		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
-		Select("up.id")
+		Joins("LEFT JOIN city AS c ON c.id = u.city_id")
 
-	// همان قیود
+	// فقط محصولات قابل نمایش (عین Fetch)
 	onlyVisible := true
 	if q.OnlyVisible != nil {
 		onlyVisible = *q.OnlyVisible
@@ -248,15 +249,13 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 	if onlyVisible {
 		qb = qb.Where("up.is_hidden = FALSE")
 	}
-	if q.RequireWholesalerRole {
-		qb = qb.Where("u.role = ?" /*UserRoleWholesaler*/, 2)
-	}
+
+	// فیلترهای همسان با Fetch (دقت: بدون Role و بدون بازهٔ قیمت، چون در Fetch نداریم)
 	if q.CategoryID > 0 {
 		qb = qb.Where("pb.category_id = ?", q.CategoryID)
 	}
 	if len(q.BrandIDs) > 0 {
-		// تغییر: IN (?) برای آرایه‌ها
-		qb = qb.Where("pb.id IN (?)", q.BrandIDs)
+		qb = qb.Where("pb.id IN (?)", q.BrandIDs) // در صورت تمایل: "IN ?" هم قابل استفاده است
 	}
 	if q.IsDollar != nil {
 		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
@@ -273,7 +272,6 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, q.ViewerID)
 	}
 	if len(q.TagList) > 0 {
-		// تغییر: IN (?) برای آرایه‌ها
 		qb = qb.Where(`
 			EXISTS (
 				SELECT 1 FROM product_tag pt
@@ -282,7 +280,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, q.TagList)
 	}
 
-	// AND برای filterIdها
+	// AND برای filterIdها (عین Fetch)
 	if len(q.FilterIDs) > 0 {
 		qb = qb.Where(`
 			up.product_id IN (
@@ -295,7 +293,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, q.FilterIDs, len(q.FilterIDs))
 	}
 
-	// AND برای optionIdها
+	// AND برای optionIdها (عین Fetch)
 	if len(q.OptionIDs) > 0 {
 		qb = qb.Where(`
 			up.product_id IN (
@@ -308,6 +306,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, q.OptionIDs, len(q.OptionIDs))
 	}
 
+	// جست‌وجوی متنی (عین Fetch)
 	if s := strings.TrimSpace(q.Search); s != "" {
 		like := "%" + s + "%"
 		qb = qb.Where(`
@@ -328,28 +327,10 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		`, like, like, like, like, like, like, like, like)
 	}
 
-	// ---- فیلتر بازهٔ قیمت ----
-	{
-		hasMin := q.PriceMin != nil && q.PriceMin.GreaterThan(decimal.Zero)
-		hasMax := q.PriceMax != nil && q.PriceMax.GreaterThan(decimal.Zero)
-
-		if hasMin && hasMax {
-			minV := *q.PriceMin
-			maxV := *q.PriceMax
-			if maxV.LessThan(minV) {
-				minV, maxV = maxV, minV
-			}
-			qb = qb.Where("up.final_price BETWEEN ? AND ?", minV, maxV)
-		} else if hasMin {
-			qb = qb.Where("up.final_price >= ?", *q.PriceMin)
-		} else if hasMax {
-			qb = qb.Where("up.final_price <= ?", *q.PriceMax)
-		}
-	}
-	// --------------------------------------
-
+	// شمارش متمایز product_id برای هم‌راستایی با DISTINCT ON در Fetch
+	sub := qb.Select("DISTINCT up.product_id")
 	var total int64
-	if err := qb.Count(&total).Error; err != nil {
+	if err := db.Table("(?) AS t", sub).Count(&total).Error; err != nil {
 		return 0, err
 	}
 	return total, nil
