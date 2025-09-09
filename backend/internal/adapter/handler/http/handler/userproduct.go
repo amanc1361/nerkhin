@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"net/url"
+	"os"
 	"sort"
 
 	"strconv"
@@ -1023,28 +1024,43 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 
 	// اجرای Headless Chrome داخل کانتینر
 	// توجه: در Dockerfile متغیرهای CHROMEDP_EXEC_PATH/CHROME_PATH ست شده‌اند.
-	chromeCtx, cancel := chromedp.NewContext(context.Background())
+	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.ExecPath(os.Getenv("CHROMEDP_EXEC_PATH")), // همون /usr/bin/chromium-browser طبق compose/Dockerfile
+		chromedp.Flag("headless", true),                    // هدلس
+		chromedp.Flag("no-sandbox", true),                  // حل خطای namespace
+		chromedp.Flag("disable-setuid-sandbox", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("disable-dev-shm-usage", true), // برای /dev/shm
+		chromedp.Flag("no-zygote", true),
+		chromedp.Flag("single-process", true),         // در بعضی محیط‌ها لازم می‌شود
+		chromedp.UserDataDir("/tmp/chromedp-profile"), // پروفایل قابل‌نوشتن
+	)
+
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocOpts...)
+	defer allocCancel()
+
+	chromeCtx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 45*time.Second)
+	defer timeoutCancel()
 	defer cancel()
 
 	// برای جلوگیری از hang — تایم‌اوت مناسب بگذار
-	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 45*time.Second)
-	defer timeoutCancel()
-
 	var pdfBuf []byte
-
 	err = chromedp.Run(
 		timeoutCtx,
 		chromedp.Navigate(urlEncodeHTMLDataURL(htmlStr)),
 		chromedp.WaitReady("body", chromedp.ByQuery),
 
-		// Emulate media = screen  (نسخه‌های جدید)
+		// Emulate media: screen
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return emulation.SetEmulatedMedia().WithMedia("screen").Do(ctx)
-			// اگر ماژولت قدیمی‌تره و WithMedia نداره:
+			// اگر نسخه قدیمی‌تره:
 			// return emulation.SetEmulatedMedia("screen").Do(ctx)
 		}),
 
-		// Print to PDF — سه مقدار برمی‌گرده؛ دومیه stream هست که لازم نداریم
+		// Print to PDF — سه مقدار: data, stream, err
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			data, _, err := page.PrintToPDF().
 				WithPrintBackground(true).
