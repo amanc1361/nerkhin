@@ -4,7 +4,7 @@
 FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
-
+ENV GOTOOLCHAIN=auto
 # نصب ابزارهای مورد نیاز برای CGO + WebP
 RUN apk add --no-cache \
     git \
