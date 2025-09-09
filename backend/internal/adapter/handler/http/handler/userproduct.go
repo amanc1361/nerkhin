@@ -790,7 +790,7 @@ func fontDataURI(path, mime string) (string, error) {
 	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
-const siteBaseURL = "https://nerkin.com"
+const siteBaseURL = "https://nerkhin.com"
 
 // CSS @font-face با فونت لوکال به صورت data:URI
 func buildLocalVazirmatnCSS() string {
@@ -938,8 +938,7 @@ func buildPriceListHTML(vm domain.ShopViewModel, now interface{}) string {
 	// لوگو HTML (اگر نبود، جای‌گیر ظریف)
 	var logoHTML string
 	if u := shopLogoURL(vm.ShopInfo.ImageUrl); u != "" {
-		logoHTML = fmt.Sprintf(`<p>%s</p>`, htmlEsc(u))
-		//logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, htmlEsc(u))
+		logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, htmlEsc(u))
 	} else {
 		logoHTML = `<div class="shop-logo placeholder"></div>`
 	}
