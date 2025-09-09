@@ -1,49 +1,33 @@
-// مسیر: app/app/panel/brands/[brandId]/[categoryId]/page.tsx
-import React from "react";
+// همون مسیری که قبلاً داشتی و کار می‌کرد (تغییر مسیر نده)
+// مثلا: app/app/panel/brands/[brandId]/[categoryId]/page.tsx
 import { notFound } from "next/navigation";
-
 import { BrandPageClient } from "@/app/components/panel/brands/BrandPageClient";
-import { Brand } from "@/app/types/types";
-import { ProductFilterData } from "@/app/types/model/model";
+import type { Brand } from "@/app/types/types";
+import type { ProductFilterData } from "@/app/types/model/model";
+import { getBrandDetails, getFiltersByCategory } from "lib/server/server-api";
 
-import {
-  getBrandDetails,
-  getFiltersByCategory,
-} from "lib/server/server-api";
-
-/* تایپ دقیق پارامترهای مسیر */
 interface RouteParams {
   brandId: string;
   categoryId: string;
 }
 
-export default async function BrandModelPage({
+export default async function BrandModelsPage({
   params,
 }: {
-  params?: Promise<RouteParams>;
+  params: Promise<RouteParams>;
 }) {
-  const p: RouteParams | undefined =
-    params && typeof (params as any).then === "function"
-      ? await params
-      : (params as unknown as RouteParams | undefined);
+  const { brandId, categoryId } = await params;
+  if (!brandId || !categoryId) notFound();
 
-  if (!p?.brandId || !p?.categoryId) {
-    notFound();
-  }
+  const catId = Number(categoryId);
 
-  const { brandId, categoryId } = p;
+  const [brandRaw, filters] = await Promise.all([
+    getBrandDetails(brandId),
+    getFiltersByCategory(catId),
+  ]);
+  if (!brandRaw) notFound();
 
-  const brandRaw = await getBrandDetails(brandId);
-  const brand: Brand = { ...brandRaw, categoryId: Number(categoryId) };
+  const brand: Brand = { ...brandRaw, categoryId: catId };
 
-  const filters: ProductFilterData[] = await getFiltersByCategory(
-    brand.categoryId
-  );
-
-  return (
-    <BrandPageClient
-      brand={brand}
-      initialFilters={filters}
-    />
-  );
+  return <BrandPageClient brand={brand} initialFilters={filters as ProductFilterData[]} />;
 }

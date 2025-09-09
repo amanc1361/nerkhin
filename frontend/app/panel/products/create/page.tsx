@@ -1,29 +1,28 @@
-'use client'; // اگر نیاز به client-side نیست، این خط را حذف کن
-
+// مسیر فعلی‌ات برای ساخت محصول (همون که الان داری):
+// مثلا: app/panel/products/create/page.tsx
 import { notFound } from "next/navigation";
 import { getBrandDetails, getFiltersByCategory } from "lib/server/server-api";
 import { ProductCreateClient } from "@/app/components/panel/products/ProductCreateClient";
-import { Brand } from "@/app/types/types";
-import { ProductFilterData } from "@/app/types/model/model";
+import type { Brand } from "@/app/types/types";
+import type { ProductFilterData } from "@/app/types/model/model";
 
-// ما تایپ را به طور کامل از بین می‌بریم و با any جلو می‌رویم برای نجات از خطا
-const ProductCreatePage = async ({ searchParams }: any) => {
-  const brandId = searchParams?.brandId as string | undefined;
-  const categoryId = searchParams?.categoryId as string | undefined;
+export default async function ProductCreatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ brandId?: string; categoryId?: string }>;
+}) {
+  const { brandId, categoryId } = await searchParams;
+  if (!brandId || !categoryId) notFound();
 
-  if (!brandId || !categoryId) {
-    notFound();
-  }
+  const catId = Number(categoryId);
 
-  const brandRaw = await getBrandDetails(brandId);
-  const brand: Brand = {
-    ...brandRaw,
-    categoryId: Number(categoryId),
-  };
+  const [brandRaw, filters] = await Promise.all([
+    getBrandDetails(brandId),
+    getFiltersByCategory(catId),
+  ]);
+  if (!brandRaw) notFound();
 
-  const filters: ProductFilterData[] = await getFiltersByCategory(brand.categoryId);
+  const brand: Brand = { ...brandRaw, categoryId: catId };
 
-  return <ProductCreateClient brand={brand} filters={filters} />;
-};
-
-export default ProductCreatePage;
+  return <ProductCreateClient brand={brand} filters={filters as ProductFilterData[]} />;
+}
