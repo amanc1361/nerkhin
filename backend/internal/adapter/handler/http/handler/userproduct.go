@@ -896,6 +896,15 @@ var vazirBoldCandidates = []string{
 	"Vazirmatn-FD-Bold.ttf",
 }
 
+// تاریخ ایتم‌ها به صورت yyyy/mm/dd جلالی (LTR)
+func jalaliYMDFromAny(v time.Time) string {
+	jt := ptime.New(v)
+	if jt.Time().IsZero() {
+		return "—"
+	}
+	return ymdJalali_LTR(jt.Time()) // خروجی مثل: 1404/06/18
+}
+
 func pickExistingFont(fontDir string, names []string) (fullPath, mime, format string, ok bool) {
 	for _, n := range names {
 		p := filepath.Join(fontDir, n)
@@ -922,7 +931,7 @@ func fontDataURI(path, mime string) (string, error) {
 	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
-const siteBaseURL = "https://nerkin.com/uploads"
+const siteBaseURL = "https://nerkin.com"
 
 func absURL(u string) string {
 	u = strings.TrimSpace(u)
@@ -1014,7 +1023,7 @@ func buildPriceListHTML(vm priceListVM, now interface{}) string {
 	siteQR := buildQRDataURI(siteURL, 96)
 
 	// لوگو (از /uploads/... به URL کامل)
-	logoSrc := absURL(vm.Shop.ImageURL)
+	logoSrc := "https://nerkhin.com/uploads/" + vm.Shop.ImageURL
 
 	// Social QR (اختیاری)
 	socials := []struct {
@@ -1050,7 +1059,7 @@ func buildPriceListHTML(vm priceListVM, now interface{}) string {
 		if strings.TrimSpace(title) == "" {
 			title = " "
 		}
-		updated := ymdJalali_LTR(it.UpdatedAt)
+		updated := jalaliYMDFromAny(it.UpdatedAt)
 		price := moneyIRR_LTR(it.Price)
 		rows.WriteString(fmt.Sprintf(`
 			<tr>
