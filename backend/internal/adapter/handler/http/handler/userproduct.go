@@ -23,6 +23,7 @@ import (
 	"github.com/nerkhin/internal/core/domain"
 	"github.com/nerkhin/internal/core/port"
 	"github.com/shopspring/decimal"
+	"github.com/skip2/go-qrcode"
 	ptime "github.com/yaa110/go-persian-calendar"
 )
 
@@ -645,9 +646,15 @@ type priceListVM struct {
 	Items []priceListRow `json:"items"`
 }
 type shopInfo struct {
-	Name    string   `json:"name"`
-	Phones  []string `json:"phones"`
-	Address string   `json:"address"`
+	Name       string   `json:"name"`
+	Phones     []string `json:"phones"`
+	Address    string   `json:"address"`
+	ImageURL   string   `json:"imageUrl"`
+	Instagram  string   `json:"instagram"`
+	Telegram   string   `json:"telegram"`
+	WhatsApp   string   `json:"whatsapp"`
+	TwitterX   string   `json:"twitterX"`
+	WebsiteURL string   `json:"websiteUrl"`
 }
 type priceListRow struct {
 	SubCategory string    `json:"subCategory"`
@@ -806,7 +813,7 @@ func moneyIRR_LTR(n int64) string {
 	return lrm + moneyIRR(n) + lrm
 }
 
-func ymdJalali_LTR(t ptime.Time) string {
+func ymdJalali_LTR(t time.Time) string {
 	s := fmt.Sprintf("%d/%s/%s", t.Year(), pad2(int(t.Month())), pad2(t.Day()))
 	return lrm + s + lrm
 }
@@ -915,6 +922,25 @@ func fontDataURI(path, mime string) (string, error) {
 	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
+const siteBaseURL = "https://nerkin.com"
+
+func absURL(u string) string {
+	u = strings.TrimSpace(u)
+	if u == "" {
+		return ""
+	}
+	// اگر خودش کامل بود (http/https)، دست نمی‌زنیم
+	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+		return u
+	}
+	// اگر مثل /uploads/... بود، به دامنه بچسبان
+	if strings.HasPrefix(u, "/") {
+		return siteBaseURL + u
+	}
+	// سایر حالات نسبی
+	return siteBaseURL + "/" + u
+}
+
 // CSS @font-face با فونت لوکال به صورت data:URI
 func buildLocalVazirmatnCSS() string {
 	regPath, regMime, regFmt, ok1 := pickExistingFont(localFontDir, vazirRegCandidates)
@@ -951,7 +977,28 @@ func buildLocalVazirmatnCSS() string {
 }
 
 // ===================== ساخت HTML (RTL+Vazirmatn) =====================
-func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
+// نیاز به این پکیج دارید:
+// go get github.com/skip2/go-qrcode
+// اگر قبلاً دارید، همین را نگه دارید.
+
+// buildQRDataURI: متن را به PNG QR تبدیل می‌کند و result را به‌صورت data:URI برمی‌گرداند.
+func buildQRDataURI(text string, size int) string {
+	if strings.TrimSpace(text) == "" {
+		return ""
+	}
+	if size <= 0 {
+		size = 128
+	}
+	png, err := qrcode.Encode(text, qrcode.Medium, size)
+	if err != nil || len(png) == 0 {
+		return ""
+	}
+	b64 := base64.StdEncoding.EncodeToString(png)
+	return "data:image/png;base64," + b64
+}
+
+// now از نوع ptime.Time در کد شماست؛ اینجا signature شما را دست‌نخورده نگه می‌دارم.
+func buildPriceListHTML(vm priceListVM, now interface{}) string {
 	shopName := strings.TrimSpace(vm.Shop.Name)
 	if shopName == "" {
 		shopName = "—"
@@ -959,17 +1006,49 @@ func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
 	phones := strings.Join(vm.Shop.Phones, " , ")
 	addr := strings.TrimSpace(vm.Shop.Address)
 
+	// آدرس سایت: اگر در VM بود از همان، وگرنه nerkin.com
+	siteURL := strings.TrimSpace(vm.Shop.WebsiteURL)
+	if siteURL == "" {
+		siteURL = "https://nerkin.com"
+	}
+	siteQR := buildQRDataURI(siteURL, 128)
+
+	// QR شبکه‌های اجتماعی (فقط آن‌هایی که وجود دارند)
+	socials := []struct {
+		label string
+		url   string
+	}{
+		{"Instagram", strings.TrimSpace(vm.Shop.Instagram)},
+		{"Telegram", strings.TrimSpace(vm.Shop.Telegram)},
+		{"WhatsApp", strings.TrimSpace(vm.Shop.WhatsApp)},
+		{"X", strings.TrimSpace(vm.Shop.TwitterX)},
+	}
+	var socialsQR strings.Builder
+	for _, s := range socials {
+		if s.url == "" {
+			continue
+		}
+		qr := buildQRDataURI(s.url, 110)
+		if qr == "" {
+			continue
+		}
+		// کارت QR کوچک برای هر شبکه
+		socialsQR.WriteString(fmt.Sprintf(`
+			<div class="qr-card">
+				<img src="%s" alt="%s QR"/>
+				<div class="qr-label">%s</div>
+			</div>
+		`, htmlEsc(qr), htmlEsc(s.label), htmlEsc(s.label)))
+	}
+
+	// جدول اقلام
 	var rows strings.Builder
 	for i, it := range vm.Items {
 		title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
 		if strings.TrimSpace(title) == "" {
 			title = " "
 		}
-		jt := ptime.New(it.UpdatedAt)
-		if jt.Time().IsZero() {
-			jt = ptime.Now()
-		}
-		updated := ymdJalali_LTR(jt)
+		updated := ymdJalali_LTR(it.UpdatedAt)
 		price := moneyIRR_LTR(it.Price)
 
 		rows.WriteString(fmt.Sprintf(`
@@ -986,8 +1065,16 @@ func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
 		))
 	}
 
-	// ✅ فونت محلی (data:URI) — بدون دانلود
+	// فونت محلی
 	fontCSS := buildLocalVazirmatnCSS()
+
+	// لوگوی فروشگاه (دایره‌ای) اگر موجود است
+	var shopLogoHTML string
+	if u := strings.TrimSpace(vm.Shop.ImageURL); u != "" {
+		shopLogoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, htmlEsc(absURL(u)))
+	} else {
+		shopLogoHTML = `<div class="shop-logo placeholder"></div>`
+	}
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -1005,40 +1092,110 @@ body {
   direction: rtl; unicode-bidi: embed;
   margin: 24px; color: #111;
 }
+
+/* هدر سه‌ستونه: لوگو راست، عنوان وسط، تاریخ + QR چپ */
 .header {
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  align-items: end;
+  gap: 12px;
   margin-bottom: 12px;
 }
-.header .title { text-align: center; font-size: 20px; font-weight: 700; }
-.header .date { font-size: 13px; color: #333; }
-.meta { font-size: 13px; margin: 8px 0 16px 0; }
-.meta div { margin: 4px 0; }
+.header .left { text-align: left; }
+.header .center { text-align: center; }
+.header .right { text-align: right; }
+
+/* لوگو دایره‌ای */
+.shop-logo {
+  width: 72px; height: 72px;
+  border-radius: 50%%; object-fit: cover; object-position: center;
+  border: 1px solid #e5e5e5;
+  display: inline-block;
+}
+.shop-logo.placeholder { background: #f3f3f3; }
+
+.site-qr {
+  display: inline-block;
+  text-align: center;
+}
+.site-qr img { width: 82px; height: 82px; display: block; margin: 0 0 6px 0; }
+.site-qr .small { font-size: 11px; color: #666; }
+
+.title {
+  font-size: 26px; font-weight: 800; line-height: 1.1;
+  margin-bottom: 4px;
+}
+.date {
+  font-size: 13px; color: #333;
+}
+
+/* بلاک آدرس/تلفن */
+.meta {
+  display: grid; grid-template-columns: 1fr; gap: 4px;
+  font-size: 13px; margin: 8px 0 16px 0;
+}
+.meta .row { display: flex; align-items: baseline; gap: 6px; }
+.meta .label { font-weight: 700; color: #222; min-width: 64px; }
+.meta .value { color: #111; }
+
 .hr { height: 1px; background: #e5e5e5; margin: 10px 0 16px 0; }
 
+/* جدول */
 table { width: 100%%; border-collapse: collapse; }
 th, td { border: 1px solid #cfcfcf; padding: 8px 10px; font-size: 13px; }
 th { background: #f5f5f5; font-weight: 700; }
 td.r { text-align: right; }
 td.c { text-align: center; }
 
-.footer { margin-top: 16px; font-size: 12px; color: #666; }
+/* فوتر QR شبکه‌های اجتماعی */
+.footer {
+  margin-top: 16px;
+}
+.qr-list {
+  display: flex; flex-wrap: wrap; gap: 12px;
+}
+.qr-card {
+  width: 110px; text-align: center;
+}
+.qr-card img {
+  width: 110px; height: 110px; display: block;
+  border: 1px solid #eee; background: #fff; border-radius: 8px;
+}
+.qr-label {
+  margin-top: 6px; font-size: 12px; color: #444; font-weight: 600;
+}
 </style>
 </head>
 <body>
 
+<!-- Header -->
 <div class="header">
-  <div class="date">%s</div>
-  <div class="title">%s</div>
-  <div class="date"></div>
+  <div class="right">
+    %s
+  </div>
+
+  <div class="center">
+    <div class="title">%s</div>
+  </div>
+
+  <div class="left">
+    <div class="site-qr">
+      %s
+      <div class="small">%s</div>
+    </div>
+    <div class="date">%s</div>
+  </div>
 </div>
 
+<!-- Address & Phones -->
 <div class="meta">
-  <div>%s</div>
-  <div>%s</div>
+  <div class="row"><div class="label">آدرس:</div><div class="value">%s</div></div>
+  <div class="row"><div class="label">تلفن‌ها:</div><div class="value">%s</div></div>
 </div>
 
 <div class="hr"></div>
 
+<!-- Table -->
 <table>
   <thead>
     <tr>
@@ -1053,16 +1210,43 @@ td.c { text-align: center; }
   </tbody>
 </table>
 
-<div class="footer"></div>
+<!-- Footer (Social QR) -->
+<div class="footer">
+  <div class="qr-list">
+    %s
+  </div>
+</div>
+
 </body>
 </html>`,
 		htmlEsc(shopName),
 		fontCSS,
-		htmlEsc(jalaliDateLong(now)),
+
+		// header.right → shop logo
+		shopLogoHTML,
+
+		// header.center → shop title
 		htmlEsc(shopName),
-		htmlEsc(phones),
+
+		// header.left → site QR + label + date
+		func() string {
+			if siteQR == "" {
+				return `<div style="height:82px"></div>` // جای خالی اگر QR نداشتیم
+			}
+			return fmt.Sprintf(`<img src="%s" alt="site QR"/>`, htmlEsc(siteQR))
+		}(),
+		htmlEsc(siteURL),
+		htmlEsc(jalaliDateLong(now.(ptime.Time))),
+
+		// meta
 		htmlEsc(addr),
+		htmlEsc(phones),
+
+		// rows
 		rows.String(),
+
+		// socials QR
+		socialsQR.String(),
 	)
 }
 
