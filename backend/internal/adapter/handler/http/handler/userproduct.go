@@ -866,7 +866,7 @@ func shopLogoURL(u string) string {
 		return siteBaseURL + u
 	}
 	// در بدترین حالت: فرض کن فقط نام فایل است
-	return siteBaseURL + "/uploads/" + u
+	return siteBaseURL + "/uploads/" + u + ".webp"
 }
 
 // now از نوع ptime.Time در کد شماست؛ اینجا signature شما را دست‌نخورده نگه می‌دارم.
