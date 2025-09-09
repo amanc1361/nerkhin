@@ -2,11 +2,12 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html"
-	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"strconv"
@@ -869,15 +870,87 @@ func uniqueStr(ss []string) []string {
 
 func htmlEsc(s string) string { return html.EscapeString(s) }
 
-// برای لود HTML به‌صورت data: URL امن
-func urlEncodeHTMLDataURL(s string) string {
-	// حذف \n های غیرلازم تا URL کوتاه‌تر شود
-	s = strings.ReplaceAll(s, "\n", "")
-	return "data:text/html," + url.PathEscape(s)
+// مسیر فونت‌ها (طبق Dockerfile شما)
+const localFontDir = "/assets/fonts"
+
+// نام‌های احتمالی فونت‌ها (هر کدام موجود بود برداشته می‌شود)
+var vazirRegCandidates = []string{
+	"Vazirmatn-Regular.woff2",
+	"Vazirmatn-FD-Regular.woff2",
+	"Vazirmatn-Regular.ttf",
+	"Vazirmatn-FD-Regular.ttf",
+	"VazirFD.ttf",
+}
+var vazirBoldCandidates = []string{
+	"Vazirmatn-Bold.woff2",
+	"Vazirmatn-FD-Bold.woff2",
+	"Vazirmatn-Bold.ttf",
+	"Vazirmatn-FD-Bold.ttf",
+	"Vazirmatn-FD-Bold.ttf",
+}
+
+func pickExistingFont(fontDir string, names []string) (fullPath, mime, format string, ok bool) {
+	for _, n := range names {
+		p := filepath.Join(fontDir, n)
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			ext := strings.ToLower(filepath.Ext(n))
+			switch ext {
+			case ".woff2":
+				return p, "font/woff2", "woff2", true
+			case ".ttf":
+				return p, "font/ttf", "truetype", true
+			default:
+				return p, "font/ttf", "truetype", true
+			}
+		}
+	}
+	return "", "", "", false
+}
+
+func fontDataURI(path, mime string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
+}
+
+// CSS @font-face با فونت لوکال به صورت data:URI
+func buildLocalVazirmatnCSS() string {
+	regPath, regMime, regFmt, ok1 := pickExistingFont(localFontDir, vazirRegCandidates)
+	boldPath, boldMime, boldFmt, ok2 := pickExistingFont(localFontDir, vazirBoldCandidates)
+	if !ok1 || !ok2 {
+		// اگر فونت پیدا نشد، CSS خالی برگردان (fallback به سیستم)
+		return ""
+	}
+	regURI, err1 := fontDataURI(regPath, regMime)
+	boldURI, err2 := fontDataURI(boldPath, boldMime)
+	if err1 != nil || err2 != nil {
+		return ""
+	}
+
+	family := "Vazirmatn Local"
+	css := fmt.Sprintf(`
+@font-face {
+  font-family: '%s';
+  src: url('%s') format('%s');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: '%s';
+  src: url('%s') format('%s');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+`, family, regURI, regFmt, family, boldURI, boldFmt)
+
+	return css
 }
 
 // ===================== ساخت HTML (RTL+Vazirmatn) =====================
-
 func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
 	shopName := strings.TrimSpace(vm.Shop.Name)
 	if shopName == "" {
@@ -913,8 +986,9 @@ func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
 		))
 	}
 
-	// استفاده از فونت آنلاین گوگل (Vazirmatn) — بدون نیاز به کپی فونت داخل ایمیج
-	// توجه: کانتینر باید دسترسی اینترنت خروجی داشته باشد.
+	// ✅ فونت محلی (data:URI) — بدون دانلود
+	fontCSS := buildLocalVazirmatnCSS()
+
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -922,34 +996,32 @@ func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>%s</title>
 
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet"/>
-
 <style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: "Vazirmatn";
-    direction: rtl; unicode-bidi: embed;
-    margin: 24px; color: #111;
-  }
-  .header {
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-    margin-bottom: 12px;
-  }
-  .header .title { text-align: center; font-size: 20px; font-weight: 700; }
-  .header .date { font-size: 13px; color: #333; }
-  .meta { font-size: 13px; margin: 8px 0 16px 0; }
-  .meta div { margin: 4px 0; }
-  .hr { height: 1px; background: #e5e5e5; margin: 10px 0 16px 0; }
+%s
 
-  table { width: 100%%; border-collapse: collapse; }
-  th, td { border: 1px solid #cfcfcf; padding: 8px 10px; font-size: 13px; }
-  th { background: #f5f5f5; font-weight: 700; }
-  td.r { text-align: right; }
-  td.c { text-align: center; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Vazirmatn Local", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  direction: rtl; unicode-bidi: embed;
+  margin: 24px; color: #111;
+}
+.header {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  margin-bottom: 12px;
+}
+.header .title { text-align: center; font-size: 20px; font-weight: 700; }
+.header .date { font-size: 13px; color: #333; }
+.meta { font-size: 13px; margin: 8px 0 16px 0; }
+.meta div { margin: 4px 0; }
+.hr { height: 1px; background: #e5e5e5; margin: 10px 0 16px 0; }
 
-  .footer { margin-top: 16px; font-size: 12px; color: #666; }
+table { width: 100%%; border-collapse: collapse; }
+th, td { border: 1px solid #cfcfcf; padding: 8px 10px; font-size: 13px; }
+th { background: #f5f5f5; font-weight: 700; }
+td.r { text-align: right; }
+td.c { text-align: center; }
+
+.footer { margin-top: 16px; font-size: 12px; color: #666; }
 </style>
 </head>
 <body>
@@ -985,6 +1057,7 @@ func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
 </body>
 </html>`,
 		htmlEsc(shopName),
+		fontCSS,
 		htmlEsc(jalaliDateLong(now)),
 		htmlEsc(shopName),
 		htmlEsc(phones),
