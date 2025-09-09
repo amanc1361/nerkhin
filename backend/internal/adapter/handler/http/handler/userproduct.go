@@ -8,8 +8,6 @@ import (
 	"html"
 	"os"
 	"path/filepath"
-	"sort"
-
 	"strconv"
 	"strings"
 	"time"
@@ -619,103 +617,58 @@ func (uph *UserProductHandler) ChangeVisibilityStatus(c *gin.Context) {
 
 /* ───────── Input mapping (ShopViewModel → VM) ───────── */
 
-type shopVMInput struct {
-	ShopInfo *struct {
-		ShopName    string   `json:"shopName"`
-		FullName    string   `json:"fullName"`
-		Phones      []string `json:"phones"`
-		Phone       string   `json:"phone"`
-		Address     string   `json:"address"`
-		ShopAddress string   `json:"shopAddress"`
-	} `json:"shopInfo"`
-	Products []struct {
-		ProductCategory  string `json:"productCategory"`
-		SubCategoryTitle string `json:"subCategoryTitle"`
-		ProductBrand     string `json:"productBrand"`
+// func mapShopVMToPriceListVM(raw any) (domain.ShopViewModel, error) {
+// 	var in shopVMInput
+// 	var out domain.ShopViewModel
 
-		ModelName       string          `json:"modelName"`
-		Price           int64           `json:"price"`
-		FinalPrice      int64           `json:"finalPrice,string"`
-		UpdatedAtRaw    json.RawMessage `json:"updatedAt"`
-		UpdatedAtString string          `json:"updatedAtString"`
-	} `json:"products"`
-}
+// 	b, err := json.Marshal(raw)
+// 	if err != nil {
+// 		return out, err
+// 	}
+// 	if err := json.Unmarshal(b, &in); err != nil {
+// 		return out, err
+// 	}
 
-type priceListVM struct {
-	Shop  shopInfo       `json:"shop"`
-	Items []priceListRow `json:"items"`
-}
-type shopInfo struct {
-	Name       string   `json:"name"`
-	Phones     []string `json:"phones"`
-	Address    string   `json:"address"`
-	ImageURL   string   `json:"imageUrl"`
-	Instagram  string   `json:"instagram"`
-	Telegram   string   `json:"telegram"`
-	WhatsApp   string   `json:"whatsapp"`
-	TwitterX   string   `json:"twitterX"`
-	WebsiteURL string   `json:"websiteUrl"`
-}
-type priceListRow struct {
-	SubCategory string    `json:"subCategory"`
-	Brand       string    `json:"brand"`
-	ModelName   string    `json:"modelName"`
-	Price       int64     `json:"price"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
+// 	var name, addr string
+// 	var phones []string
+// 	if in.ShopInfo != nil {
+// 		name = strings.TrimSpace(firstNonEmpty(in.ShopInfo.ShopName, in.ShopInfo.FullName))
+// 		addr = strings.TrimSpace(firstNonEmpty(in.ShopInfo.Address, in.ShopInfo.ShopAddress))
+// 		phones = append(phones, in.ShopInfo.Phones...)
+// 		if p := strings.TrimSpace(in.ShopInfo.Phone); p != "" {
+// 			if strings.Contains(p, ",") {
+// 				for _, part := range strings.Split(p, ",") {
+// 					if s := strings.TrimSpace(part); s != "" {
+// 						phones = append(phones, s)
+// 					}
+// 				}
+// 			} else {
+// 				phones = append(phones, p)
+// 			}
+// 		}
+// 	}
+// 	out.Shop = shopInfo{
+// 		Name:    name,
+// 		Phones:  uniqueStr(phones),
+// 		Address: addr,
+// 	}
 
-func mapShopVMToPriceListVM(raw any) (priceListVM, error) {
-	var in shopVMInput
-	var out priceListVM
-
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return out, err
-	}
-	if err := json.Unmarshal(b, &in); err != nil {
-		return out, err
-	}
-
-	var name, addr string
-	var phones []string
-	if in.ShopInfo != nil {
-		name = strings.TrimSpace(firstNonEmpty(in.ShopInfo.ShopName, in.ShopInfo.FullName))
-		addr = strings.TrimSpace(firstNonEmpty(in.ShopInfo.Address, in.ShopInfo.ShopAddress))
-		phones = append(phones, in.ShopInfo.Phones...)
-		if p := strings.TrimSpace(in.ShopInfo.Phone); p != "" {
-			if strings.Contains(p, ",") {
-				for _, part := range strings.Split(p, ",") {
-					if s := strings.TrimSpace(part); s != "" {
-						phones = append(phones, s)
-					}
-				}
-			} else {
-				phones = append(phones, p)
-			}
-		}
-	}
-	out.Shop = shopInfo{
-		Name:    name,
-		Phones:  uniqueStr(phones),
-		Address: addr,
-	}
-
-	out.Items = make([]priceListRow, 0, len(in.Products))
-	for _, p := range in.Products {
-		tm := parseFlexibleTime(p.UpdatedAtRaw, p.UpdatedAtString)
-		if tm.IsZero() {
-			tm = time.Now()
-		}
-		out.Items = append(out.Items, priceListRow{
-			SubCategory: p.ProductCategory,
-			Brand:       p.ProductBrand,
-			ModelName:   p.ModelName,
-			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
-			UpdatedAt:   tm,
-		})
-	}
-	return out, nil
-}
+// 	out.Items = make([]priceListRow, 0, len(in.Products))
+// 	for _, p := range in.Products {
+// 		tm := parseFlexibleTime(p.UpdatedAtRaw, p.UpdatedAtString)
+// 		if tm.IsZero() {
+// 			tm = time.Now()
+// 		}
+// 		out.Items = append(out.Items, priceListRow{
+// 			SubCategory: p.ProductCategory,
+// 			Brand:       p.ProductBrand,
+// 			ModelName:   p.ModelName,
+// 			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
+// 			UpdatedAt:   tm,
+// 		})
+// 	}
+// 	return out, nil
+// }
 
 /* ───────── Flexible time parsing ───────── */
 
@@ -785,13 +738,23 @@ func tryParseTimeString(s string) (time.Time, bool) {
 
 /* ───────── Small helpers ───────── */
 
-func moneyIRR(n int64) string {
-	s := fmt.Sprintf("%d", n)
+func moneyIRR(n decimal.Decimal) string {
+
+	// مقدار اصلی
+	d := n
+
+	// تبدیل به عدد صحیح ریالی (بدون اعشار)
+	// اگر اعشار داری و میخوای حذف بشه، IntPart استفاده کن
+	num := d.IntPart()
+	s := fmt.Sprintf("%d", num)
+
 	neg := ""
-	if n < 0 {
+	if num < 0 {
 		neg = "-"
-		s = s[1:]
+		s = s[1:] // علامت منفی رو حذف می‌کنیم
 	}
+
+	// اضافه کردن ویرگول به هر سه رقم
 	var out []byte
 	c := 0
 	for i := len(s) - 1; i >= 0; i-- {
@@ -801,15 +764,18 @@ func moneyIRR(n int64) string {
 			out = append(out, ',')
 		}
 	}
+
+	// برگردوندن آرایه (چون برعکس ساخته شده)
 	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 		out[i], out[j] = out[j], out[i]
 	}
+
 	return neg + string(out)
 }
 
 const lrm = "\u200E"
 
-func moneyIRR_LTR(n int64) string {
+func moneyIRR_LTR(n decimal.Decimal) string {
 	return lrm + moneyIRR(n) + lrm
 }
 
@@ -1007,33 +973,32 @@ func buildQRDataURI(text string, size int) string {
 }
 
 // now از نوع ptime.Time در کد شماست؛ اینجا signature شما را دست‌نخورده نگه می‌دارم.
-func buildPriceListHTML(vm priceListVM, now interface{}) string {
-	shopName := strings.TrimSpace(vm.Shop.Name)
+func buildPriceListHTML(vm domain.ShopViewModel, now interface{}) string {
+	shopName := strings.TrimSpace(vm.ShopInfo.ShopName)
 	if shopName == "" {
 		shopName = "—"
 	}
-	phones := strings.Join(vm.Shop.Phones, " , ")
-	addr := strings.TrimSpace(vm.Shop.Address)
+	phones := strings.Join([]string{vm.ShopInfo.ShopPhone1, vm.ShopInfo.ShopPhone2, vm.ShopInfo.ShopPhone3}, " , ")
+	addr := strings.TrimSpace(vm.ShopInfo.ShopAddress)
 
 	// URL سایت (برای QR بالای تاریخ)
-	siteURL := strings.TrimSpace(vm.Shop.WebsiteURL)
+	siteURL := strings.TrimSpace(vm.ShopInfo.WebsiteUrl)
 	if siteURL == "" {
 		siteURL = siteBaseURL
 	}
 	siteQR := buildQRDataURI(siteURL, 96)
 
 	// لوگو (از /uploads/... به URL کامل)
-	logoSrc := "https://nerkhin.com/uploads/" + vm.Shop.ImageURL
+	logoSrc := "https://nerkhin.com/uploads/" + vm.ShopInfo.ImageUrl
 
 	// Social QR (اختیاری)
 	socials := []struct {
 		label string
 		url   string
 	}{
-		{"Instagram", strings.TrimSpace(vm.Shop.Instagram)},
-		{"Telegram", strings.TrimSpace(vm.Shop.Telegram)},
-		{"WhatsApp", strings.TrimSpace(vm.Shop.WhatsApp)},
-		{"X", strings.TrimSpace(vm.Shop.TwitterX)},
+		{"Instagram", strings.TrimSpace(vm.ShopInfo.InstagramUrl)},
+		{"Telegram", strings.TrimSpace(vm.ShopInfo.TelegramUrl)},
+		{"WhatsApp", strings.TrimSpace(vm.ShopInfo.WhatsappUrl)},
 	}
 	var socialsQR strings.Builder
 	for _, s := range socials {
@@ -1054,13 +1019,13 @@ func buildPriceListHTML(vm priceListVM, now interface{}) string {
 
 	// ردیف‌های جدول
 	var rows strings.Builder
-	for i, it := range vm.Items {
-		title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
+	for i, it := range vm.Products {
+		title := joinNonEmpty(it.ProductCategory, it.ProductBrand, it.ModelName)
 		if strings.TrimSpace(title) == "" {
 			title = " "
 		}
-		updated := jalaliDateLong(ptime.New(it.UpdatedAt))
-		price := moneyIRR_LTR(it.Price)
+		updated := jalaliDateLong(ptime.New(it.UpdatedAt.Time))
+		price := moneyIRR_LTR(it.FinalPrice)
 		rows.WriteString(fmt.Sprintf(`
 			<tr>
 				<td class="c">%d</td>
@@ -1286,21 +1251,8 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	vm, err := mapShopVMToPriceListVM(raw)
-	if err != nil {
-		HandleError(c, err, uph.AppConfig.Lang)
-		return
-	}
-
-	// مرتب‌سازی مثل قبل (نام محصول)
-	sort.Slice(vm.Items, func(i, j int) bool {
-		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
-		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
-		return strings.Compare(pi, pj) < 0
-	})
-
 	now := ptime.Now()
-	htmlStr := buildPriceListHTML(vm, now)
+	htmlStr := buildPriceListHTML(*raw, now)
 
 	// اجرای Headless Chrome داخل کانتینر
 	// توجه: در Dockerfile متغیرهای CHROMEDP_EXEC_PATH/CHROME_PATH ست شده‌اند.
@@ -1383,7 +1335,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	shopName := strings.TrimSpace(vm.Shop.Name)
+	shopName := strings.TrimSpace(raw.ShopInfo.ShopName)
 	if shopName == "" {
 		shopName = "shop"
 	}
