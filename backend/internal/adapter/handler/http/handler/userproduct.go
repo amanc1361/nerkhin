@@ -1031,8 +1031,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		chromedp.Flag("disable-setuid-sandbox", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("disable-dev-shm-usage", true), // برای /dev/shm
-		chromedp.Flag("no-zygote", true),
-		chromedp.Flag("single-process", true),         // در بعضی محیط‌ها لازم می‌شود
+		// در بعضی محیط‌ها لازم می‌شود
 		chromedp.UserDataDir("/tmp/chromedp-profile"), // پروفایل قابل‌نوشتن
 	)
 
@@ -1042,25 +1041,46 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	chromeCtx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
 
-	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 45*time.Second)
-	defer timeoutCancel()
-	defer cancel()
+	if err := chromedp.Run(chromeCtx); err != nil {
+		HandleError(c, fmt.Errorf("chrome boot error: %w", err), uph.AppConfig.Lang)
+		return
+	}
 
-	// برای جلوگیری از hang — تایم‌اوت مناسب بگذار
+	if err := chromedp.Run(chromeCtx); err != nil {
+		HandleError(c, fmt.Errorf("chrome boot error: %w", err), uph.AppConfig.Lang)
+		return
+	}
+
+	// ⬅️ تایم‌اوت رو کمی بالا ببر (مثلاً 120s)
+	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 120*time.Second)
+	defer timeoutCancel()
+
 	var pdfBuf []byte
 	err = chromedp.Run(
 		timeoutCtx,
-		chromedp.Navigate(urlEncodeHTMLDataURL(htmlStr)),
+		// 1) صفحه خالی
+		chromedp.Navigate("about:blank"),
+
+		// 2) تزریق مستقیم HTML داخل فریم فعلی
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			ft, err := page.GetFrameTree().Do(ctx)
+			if err != nil {
+				return err
+			}
+			return page.SetDocumentContent(ft.Frame.ID, htmlStr).Do(ctx)
+		}),
+
+		// 3) اطمینان از حاضر بودن DOM
 		chromedp.WaitReady("body", chromedp.ByQuery),
 
-		// Emulate media: screen
+		// 4) تنظیم media=screen (نسخه‌های جدید)
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return emulation.SetEmulatedMedia().WithMedia("screen").Do(ctx)
-			// اگر نسخه قدیمی‌تره:
+			// اگر ماژولت قدیمی‌تر بود:
 			// return emulation.SetEmulatedMedia("screen").Do(ctx)
 		}),
 
-		// Print to PDF — سه مقدار: data, stream, err
+		// 5) پرینت PDF (سه خروجی: data, stream, err → دومی رو نادیده بگیر)
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			data, _, err := page.PrintToPDF().
 				WithPrintBackground(true).
@@ -1078,7 +1098,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 			return nil
 		}),
 	)
-
 	if err != nil {
 		HandleError(c, fmt.Errorf("pdf render error: %w", err), uph.AppConfig.Lang)
 		return
