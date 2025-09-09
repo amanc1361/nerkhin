@@ -1,21 +1,21 @@
 package handler
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"math"
-	"net/http"
-	"path/filepath"
+	"html"
+	"net/url"
 	"sort"
+
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
-	goarabic "github.com/01walid/goarabic"
+	"github.com/chromedp/cdproto/emulation"
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
 	"github.com/gin-gonic/gin"
-	"github.com/jung-kurt/gofpdf"
 	"github.com/nerkhin/internal/adapter/config"
 	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
 	"github.com/nerkhin/internal/core/domain"
@@ -614,85 +614,6 @@ func (uph *UserProductHandler) ChangeVisibilityStatus(c *gin.Context) {
 
 /* ───────── Persian shaping helpers ───────── */
 
-func normalizeFa(s string) string {
-	if s == "" {
-		return s
-	}
-	return strings.NewReplacer("ي", "ی", "ك", "ک").Replace(s)
-}
-
-func isFaNeutral(r rune) bool {
-	switch r {
-	case ' ', '‌',
-		'،', '؛', '؟', '٪', '٫', '٬',
-		'-', '/', '\\', '.', ':', '·', '—', '–',
-		'(', ')', '[', ']', '{', '}', '«', '»':
-		return true
-	}
-	return false
-}
-
-func isArabicRune(r rune) bool {
-	if (r >= 0x0600 && r <= 0x06FF) ||
-		(r >= 0x0750 && r <= 0x077F) ||
-		(r >= 0x08A0 && r <= 0x08FF) ||
-		(r >= 0xFB50 && r <= 0xFDFF) ||
-		(r >= 0xFE70 && r <= 0xFEFF) ||
-		(r >= 0x0660 && r <= 0x0669) ||
-		(r >= 0x06F0 && r <= 0x06F9) ||
-		unicode.Is(unicode.Arabic, r) {
-		return true
-	}
-	return false
-}
-
-func faInline(s string) string {
-	s = normalizeFa(s)
-	if s == "" {
-		return s
-	}
-	rs := []rune(s)
-	var out []rune
-	i := 0
-	for i < len(rs) {
-		if isArabicRune(rs[i]) || isFaNeutral(rs[i]) {
-			j := i
-			for j < len(rs) && (isArabicRune(rs[j]) || isFaNeutral(rs[j])) {
-				j++
-			}
-			seg := string(rs[i:j])
-
-			seg = strings.NewReplacer(
-				"(", "⟨", ")", "⟩",
-				"[", "⟦", "]", "⟧",
-				"{", "⦃", "}", "⦄",
-				"«", "⟪", "»", "⟫",
-			).Replace(seg)
-
-			seg = goarabic.ToGlyph(seg)
-			seg = goarabic.Reverse(seg)
-
-			seg = strings.NewReplacer(
-				"⟨", ")", "⟩", "(",
-				"⟦", "]", "⟧", "[",
-				"⦃", "}", "⦄", "{",
-				"⟪", "»", "⟫", "«",
-			).Replace(seg)
-
-			out = append(out, []rune(seg)...)
-			i = j
-			continue
-		}
-		j := i
-		for j < len(rs) && !(isArabicRune(rs[j]) || isFaNeutral(rs[j])) {
-			j++
-		}
-		out = append(out, rs[i:j]...)
-		i = j
-	}
-	return string(out)
-}
-
 /* ───────── Input mapping (ShopViewModel → VM) ───────── */
 
 type shopVMInput struct {
@@ -945,122 +866,133 @@ func uniqueStr(ss []string) []string {
 	return out
 }
 
-/* ───────── PDF helpers (fonts + RTL) ───────── */
+func htmlEsc(s string) string { return html.EscapeString(s) }
 
-func addVazirmatnFonts(pdf *gofpdf.Fpdf) {
-	fontDir := "/assets/fonts"
-	pdf.AddUTF8Font("Vazirmatn", "", filepath.Join(fontDir, "Vazirmatn-Regular.ttf"))
-	pdf.AddUTF8Font("Vazirmatn", "B", filepath.Join(fontDir, "Vazirmatn-Bold.ttf"))
+// برای لود HTML به‌صورت data: URL امن
+func urlEncodeHTMLDataURL(s string) string {
+	// حذف \n های غیرلازم تا URL کوتاه‌تر شود
+	s = strings.ReplaceAll(s, "\n", "")
+	return "data:text/html," + url.PathEscape(s)
 }
 
-// SplitText امن با recover (برای جلوگیری از panic داخلی gofpdf)
-func splitTextSafe(pdf *gofpdf.Fpdf, s string, w float64) (lines []string) {
-	defer func() {
-		if r := recover(); r != nil {
-			// اگر SplitText کرش کرد، حداقل یک خط برگردونیم
-			if strings.TrimSpace(s) == "" {
-				lines = []string{""}
-			} else {
-				lines = []string{s}
-			}
+// ===================== ساخت HTML (RTL+Vazirmatn) =====================
+
+func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
+	shopName := strings.TrimSpace(vm.Shop.Name)
+	if shopName == "" {
+		shopName = "—"
+	}
+	phones := strings.Join(vm.Shop.Phones, " , ")
+	addr := strings.TrimSpace(vm.Shop.Address)
+
+	var rows strings.Builder
+	for i, it := range vm.Items {
+		title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
+		if strings.TrimSpace(title) == "" {
+			title = " "
 		}
-	}()
-	if w < 1 {
-		w = 1
-	}
-	if strings.TrimSpace(s) == "" {
-		return []string{""}
-	}
-	// خیلی مهم: قبل از SplitText باید فونت ست شده باشد
-	// (ما در رندر اصلی این را رعایت کرده‌ایم)
-	return pdf.SplitText(s, w)
-}
-
-// نقطهٔ شروع از سمت راست
-func innerRight(pdf *gofpdf.Fpdf) (xRight, y float64) {
-	w, _ := pdf.GetPageSize()
-	_, tm, rm, _ := pdf.GetMargins()
-	_ = tm
-	return w - rm, pdf.GetY()
-}
-
-func drawRTLHeader(pdf *gofpdf.Fpdf, headers []string, colW []float64, aligns []string) {
-	pdf.SetFillColor(245, 245, 245)
-	pdf.SetFont("Vazirmatn", "B", 12)
-
-	xRight, y := innerRight(pdf)
-	h := 9.0
-	x := xRight
-	for i := 0; i < len(headers); i++ {
-		w := colW[i]
-		xCell := x - w
-		pdf.Rect(xCell, y, w, h, "DF")
-		pdf.SetXY(xCell, y)
-		pdf.CellFormat(w, h, faInline(headers[i]), "", 0, aligns[i], false, 0, "")
-		x = xCell
-	}
-	pdf.Ln(h)
-	pdf.SetFont("Vazirmatn", "", 11)
-}
-
-func drawRTLRow(pdf *gofpdf.Fpdf, colW []float64, aligns []string, idx int, titleFA string, price string, updated string, baseRowH float64) {
-	// محاسبهٔ ارتفاع سطر
-	wTitle := colW[1] - 2
-	if wTitle < 1 {
-		wTitle = colW[1] // نهایتاً خودش
-	}
-	lines := splitTextSafe(pdf, titleFA, wTitle)
-	h := math.Max(baseRowH, float64(len(lines))*baseRowH)
-
-	xRight, y := innerRight(pdf)
-	x := xRight
-
-	// 0: ردیف
-	{
-		w := colW[0]
-		xCell := x - w
-		pdf.Rect(xCell, y, w, h, "D")
-		pdf.SetXY(xCell, y)
-		nStr := fmt.Sprintf("%d", idx+1)
-		pdf.CellFormat(w, h, faInline(nStr), "", 0, aligns[0], false, 0, "")
-		x = xCell
-	}
-	// 1: نام محصول (چندخطی راست‌چین)
-	{
-		w := colW[1]
-		xCell := x - w
-		pdf.Rect(xCell, y, w, h, "D")
-		pdf.SetXY(xCell+1, y)
-		remainY := y
-		for _, ln := range lines {
-			pdf.SetXY(xCell+1, remainY)
-			pdf.CellFormat(w-2, baseRowH, ln, "", 0, "R", false, 0, "")
-			remainY += baseRowH
+		jt := ptime.New(it.UpdatedAt)
+		if jt.Time().IsZero() {
+			jt = ptime.Now()
 		}
-		x = xCell
+		updated := ymdJalali_LTR(jt)
+		price := moneyIRR_LTR(it.Price)
+
+		rows.WriteString(fmt.Sprintf(`
+			<tr>
+				<td class="c">%d</td>
+				<td class="r">%s</td>
+				<td class="c">%s</td>
+				<td class="c">%s</td>
+			</tr>`,
+			i+1,
+			htmlEsc(title),
+			htmlEsc(price),
+			htmlEsc(updated),
+		))
 	}
-	// 2: قیمت (LTR)
-	{
-		w := colW[2]
-		xCell := x - w
-		pdf.Rect(xCell, y, w, h, "D")
-		pdf.SetXY(xCell, y)
-		pdf.CellFormat(w, h, price, "", 0, aligns[2], false, 0, "")
-		x = xCell
-	}
-	// 3: تاریخ (LTR)
-	{
-		w := colW[3]
-		xCell := x - w
-		pdf.Rect(xCell, y, w, h, "D")
-		pdf.SetXY(xCell, y)
-		pdf.CellFormat(w, h, updated, "", 0, aligns[3], false, 0, "")
-		x = xCell
-	}
-	pdf.SetY(y + h)
+
+	// استفاده از فونت آنلاین گوگل (Vazirmatn) — بدون نیاز به کپی فونت داخل ایمیج
+	// توجه: کانتینر باید دسترسی اینترنت خروجی داشته باشد.
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>%s</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet"/>
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Vazirmatn", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    direction: rtl; unicode-bidi: embed;
+    margin: 24px; color: #111;
+  }
+  .header {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    margin-bottom: 12px;
+  }
+  .header .title { text-align: center; font-size: 20px; font-weight: 700; }
+  .header .date { font-size: 13px; color: #333; }
+  .meta { font-size: 13px; margin: 8px 0 16px 0; }
+  .meta div { margin: 4px 0; }
+  .hr { height: 1px; background: #e5e5e5; margin: 10px 0 16px 0; }
+
+  table { width: 100%%; border-collapse: collapse; }
+  th, td { border: 1px solid #cfcfcf; padding: 8px 10px; font-size: 13px; }
+  th { background: #f5f5f5; font-weight: 700; }
+  td.r { text-align: right; }
+  td.c { text-align: center; }
+
+  .footer { margin-top: 16px; font-size: 12px; color: #666; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="date">%s</div>
+  <div class="title">%s</div>
+  <div class="date"></div>
+</div>
+
+<div class="meta">
+  <div>%s</div>
+  <div>%s</div>
+</div>
+
+<div class="hr"></div>
+
+<table>
+  <thead>
+    <tr>
+      <th class="c" style="width:12%%">ردیف</th>
+      <th class="r" style="width:48%%">نام محصول</th>
+      <th class="c" style="width:20%%">قیمت</th>
+      <th class="c" style="width:20%%">آخرین بروزرسانی</th>
+    </tr>
+  </thead>
+  <tbody>
+    %s
+  </tbody>
+</table>
+
+<div class="footer"></div>
+</body>
+</html>`,
+		htmlEsc(shopName),
+		htmlEsc(jalaliDateLong(now)),
+		htmlEsc(shopName),
+		htmlEsc(phones),
+		htmlEsc(addr),
+		rows.String(),
+	)
 }
 
-/* ───────── Handler (PDF) — جدول کاملاً RTL ───────── */
+// ===================== هندلر اصلی: HTML → PDF با chromedp =====================
 
 func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
@@ -1079,99 +1011,74 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
+	// مرتب‌سازی مثل قبل (نام محصول)
 	sort.Slice(vm.Items, func(i, j int) bool {
 		pi := joinNonEmpty(vm.Items[i].SubCategory, vm.Items[i].Brand, vm.Items[i].ModelName)
 		pj := joinNonEmpty(vm.Items[j].SubCategory, vm.Items[j].Brand, vm.Items[j].ModelName)
 		return strings.Compare(pi, pj) < 0
 	})
 
-	pdf := gofpdf.New("P", "mm", "A4", "")
-	pdf.SetMargins(12, 18, 12)
-	pdf.SetAutoPageBreak(true, 15)
-	pdf.AddPage()
-
-	// فونت باید قبل از هر SplitText ست بشه
-	addVazirmatnFonts(pdf)
-	pdf.SetFont("Vazirmatn", "", 12)
-
-	/* Header */
 	now := ptime.Now()
+	htmlStr := buildPriceListHTML(vm, now)
 
-	pdf.SetFont("Vazirmatn", "", 12)
-	pdf.SetXY(12, 10)
-	pdf.CellFormat(60, 6, faInline(jalaliDateLong(now)), "", 0, "L", false, 0, "")
+	// اجرای Headless Chrome داخل کانتینر
+	// توجه: در Dockerfile متغیرهای CHROMEDP_EXEC_PATH/CHROME_PATH ست شده‌اند.
+	chromeCtx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
 
-	shopName := strings.TrimSpace(vm.Shop.Name)
-	if shopName == "" {
-		shopName = "—"
-	}
-	pdf.SetFont("Vazirmatn", "B", 18)
-	pdf.SetXY(12, 10)
-	pdf.CellFormat(186, 10, faInline(shopName), "", 0, "C", false, 0, "")
-	pdf.Ln(10)
+	// برای جلوگیری از hang — تایم‌اوت مناسب بگذار
+	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 45*time.Second)
+	defer timeoutCancel()
 
-	pdf.SetFont("Vazirmatn", "", 11)
-	phones := strings.Join(vm.Shop.Phones, " , ")
-	pdf.SetXY(12, 18)
-	pdf.CellFormat(186, 6, faInline(phones), "", 0, "R", false, 0, "")
+	var pdfBuf []byte
 
-	addr := strings.TrimSpace(vm.Shop.Address)
-	if addr == "" {
-		addr = " "
-	}
-	pdf.SetXY(12, 24)
-	pdf.MultiCell(186, 6, faInline(addr), "", "R", false)
-	pdf.Ln(3)
+	err = chromedp.Run(
+		timeoutCtx,
+		chromedp.Navigate(urlEncodeHTMLDataURL(htmlStr)),
+		chromedp.WaitReady("body", chromedp.ByQuery),
 
-	pdf.SetDrawColor(210, 210, 210)
-	y := pdf.GetY()
-	pdf.Line(12, y, 198, y)
-	pdf.Ln(4)
+		// Emulate media = screen  (نسخه‌های جدید)
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			return emulation.SetEmulatedMedia().WithMedia("screen").Do(ctx)
+			// اگر ماژولت قدیمی‌تره و WithMedia نداره:
+			// return emulation.SetEmulatedMedia("screen").Do(ctx)
+		}),
 
-	/* Table (RTL) */
-	colW := []float64{15, 100, 35, 36} // مجموع = 186
-	header := []string{"ردیف", "نام محصول", "قیمت", "آخرین بروزرسانی"}
-	aligns := []string{"C", "R", "C", "C"}
-
-	drawRTLHeader(pdf, header, colW, aligns)
-
-	if len(vm.Items) == 0 {
-		pdf.CellFormat(186, 10, faInline("هیچ موردی یافت نشد"), "1", 0, "C", false, 0, "")
-	} else {
-		baseRowH := 7.0
-		pdf.SetFont("Vazirmatn", "", 11)
-
-		for idx, it := range vm.Items {
-			title := joinNonEmpty(it.SubCategory, it.Brand, it.ModelName)
-			titleFA := faInline(title)
-			if strings.TrimSpace(titleFA) == "" {
-				titleFA = " "
+		// Print to PDF — سه مقدار برمی‌گرده؛ دومیه stream هست که لازم نداریم
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			data, _, err := page.PrintToPDF().
+				WithPrintBackground(true).
+				WithPaperWidth(8.27).   // A4
+				WithPaperHeight(11.69). // A4
+				WithMarginTop(0.39).
+				WithMarginBottom(0.39).
+				WithMarginLeft(0.39).
+				WithMarginRight(0.39).
+				Do(ctx)
+			if err != nil {
+				return err
 			}
+			pdfBuf = data
+			return nil
+		}),
+	)
 
-			jt := ptime.New(it.UpdatedAt)
-			if jt.Time().IsZero() {
-				jt = ptime.Now()
-			}
-			updated := ymdJalali_LTR(jt)
-			price := moneyIRR_LTR(it.Price)
-
-			drawRTLRow(pdf, colW, aligns, idx, titleFA, price, updated, baseRowH)
-		}
-	}
-
-	var buf bytes.Buffer
-	if err := pdf.Output(&buf); err != nil {
-		HandleError(c, err, uph.AppConfig.Lang)
+	if err != nil {
+		HandleError(c, fmt.Errorf("pdf render error: %w", err), uph.AppConfig.Lang)
 		return
 	}
 
+	shopName := strings.TrimSpace(vm.Shop.Name)
+	if shopName == "" {
+		shopName = "shop"
+	}
 	fileName := fmt.Sprintf(
 		"price-list-%s-%04d%02d%02d.pdf",
-		strings.ReplaceAll(strings.TrimSpace(shopName), " ", "-"),
+		strings.ReplaceAll(shopName, " ", "-"),
 		now.Year(), int(now.Month()), now.Day(),
 	)
 
 	c.Header("Content-Type", "application/pdf")
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
-	c.Data(http.StatusOK, "application/pdf", buf.Bytes())
+	c.Data(200, "application/pdf", pdfBuf)
 }

@@ -26,6 +26,10 @@ services:
       - server-data:/data
       # ⬇️ bind mount ساده و شفاف (مسیر واقعی روی سرور را بنویس، ~ کار نمی‌کند)
       - /home/ubuntu/nerkhin/uploads:/uploads
+    shm_size: "1gb"
+    environment:
+      - CHROMEDP_EXEC_PATH=/usr/bin/chromium-browser
+      - CHROME_PATH=/usr/bin/chromium-browser  
     depends_on:
       postgres:
         condition: service_healthy

@@ -38,6 +38,22 @@ RUN apk add --no-cache \
 COPY --from=builder /nerkhin-app /nerkhin-app
 COPY --from=builder /app/scripts/db/migrations /migrations
 COPY --from=builder /app/assets/fonts /assets/fonts
+# --- ADD ONLY (do not modify existing lines) ---
+# Headless Chromium + پیش‌نیازهای رندر متن
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    font-noto-emoji
+# مسیر اجرایی Chromium برای chromedp
+ENV CHROMEDP_EXEC_PATH=/usr/bin/chromium-browser
+ENV CHROME_PATH=/usr/bin/chromium-browser
+
+# فولدرهای لازم برای اجرای کروم به‌صورت غیرروت (بدون نیاز به chown جابه‌جا کردن خطوط)
+RUN mkdir -p /home/appuser/.cache /home/appuser/.config /home/appuser/Downloads /tmp && \
+    chmod -R 777 /home/appuser /tmp    
 
 # ایجاد یوزر امن
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -45,3 +61,7 @@ USER appuser
 
 EXPOSE 8080
 CMD ["/nerkhin-app"]
+
+
+
+
