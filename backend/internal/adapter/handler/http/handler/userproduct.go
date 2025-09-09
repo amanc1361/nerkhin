@@ -929,7 +929,7 @@ func buildPriceListHTML(vm priceListVM, now ptime.Time) string {
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: "Vazirmatn", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    font-family: "Vazirmatn";
     direction: rtl; unicode-bidi: embed;
     margin: 24px; color: #111;
   }
