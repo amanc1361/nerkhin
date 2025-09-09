@@ -897,8 +897,8 @@ var vazirBoldCandidates = []string{
 }
 
 // تاریخ ایتم‌ها به صورت yyyy/mm/dd جلالی (LTR)
-func jalaliYMDFromAny(v time.Time) string {
-	jt := ptime.New(v)
+func jalaliYMDFromAny(v any) string {
+	jt := ptime.New(v.(time.Time))
 	if jt.Time().IsZero() {
 		return "—"
 	}
@@ -1059,7 +1059,7 @@ func buildPriceListHTML(vm priceListVM, now interface{}) string {
 		if strings.TrimSpace(title) == "" {
 			title = " "
 		}
-		updated := jalaliYMDFromAny(it.UpdatedAt)
+		updated := jalaliDateLong(ptime.New(it.UpdatedAt))
 		price := moneyIRR_LTR(it.Price)
 		rows.WriteString(fmt.Sprintf(`
 			<tr>
