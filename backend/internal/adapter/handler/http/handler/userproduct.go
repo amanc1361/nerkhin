@@ -848,6 +848,27 @@ func buildQRDataURI(text string, size int) string {
 	return "data:image/png;base64," + b64
 }
 
+func shopLogoURL(u string) string {
+	u = strings.TrimSpace(u)
+	if u == "" {
+		return ""
+	}
+	// اگر خودش کامل بود، دست نزن
+	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+		return u
+	}
+	// اگر هرجای رشته "/uploads/" داشت → همون‌جارو به مسیر وب تبدیل کن
+	if i := strings.Index(u, "/uploads/"); i >= 0 {
+		return siteBaseURL + u[i:] // از /uploads/... به بعد
+	}
+	// اگر خودش از /uploads شروع می‌شود
+	if strings.HasPrefix(u, "/uploads/") {
+		return siteBaseURL + u
+	}
+	// در بدترین حالت: فرض کن فقط نام فایل است
+	return siteBaseURL + "/uploads/" + u
+}
+
 // now از نوع ptime.Time در کد شماست؛ اینجا signature شما را دست‌نخورده نگه می‌دارم.
 func buildPriceListHTML(vm domain.ShopViewModel, now interface{}) string {
 	shopName := strings.TrimSpace(vm.ShopInfo.ShopName)
@@ -865,7 +886,6 @@ func buildPriceListHTML(vm domain.ShopViewModel, now interface{}) string {
 	siteQR := buildQRDataURI(siteURL, 96)
 
 	// لوگو (از /uploads/... به URL کامل)
-	logoSrc := "https://nerkhin.com/uploads/" + vm.ShopInfo.ImageUrl
 
 	// Social QR (اختیاری)
 	socials := []struct {
@@ -917,12 +937,11 @@ func buildPriceListHTML(vm domain.ShopViewModel, now interface{}) string {
 
 	// لوگو HTML (اگر نبود، جای‌گیر ظریف)
 	var logoHTML string
-	if logoSrc != "" {
-		logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="%s"/>`, htmlEsc(logoSrc), logoSrc)
+	if u := shopLogoURL(vm.ShopInfo.ImageUrl); u != "" {
+		logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, htmlEsc(u))
 	} else {
 		logoHTML = `<div class="shop-logo placeholder"></div>`
 	}
-
 	// QR سایت (اگر نبود، فاصله‌ی هم‌تراز)
 	siteQRHTML := `<div class="site-qr placeholder"></div>`
 	if siteQR != "" {
@@ -1210,9 +1229,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		HandleError(c, fmt.Errorf("pdf render error: %w", err), uph.AppConfig.Lang)
 		return
 	}
-	fmt.Println("******************************************")
-	fmt.Println(raw.ShopInfo.ImageUrl)
-	fmt.Println("******************************************")
 
 	shopName := strings.TrimSpace(raw.ShopInfo.ShopName)
 	if shopName == "" {
