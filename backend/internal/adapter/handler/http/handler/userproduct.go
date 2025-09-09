@@ -792,23 +792,6 @@ func fontDataURI(path, mime string) (string, error) {
 
 const siteBaseURL = "https://nerkin.com"
 
-func absURL(u string) string {
-	u = strings.TrimSpace(u)
-	if u == "" {
-		return ""
-	}
-	// اگر خودش کامل بود (http/https)، دست نمی‌زنیم
-	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
-		return u
-	}
-	// اگر مثل /uploads/... بود، به دامنه بچسبان
-	if strings.HasPrefix(u, "/") {
-		return siteBaseURL + u
-	}
-	// سایر حالات نسبی
-	return siteBaseURL + "/" + u
-}
-
 // CSS @font-face با فونت لوکال به صورت data:URI
 func buildLocalVazirmatnCSS() string {
 	regPath, regMime, regFmt, ok1 := pickExistingFont(localFontDir, vazirRegCandidates)
@@ -1227,6 +1210,9 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		HandleError(c, fmt.Errorf("pdf render error: %w", err), uph.AppConfig.Lang)
 		return
 	}
+	fmt.Println("******************************************")
+	fmt.Println(raw.ShopInfo.ImageUrl)
+	fmt.Println("******************************************")
 
 	shopName := strings.TrimSpace(raw.ShopInfo.ShopName)
 	if shopName == "" {
