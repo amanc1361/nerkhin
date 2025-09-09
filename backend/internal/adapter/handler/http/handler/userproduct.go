@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"html"
 	"os"
@@ -613,112 +612,6 @@ func (uph *UserProductHandler) ChangeVisibilityStatus(c *gin.Context) {
 	handleSuccess(c, nil)
 }
 
-/* ───────── Persian shaping helpers ───────── */
-
-/* ───────── Input mapping (ShopViewModel → VM) ───────── */
-
-// func mapShopVMToPriceListVM(raw any) (domain.ShopViewModel, error) {
-// 	var in shopVMInput
-// 	var out domain.ShopViewModel
-
-// 	b, err := json.Marshal(raw)
-// 	if err != nil {
-// 		return out, err
-// 	}
-// 	if err := json.Unmarshal(b, &in); err != nil {
-// 		return out, err
-// 	}
-
-// 	var name, addr string
-// 	var phones []string
-// 	if in.ShopInfo != nil {
-// 		name = strings.TrimSpace(firstNonEmpty(in.ShopInfo.ShopName, in.ShopInfo.FullName))
-// 		addr = strings.TrimSpace(firstNonEmpty(in.ShopInfo.Address, in.ShopInfo.ShopAddress))
-// 		phones = append(phones, in.ShopInfo.Phones...)
-// 		if p := strings.TrimSpace(in.ShopInfo.Phone); p != "" {
-// 			if strings.Contains(p, ",") {
-// 				for _, part := range strings.Split(p, ",") {
-// 					if s := strings.TrimSpace(part); s != "" {
-// 						phones = append(phones, s)
-// 					}
-// 				}
-// 			} else {
-// 				phones = append(phones, p)
-// 			}
-// 		}
-// 	}
-// 	out.Shop = shopInfo{
-// 		Name:    name,
-// 		Phones:  uniqueStr(phones),
-// 		Address: addr,
-// 	}
-
-// 	out.Items = make([]priceListRow, 0, len(in.Products))
-// 	for _, p := range in.Products {
-// 		tm := parseFlexibleTime(p.UpdatedAtRaw, p.UpdatedAtString)
-// 		if tm.IsZero() {
-// 			tm = time.Now()
-// 		}
-// 		out.Items = append(out.Items, priceListRow{
-// 			SubCategory: p.ProductCategory,
-// 			Brand:       p.ProductBrand,
-// 			ModelName:   p.ModelName,
-// 			Price:       firstNonEmptyInt64(p.FinalPrice, p.Price),
-// 			UpdatedAt:   tm,
-// 		})
-// 	}
-// 	return out, nil
-// }
-
-/* ───────── Flexible time parsing ───────── */
-
-func parseFlexibleTime(raw json.RawMessage, fallback string) time.Time {
-	if len(raw) > 0 && raw[0] == '"' {
-		var s string
-		if err := json.Unmarshal(raw, &s); err == nil {
-			if t, ok := tryParseTimeString(strings.TrimSpace(s)); ok {
-				return t
-			}
-		}
-	}
-	if len(raw) > 0 {
-		var f float64
-		if err := json.Unmarshal(raw, &f); err == nil {
-			if f > 1e12 {
-				sec := int64(f / 1000)
-				ms := int64(f) % 1000
-				return time.Unix(sec, ms*int64(time.Millisecond)).UTC()
-			}
-			return time.Unix(int64(f), 0).UTC()
-		}
-		var m map[string]any
-		if err := json.Unmarshal(raw, &m); err == nil {
-			if v, ok := m["Time"].(string); ok {
-				if t, ok2 := tryParseTimeString(strings.TrimSpace(v)); ok2 {
-					return t
-				}
-			}
-			if v, ok := m["Unix"].(float64); ok {
-				return time.Unix(int64(v), 0).UTC()
-			}
-			if v, ok := m["Seconds"].(float64); ok {
-				return time.Unix(int64(v), 0).UTC()
-			}
-			if v, ok := m["Millis"].(float64); ok {
-				sec := int64(v / 1000)
-				ms := int64(v) % 1000
-				return time.Unix(sec, ms*int64(time.Millisecond)).UTC()
-			}
-		}
-	}
-	if strings.TrimSpace(fallback) != "" {
-		if t, ok := tryParseTimeString(strings.TrimSpace(fallback)); ok {
-			return t
-		}
-	}
-	return time.Time{}
-}
-
 func tryParseTimeString(s string) (time.Time, bool) {
 	layouts := []string{
 		time.RFC3339Nano,
@@ -1042,7 +935,7 @@ func buildPriceListHTML(vm domain.ShopViewModel, now interface{}) string {
 	// لوگو HTML (اگر نبود، جای‌گیر ظریف)
 	var logoHTML string
 	if logoSrc != "" {
-		logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, htmlEsc(logoSrc))
+		logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="%s"/>`, htmlEsc(logoSrc), logoSrc)
 	} else {
 		logoHTML = `<div class="shop-logo placeholder"></div>`
 	}
