@@ -10,6 +10,31 @@ import Image from 'next/image';
 import VerifyCodeForm from '../verify-code-form';
 import { loginFormMessages } from '@/app/constants/string';
 import Link from 'next/link';
+// utils/normalizeDigits.ts
+export function toEnglishDigits(input: string): string {
+  if (!input) return input;
+  // ارقام فارسی (۰–۹) و عربی (٠–٩)
+  const fa = "۰۱۲۳۴۵۶۷۸۹";
+  const ar = "٠١٢٣٤٥٦٧٨٩";
+  return input
+    // جایگزینی کاراکترهای RTL/فضای نامرئی متداول
+    .replace(/\u200c|\u200f|\u202a|\u202b|\u202c|\u202d|\u202e/g, "")
+    // تبدیل تک‌به‌تک کاراکترها
+    .replace(/./g, (ch) => {
+      const faIdx = fa.indexOf(ch);
+      if (faIdx > -1) return String(faIdx);
+      const arIdx = ar.indexOf(ch);
+      if (arIdx > -1) return String(arIdx);
+      return ch;
+    });
+}
+
+// مخصوص ورودی تلفن: فقط + و رقم را نگه می‌دارد
+export function normalizePhoneInput(input: string): string {
+  const en = toEnglishDigits(input);
+  // حذف جداکننده‌ها و هر چیزی غیر از رقم و +
+  return en.replace(/[^\d+]/g, "");
+}
 
 const LoginForm: React.FC = () => {
   const router = useRouter();
@@ -33,7 +58,7 @@ const LoginForm: React.FC = () => {
 
   // در غیر این صورت، فرم اولیه برای دریافت شماره تلفن را نمایش بده
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-6 VazirFont">
+    <div className="flex w-full max-w-md flex-col p-9 items-center gap-6 VazirFont">
       <div className="h-24 w-24">
         <Image src="/icons/login/login.svg" alt="ورود" width={96} height={96} priority />
       </div>
@@ -49,7 +74,7 @@ const LoginForm: React.FC = () => {
             inputMode="numeric"
             placeholder={loginFormMessages.phoneNumberPlaceholder}
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(normalizePhoneInput(e.target.value))}
             className="w-full rounded-xl border border-gray-300 p-3 text-center text-lg tracking-wider outline-none focus:border-blue-dark dark:border-gray-600 dark:bg-gray-700"
             dir="ltr"
             required
