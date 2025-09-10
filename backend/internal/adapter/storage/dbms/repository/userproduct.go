@@ -111,6 +111,18 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 			)
 		`, q.OptionIDs, len(q.OptionIDs))
 	}
+
+	// ✅ فیلتر محدوده قیمت نهایی
+	hasMin := q.PriceMin != nil
+	hasMax := q.PriceMax != nil
+	if hasMin && hasMax {
+		base = base.Where("up.final_price BETWEEN ? AND ?", *q.PriceMin, *q.PriceMax)
+	} else if hasMin {
+		base = base.Where("up.final_price >= ?", *q.PriceMin)
+	} else if hasMax {
+		base = base.Where("up.final_price <= ?", *q.PriceMax)
+	}
+
 	if s := strings.TrimSpace(q.Search); s != "" {
 		like := "%" + s + "%"
 		base = base.Where(`
@@ -160,12 +172,10 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		) AS rn
 	`, isFavExpr))
 
-	// انتخاب فقط rn=1 و سپس سورت نهایی بر اساس همان اولویت
+	// انتخاب فقط rn=1 و سپس سورت نهایی
 	rows := db.Table("(?) AS x", sub).
 		Where("x.rn = 1").
-		// اگر می‌خواهی مورد علاقه‌ها اول بیایند این را نگه دار، وگرنه حذفش کن:
 		Order("x.is_favorite DESC").
-		// سورت اصلی خروجی: تاریخ آپدیت نزولی، سپس قیمت صعودی، سپس شناسه برای ثبات
 		Order("x.updated_at DESC NULLS LAST").
 		Order("x.final_price ASC NULLS LAST").
 		Order("x.product_id ASC").
@@ -178,6 +188,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	}
 	return out, nil
 }
+
 func (upr *UserProductRepository) CountMarketProductsFiltered(
 	ctx context.Context,
 	dbSession interface{},
@@ -255,6 +266,18 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 			)
 		`, q.OptionIDs, len(q.OptionIDs))
 	}
+
+	// ✅ فیلتر محدوده قیمت نهایی در شمارش
+	hasMin := q.PriceMin != nil
+	hasMax := q.PriceMax != nil
+	if hasMin && hasMax {
+		base = base.Where("up.final_price BETWEEN ? AND ?", *q.PriceMin, *q.PriceMax)
+	} else if hasMin {
+		base = base.Where("up.final_price >= ?", *q.PriceMin)
+	} else if hasMax {
+		base = base.Where("up.final_price <= ?", *q.PriceMax)
+	}
+
 	if s := strings.TrimSpace(q.Search); s != "" {
 		like := "%" + s + "%"
 		base = base.Where(`
