@@ -938,7 +938,8 @@ func buildPriceListHTML(vm domain.ShopViewModel, now interface{}) string {
 	// لوگو HTML (اگر نبود، جای‌گیر ظریف)
 	var logoHTML string
 	if u := shopLogoURL(vm.ShopInfo.ImageUrl); u != "" {
-		logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, htmlEsc(u))
+		logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, "https://nerkhin.com/uploads/1/1.webp")
+		// logoHTML = fmt.Sprintf(`<img class="shop-logo" src="%s" alt="shop logo"/>`, htmlEsc(u))
 	} else {
 		logoHTML = `<div class="shop-logo placeholder"></div>`
 	}

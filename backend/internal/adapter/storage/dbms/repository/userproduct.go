@@ -558,7 +558,7 @@ func (pr *UserProductRepository) GetPriceList(
 			pc.title            AS product_category,
 			pb.title            AS product_brand
 		`).
-		Order("up.updated_at DESC NULLS LAST, up.final_price ASC NULLS LAST, up.id ASC").
+		Order("up.updated_at DESC NULLS LAST,p.brand_id ASC , up.final_price ASC NULLS LAST, up.id ASC").
 		Scan(&priceList).Error
 
 	return
