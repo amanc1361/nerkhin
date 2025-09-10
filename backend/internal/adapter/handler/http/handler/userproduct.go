@@ -106,9 +106,17 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 			cityIDPtr = &id
 		}
 	}
-
+	fmt.Println("**********************************")
+	fmt.Println(c.Query("priceMin"))
+	fmt.Println(c.Query("priceMax"))
+	fmt.Println("**********************************")
 	priceMin := decimalPtrIfPositive(c.Query("priceMin"))
 	priceMax := decimalPtrIfPositive(c.Query("priceMax"))
+
+	fmt.Println("**********************************")
+	fmt.Println(priceMin)
+	fmt.Println(priceMax)
+	fmt.Println("**********************************")
 
 	enforceSubscription := c.Query("enforceSubscription") == "1"
 
