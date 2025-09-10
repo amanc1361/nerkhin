@@ -128,7 +128,7 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
         <button
           type="submit"
           disabled={isLoading || code.length < 4}
-          className="w-full font-medium rounded-xl px-8 sm:px-16 py-3 sm:py-4 bg-primary-main text-blue-dark hover:bg-primary-dark transition disabled:opacity-60"
+         className="w-full rounded-xl bg-blue-dark p-3 font-medium text-white transition hover:bg-blue-light disabled:opacity-60"
         >
           {verifyCodeMessages.submitButton}
         </button>

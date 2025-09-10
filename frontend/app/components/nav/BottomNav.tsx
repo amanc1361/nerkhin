@@ -1,11 +1,13 @@
-import { MarketMessages } from "@/lib/server/texts/marketMessages";
+"use client";
+
 import Link from "next/link";
+import { useSelectedLayoutSegment } from "next/navigation";
 import React from "react";
+import type { MarketMessages } from "@/lib/server/texts/marketMessages";
 
 type Role = "wholesaler" | "retailer";
 type Active = "search" | "account" | "products";
 
-/** آیکن‌های یکدست */
 type IconProps = { className?: string };
 const Icons: Record<Active, React.FC<IconProps>> = {
   search: ({ className = "" }) => (
@@ -32,12 +34,23 @@ const Icons: Record<Active, React.FC<IconProps>> = {
 export default function BottomNav({
   t,
   role,
-  active = "search",
 }: {
   t: MarketMessages;
   role: Role;
-  active?: Active;
 }) {
+  // در لایه app/[role] هستیم؛ سگمنت فرزند:
+  const segment = useSelectedLayoutSegment(); // "account" | "products" | null
+
+  // اگر روی روت /[role] باشیم (segment === null) → search فعال باشد
+  const activeKey: Active =
+    segment === null
+      ? "search"
+      : segment === "account"
+      ? "account"
+      : segment === "products"
+      ? "products"
+      : "search"; // پیش‌فرض امن
+
   const base = `/${role}`;
   const items =
     role === "wholesaler"
@@ -56,8 +69,8 @@ export default function BottomNav({
       <div className="rounded-3xl px-3 py-2 bg-white/90 backdrop-blur border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
         <ul className="grid gap-1" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
           {items.map(({ key, href, label }) => {
-            const isActive = active === key;
             const IconCmp = Icons[key];
+            const isActive = activeKey === key;
             return (
               <li key={key} className="flex justify-center">
                 <Link

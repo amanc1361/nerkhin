@@ -36,10 +36,10 @@ export default async function RoleLayout({
   return (
     <div dir="rtl" className="min-h-dvh bg-white">
 
-      <TopNav t={t} role={role} active="search" />
+      <TopNav t={t} role={role} />
       {children}
       <div className="h-24 md:h-0" />
-      <BottomNav t={t} role={role} active="search" />
+      <BottomNav t={t} role={role}  />
     </div>
   );
 }

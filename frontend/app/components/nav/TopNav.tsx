@@ -1,8 +1,12 @@
+"use client";
+
 import { formatTodayJalaliShort } from "@/lib/date/jalai";
 import { MarketMessages } from "@/lib/server/texts/marketMessages";
 import Link from "next/link";
 import BrandLogo from "../shared/‌BrandLogo";
 import PersianDate from "@/app/utils/persiadate";
+import { useSelectedLayoutSegment } from "next/navigation";
+import React from "react";
 
 type Role = "wholesaler" | "retailer";
 type Active = "search" | "account" | "products";
@@ -37,24 +41,40 @@ function IconBox({ className = "" }) {
 export default function TopNav({
   t,
   role,
-  active,
+  active, // ← اگر دستی بدی، اوّلیت با اینه
 }: {
   t: MarketMessages;
   role: Role;
-  active: Active;
+  active?: Active;
 }) {
+  // سگمنت فرزندِ لایه app/[role]
+  const segment = useSelectedLayoutSegment(); // "account" | "products" | null
+
+  // اگر روی روت /[role] باشیم (segment === null) → "search" فعال باشد
+  const activeKey: Active =
+    segment === null
+      ? "search"
+      : segment === "account"
+      ? "account"
+      : segment === "products"
+      ? "products"
+      : "search";
+
+  // اگر active (prop) داده شده بود، همون رو استفاده کن؛ وگرنه از activeKey
+  const resolvedActive: Active = active ?? activeKey;
+
   const base = role === "wholesaler" ? "/wholesaler" : "/retailer";
 
   const items =
     role === "wholesaler"
       ? ([
-          { key: "search" as const,   href: `${base}`,   label: t.menu.search,      Icon: IconSearch },
-          { key: "account" as const,  href: `${base}/account`,  label: t.menu.myAccount,   Icon: IconUser },
-          { key: "products" as const, href: `${base}/products`, label: t.menu.myProducts,  Icon: IconBox },
+          { key: "search" as const,   href: `${base}`,           label: t.menu.search,     Icon: IconSearch },
+          { key: "account" as const,  href: `${base}/account`,   label: t.menu.myAccount,  Icon: IconUser },
+          { key: "products" as const, href: `${base}/products`,  label: t.menu.myProducts, Icon: IconBox },
         ])
       : ([
-          { key: "search" as const,   href: `${base}`,   label: t.menu.search,    Icon: IconSearch },
-          { key: "account" as const,  href: `${base}/account`,  label: t.menu.myAccount, Icon: IconUser },
+          { key: "search" as const,   href: `${base}`,           label: t.menu.search,     Icon: IconSearch },
+          { key: "account" as const,  href: `${base}/account`,   label: t.menu.myAccount,  Icon: IconUser },
         ]);
 
   let dateShort = "";
@@ -73,7 +93,7 @@ export default function TopNav({
         {/* وسط: منو (فقط دسکتاپ) */}
         <nav className="hidden md:flex items-center gap-6">
           {items.map(({ key, href, label, Icon }) => {
-            const isActive = active === key;
+            const isActive = resolvedActive === key; // ✅ اینجا اصلاح شد
             return (
               <Link
                 key={key}
@@ -94,7 +114,7 @@ export default function TopNav({
 
         {/* چپ: تاریخ کوتاه */}
         <div className="text-slate-400 text-sm min-w-[7.5rem] text-left">
-           <PersianDate></PersianDate>
+          <PersianDate />
         </div>
       </div>
     </header>
