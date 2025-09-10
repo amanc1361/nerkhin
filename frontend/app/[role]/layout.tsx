@@ -18,28 +18,28 @@ export default async function RoleLayout({
   params,
 }: {
   children: ReactNode;
-  params: Promise<{ role: Role }>; // اگر پروژه‌ات Sync APIs دارد، Promise نگه دار
+  // ✅ طبق ساختار پروژه‌ی خودت: Promise نگه می‌داریم و role هم string
+  params: Promise<{ role: string }>;
 }) {
   noStore();
 
-  // 1) نقشِ پاس‌داده‌شده از middleware
-  const hdr = headers();
-  const hdrRole = ((await hdr).get("x-user-role") || "") as Role;
+  // 1) نقش از هدر (headers سنکرون است و await لازم ندارد)
+  const hdrRole = (await headers()).get("x-user-role") || "";
 
-  // 2) fallback: پارامز مسیر
+  // 2) fallback: پارامز مسیر (طبق ساختار پروژه: await روی params)
   const { role: routeRole } = await params;
 
+  // 3) نقش نهایی (بدون تغییر منطق)
   const role = (hdrRole || routeRole) as Role;
 
   const t = getMarketMessages("fa");
 
   return (
     <div dir="rtl" className="min-h-dvh bg-white">
-
       <TopNav t={t} role={role} />
       {children}
       <div className="h-24 md:h-0" />
-      <BottomNav t={t} role={role}  />
+      <BottomNav t={t} role={role} />
     </div>
   );
 }
