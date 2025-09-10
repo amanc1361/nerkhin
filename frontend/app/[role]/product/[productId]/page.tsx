@@ -1,6 +1,6 @@
 // app/[role]/product/[productId]/page.tsx
 import ProductGallery from "@/app/components/market/ProductGallery";
-import ProductActionBar from "@/app/components/market/ProductActionBar";
+
 import ShopOffersList from "@/app/components/market/ShopOffersList";
 
 import { getMarketMessages } from "@/lib/server/texts/marketMessages";

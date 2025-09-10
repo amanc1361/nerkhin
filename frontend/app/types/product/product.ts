@@ -33,11 +33,11 @@ export interface ProductImage {
   isDefault: boolean;
 }
 
-export interface ProductTag {
-  id: number;
-  productId: number;
-  tag: string;
-}
+  export interface ProductTag {
+    id: number;
+    productId: number;
+    tag: string;
+  }
 
 export interface ProductFilterRelationViewModel {
   id:number;

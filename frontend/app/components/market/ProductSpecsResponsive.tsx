@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { ProductViewModel } from "@/app/types/product/product";
 import Portal from "../shared/portal";
 import { SpecPairs, useSpecPairs } from "./spaces";
-
 
 export default function ProductSpecsResponsive({
   product,
@@ -19,6 +18,18 @@ export default function ProductSpecsResponsive({
 }) {
   // زوج‌های مشخصات از سورس محصول (با پوشش Filter/Option بزرگ/کوچک + name/title/displayName)
   const pairs = useSpecPairs(product as any);
+
+  // استخراج تگ‌ها (پشتیبانی از چند نام و ساختار مختلف)
+  const tagTitles = useMemo(() => {
+    const raw = (product as any)?.tags ?? (product as any)?.productTags ?? [];
+    const list = Array.isArray(raw) ? raw : [];
+    const titles = list
+      .map((t: any) => (typeof t === "string" ? t : t?.tag))
+      .filter(Boolean) as string[];
+    // حذف موارد تکراری
+    return Array.from(new Set(titles));
+  }, [product]);
+  
 
   // ESC برای بستن
   useEffect(() => {
@@ -37,6 +48,24 @@ export default function ProductSpecsResponsive({
     };
   }, [open]);
 
+  // رندر چیپ‌های تگ‌ها (بدون تغییر در بقیه ساختار)
+  const TagsChips = () =>
+    tagTitles.length ? (
+      <div className="mt-3">
+  
+        <div className="flex flex-wrap gap-2">
+          {tagTitles.map((t, i) => (
+            <span
+              key={`${t}-${i}`}
+              className="inline-block rounded-full bg-white px-2.5 py-1 text-xs text-gray-700 ring-1 ring-black/10"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
   return (
     <>
       {/* دسکتاپ: همیشه زیر گالری */}
@@ -54,6 +83,9 @@ export default function ProductSpecsResponsive({
 
           {/* مشخصات (chips) */}
           <SpecPairs pairs={pairs} variant="chips" />
+
+          {/* تگ‌ها */}
+          <TagsChips />
         </div>
       </div>
 
@@ -100,7 +132,11 @@ export default function ProductSpecsResponsive({
                     {product.description}
                   </div>
                 ) : null}
+
                 <SpecPairs pairs={pairs} variant="chips" />
+
+                {/* تگ‌ها در موبایل */}
+                <TagsChips />
               </div>
             </div>
           </div>

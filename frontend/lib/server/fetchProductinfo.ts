@@ -72,9 +72,6 @@ export async function fetchProductInfoSSR(
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, `/user-product/fetch-shops/${productId}`);
 
-  // eslint-disable-next-line no-console
-  console.log("[fetchProductInfoSSR] Request URL:", url);
-
   const res = await fetch(url, {
     cache: "no-store",
     ...init,
