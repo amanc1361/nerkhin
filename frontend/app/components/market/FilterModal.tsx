@@ -1,26 +1,25 @@
 // app/components/market/FilterModal.tsx
 "use client";
 
-import { useBrandsByCategory } from "@/app/hooks/useBrandCategory";
-import type { ProductFilterData } from "@/app/types/product/product";
 import { useEffect, useMemo, useState } from "react";
-import MoneyInput, { parseMoney } from "@/app/components/shared/MonyInput";
+import { useBrandsByCategory } from "@/app/hooks/useBrandCategory";
 import { useFiltersByCategory } from "@/app/hooks/useFilterByCategory";
+import type { ProductFilterData } from "@/app/types/product/product";
+
 import Portal from "../shared/portal";
+import MoneyInput, { formatMoneyInput, parseMoney } from "../shared/MonyInput";
 
 type Option = { value: number; label: string };
 
 export type FiltersValue = {
   categoryId?: number;
-  brandIds?: number[]; // در این فرم تک‌انتخاب است ولی همچنان آرایه می‌فرستیم
+  brandIds?: number[]; // تک‌انتخاب ولی آرایه می‌فرستیم
   cityId?: number;
   isDollar?: boolean | null;
   priceMin?: number;
   priceMax?: number;
-  // خروجی نهاییِ فیلترها به صورت آرایه‌ی فلت از optionIdها
   optionIds?: number[];
-  // جدید: اعمال فیلتر بدون انتخاب گزینه
-  filterIds?: number[];
+  filterIds?: number[]; // (در این نسخه فقط وقتی option انتخاب نشده)
 };
 
 export default function FiltersModal({
@@ -44,12 +43,28 @@ export default function FiltersModal({
   dir?: "rtl" | "ltr";
   title?: string;
 }) {
+  // state عددیِ خروجی که به سرور می‌رود
   const [val, setVal] = useState<FiltersValue>(initial ?? {});
+
+  // state متنیِ فرمت‌شده برای نمایش در MoneyInput
+  const [priceMinText, setPriceMinText] = useState("");
+  const [priceMaxText, setPriceMaxText] = useState("");
+
+  // وقتی مودال باز می‌شود یا initial تغییر می‌کند، مقدارها را همگام کن
   useEffect(() => {
-    if (open) setVal(initial ?? {});
+    if (!open) return;
+    const next = initial ?? {};
+    setVal(next);
+    setPriceMinText(
+      next.priceMin != null ? formatMoneyInput(String(next.priceMin), false) : ""
+    );
+    setPriceMaxText(
+      next.priceMax != null ? formatMoneyInput(String(next.priceMax), false) : ""
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial]);
 
-  // قفل اسکرول پس‌زمینه هنگام باز بودن
+  // قفل اسکرول پس‌زمینه
   useEffect(() => {
     if (!open) return;
     const { overflow } = document.body.style;
@@ -63,7 +78,7 @@ export default function FiltersModal({
   const { items: brands = [], loading: brandsLoading } = useBrandsByCategory(categoryId);
   const brandOptions: Option[] = useMemo(
     () =>
-      brands.map((b: any) => ({
+      (brands || []).map((b: any) => ({
         value: Number(b.id),
         label: String(b.title ?? b.name ?? b.model ?? b.id),
       })),
@@ -79,24 +94,21 @@ export default function FiltersModal({
 
   // نگاشت انتخاب‌ها به ازای هر فیلتر: { [filterId]: optionId }
   const [selectedByFilter, setSelectedByFilter] = useState<Record<number, number | undefined>>({});
+  const [enabledFilters, setEnabledFilters] = useState<Record<number, boolean>>({}); // برای حالت بدون گزینه (در UI فعلاً چک‌باکس ندارد)
 
-  // جدید: فیلترهای فعال بدون گزینه
-  const [enabledFilters, setEnabledFilters] = useState<Record<number, boolean>>({});
-
-  // اگر دسته عوض شد، انتخاب قبلی پاک شود
+  // وقتی categoryId عوض شد، انتخاب‌ها را پاک کن
   useEffect(() => {
     setVal((p) => ({ ...p, categoryId, brandIds: [], optionIds: [], filterIds: [] }));
     setSelectedByFilter({});
     setEnabledFilters({});
   }, [categoryId]);
 
-  // مقداردهی اولیه‌ی انتخاب‌های فیلتر از روی initial.optionIds بعد از لود فیلترها
+  // مقداردهی اولیه انتخاب‌های فیلتر از روی initial.optionIds بعد از لود فیلترها
   useEffect(() => {
     if (!filterGroups.length) return;
     const initIds = initial?.optionIds ?? [];
     if (!initIds.length) return;
 
-    // ساخت lookup: optionId → filterId
     const optionToFilter = new Map<number, number>();
     for (const g of filterGroups) {
       for (const opt of g.options ?? []) {
@@ -111,7 +123,7 @@ export default function FiltersModal({
     setSelectedByFilter(next);
   }, [filterGroups, initial?.optionIds]);
 
-  // مقداردهی اولیه‌ی filterIds → enabledFilters
+  // مقداردهی اولیه filterIds → enabledFilters (اگر UI تیک اضافه شد)
   useEffect(() => {
     if (!filterGroups.length) return;
     const initFilterIds = initial?.filterIds ?? [];
@@ -125,7 +137,7 @@ export default function FiltersModal({
     setEnabledFilters((prev) => ({ ...prev, ...next }));
   }, [filterGroups, initial?.filterIds]);
 
-  // خروجی نهاییِ optionIds از روی selectedByFilter
+  // خروجی نهایی optionIds از روی selectedByFilter
   const flatOptionIds = useMemo(
     () =>
       Object.values(selectedByFilter)
@@ -134,7 +146,7 @@ export default function FiltersModal({
     [selectedByFilter]
   );
 
-  // خروجی نهاییِ filterIds براساس تیک‌ها (فقط وقتی آپشن انتخاب نشده)
+  // خروجی نهایی filterIds وقتی «بدون گزینه» فعال باشد (در صورت افزودن UI)
   const flatFilterIds = useMemo(() => {
     const ids: number[] = [];
     for (const g of filterGroups) {
@@ -143,47 +155,30 @@ export default function FiltersModal({
       const hasOption = Number.isFinite(selectedByFilter[fid] as number);
       if (enabled && !hasOption) ids.push(fid);
     }
-    return ids;
+    return ids.length ? ids : undefined;
   }, [enabledFilters, selectedByFilter, filterGroups]);
 
-  // هندل تغییر کشویی هر فیلتر
+  // تغییر کشویی فیلتر
   const onChangeFilterSelect = (filterId: number, optionId?: number) => {
     setSelectedByFilter((prev) => ({ ...prev, [filterId]: optionId }));
-    // اگر آپشن انتخاب شد، تیک «بدون گزینه» خاموش شود تا دوگانه نشود
-    if (optionId) {
-      setEnabledFilters((prev) => ({ ...prev, [filterId]: false }));
-    }
+    // اگر گزینه انتخاب شد، حالت بدون گزینه خاموش (در صورتی که UI داشته باشد)
+    if (optionId) setEnabledFilters((prev) => ({ ...prev, [filterId]: false }));
   };
 
-  // تیک «اعمال بدون گزینه»
-  const toggleFilterEnabled = (filterId: number, checked: boolean) => {
-    setEnabledFilters((prev) => ({ ...prev, [filterId]: checked }));
-    if (checked) {
-      setSelectedByFilter((prev) => {
-        const next = { ...prev };
-        delete next[filterId];
-        return next;
-      });
-    }
-  };
-
-  // نهایی‌سازی و ارسال به والد
+  // نهایی‌سازی و ارسال به والد — توجه: priceMin/priceMax «عدد» هستند
   const apply = () => {
-    onApply({
+    const payload: FiltersValue = {
       ...val,
       optionIds: flatOptionIds.length ? flatOptionIds : undefined,
-      filterIds: flatFilterIds.length ? flatFilterIds : undefined,
-    });
+      filterIds: flatFilterIds,
+    };
+    onApply(payload);
   };
 
   const isOpen = open ? "pointer-events-auto" : "pointer-events-none";
   const backdrop = open ? "opacity-100" : "opacity-0";
   const panelMobile = open ? "translate-y-0" : "translate-y-full";
   const panelDesktop = open ? "translate-x-0" : "translate-x-full";
-
-  // برای MoneyInput معمولاً مقدار رشته‌ای بدهیم و در خروجی number بسازیم
-  const priceMinStr = val.priceMin != null ? String(val.priceMin) : "";
-  const priceMaxStr = val.priceMax != null ? String(val.priceMax) : "";
 
   return (
     <>
@@ -203,6 +198,7 @@ export default function FiltersModal({
             inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl p-4
             transform transition-transform duration-300 md:hidden
             ${panelMobile}
+            flex flex-col min-h-0 overscroll-contain
           `}
           role="dialog"
           aria-modal="true"
@@ -212,6 +208,10 @@ export default function FiltersModal({
           <FormBody
             val={val}
             setVal={setVal}
+            priceMinText={priceMinText}
+            setPriceMinText={setPriceMinText}
+            priceMaxText={priceMaxText}
+            setPriceMaxText={setPriceMaxText}
             brandOptions={brandOptions}
             brandsLoading={brandsLoading}
             cities={cities}
@@ -221,10 +221,10 @@ export default function FiltersModal({
             errorText={error ?? undefined}
             selectedByFilter={selectedByFilter}
             onChangeFilterSelect={onChangeFilterSelect}
-            enabledFilters={enabledFilters}
-            onToggleFilterEnabled={toggleFilterEnabled}
+            containerClass="flex-1 min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch] pt-4 space-y-6 pr-1 -mr-1"
           />
           <Footer onClear={onClear} onApply={apply} onClose={onClose} />
+          <div className="h-[env(safe-area-inset-bottom)]" />
         </section>
       </Portal>
 
@@ -236,6 +236,7 @@ export default function FiltersModal({
           inset-y-0 right-0 w-full md:w-[380px] lg:w-[420px] p-5
           transform transition-transform duration-300 hidden md:flex md:flex-col
           ${panelDesktop}
+          min-h-0
         `}
         role="dialog"
         aria-modal="true"
@@ -245,6 +246,10 @@ export default function FiltersModal({
         <FormBody
           val={val}
           setVal={setVal}
+          priceMinText={priceMinText}
+          setPriceMinText={setPriceMinText}
+          priceMaxText={priceMaxText}
+          setPriceMaxText={setPriceMaxText}
           brandOptions={brandOptions}
           brandsLoading={brandsLoading}
           cities={cities}
@@ -254,8 +259,7 @@ export default function FiltersModal({
           errorText={error ?? undefined}
           selectedByFilter={selectedByFilter}
           onChangeFilterSelect={onChangeFilterSelect}
-          enabledFilters={enabledFilters}
-          onToggleFilterEnabled={toggleFilterEnabled}
+          containerClass="flex-1 min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch] pt-4 space-y-6"
         />
         <Footer onClear={onClear} onApply={apply} onClose={onClose} />
       </section>
@@ -279,6 +283,10 @@ function Header({ title, onClose }: { title: string; onClose: () => void }) {
 function FormBody({
   val,
   setVal,
+  priceMinText,
+  setPriceMinText,
+  priceMaxText,
+  setPriceMaxText,
   brandOptions,
   brandsLoading,
   cities,
@@ -288,11 +296,14 @@ function FormBody({
   errorText,
   selectedByFilter,
   onChangeFilterSelect,
-  enabledFilters,
-  onToggleFilterEnabled,
+  containerClass = "flex-1 min-h-0 overflow-y-auto pt-4 space-y-6",
 }: {
   val: FiltersValue;
   setVal: (u: FiltersValue | ((p: FiltersValue) => FiltersValue)) => void;
+  priceMinText: string;
+  setPriceMinText: (s: string) => void;
+  priceMaxText: string;
+  setPriceMaxText: (s: string) => void;
   brandOptions: Option[];
   brandsLoading: boolean;
   cities: Option[];
@@ -302,16 +313,11 @@ function FormBody({
   errorText?: string;
   selectedByFilter: Record<number, number | undefined>;
   onChangeFilterSelect: (filterId: number, optionId?: number) => void;
-  enabledFilters: Record<number, boolean>;
-  onToggleFilterEnabled: (filterId: number, checked: boolean) => void;
+  containerClass?: string;
 }) {
-  // برای MoneyInput معمولاً مقدار رشته‌ای بدهیم و در خروجی number بسازیم
-  const priceMinStr = val.priceMin != null ? String(val.priceMin) : "";
-  const priceMaxStr = val.priceMax != null ? String(val.priceMax) : "";
-
   return (
-    <div className="flex-1 overflow-auto pt-4 space-y-6">
-      {/* برند (کشویی تک‌انتخاب) */}
+    <div className={containerClass}>
+      {/* برند (تک‌انتخاب) */}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">برند</label>
         <select
@@ -353,40 +359,43 @@ function FormBody({
         </div>
       )}
 
-      {/* بازه قیمت با MoneyInput (سه‌رقمی) */}
+      {/* بازه قیمت با MoneyInput (بدون اعشار) */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">حداقل قیمت</label>
           <MoneyInput
-            value={priceMinStr}
-            onChange={(str: string) =>
+            value={priceMinText}
+            onChange={(formatted: string) => {
+              setPriceMinText(formatted); // نمایش فرمت‌شده
               setVal((p) => ({
                 ...p,
-                priceMin: str ? Number(parseMoney(str)) : undefined,
-              }))
-            }
+                priceMin: formatted ? Number(parseMoney(formatted)) : undefined, // عدد برای سرور
+              }));
+            }}
             placeholder="مثلاً ۱,۵۰۰,۰۰۰"
+            allowDecimal={false}
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">حداکثر قیمت</label>
           <MoneyInput
-            value={priceMaxStr}
-            onChange={(str: string) =>
+            value={priceMaxText}
+            onChange={(formatted: string) => {
+              setPriceMaxText(formatted);
               setVal((p) => ({
                 ...p,
-                priceMax: str ? Number(parseMoney(str)) : undefined,
-              }))
-            }
+                priceMax: formatted ? Number(parseMoney(formatted)) : undefined,
+              }));
+            }}
             placeholder="مثلاً ۱۲,۰۰۰,۰۰۰"
+            allowDecimal={false}
           />
         </div>
       </div>
 
-      {/* فیلترها و گزینه‌ها (هر فیلتر = یک کشویی تک‌انتخاب) */}
+      {/* فیلترها و گزینه‌ها */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-   
           {filtersLoading && <span className="text-xs text-gray-500">(در حال بارگذاری…)</span>}
           {errorText && <span className="text-xs text-red-600">({errorText})</span>}
         </div>
@@ -404,7 +413,6 @@ function FormBody({
             <div key={fid} className="border rounded-xl p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-slate-700">{title}</label>
-       
               </div>
 
               <select
@@ -444,7 +452,7 @@ function Footer({
   onClose: () => void;
 }) {
   return (
-    <footer className="pt-4 border-t mt-4 flex items-center gap-3">
+    <footer className="pt-4 border-t mt-4 flex items-center gap-3 sticky bottom-0 bg-white">
       {onClear && (
         <button onClick={onClear} className="px-4 py-2 rounded-xl border hover:bg-gray-50">
           پاک‌کردن
