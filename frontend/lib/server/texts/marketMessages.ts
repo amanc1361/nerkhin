@@ -28,7 +28,7 @@ export type MarketMessages = {
   common:{
     loading: string;
     of:string;
-    sellerCount: string;
+    sellerCount: string; 
     call: string;
     city: string;
   }
@@ -65,7 +65,7 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
       common:{
         loading: "Loading...",
         of:"off",
-        sellerCount: "Seller",
+        sellerCount: "Seller: {n}",
         call: "Call",
         city: "City",
       },
@@ -107,7 +107,7 @@ export const getMarketMessages = (locale: "fa" | "en" = "fa"): MarketMessages =>
     common:{
       of:"از",
       loading: "در حال بارگزاری...",
-      sellerCount: "فروشنده",
+      sellerCount: "فروشندگان زیر این محصول را با قیمت های اعلام شده ارايه می کنند :{n}",
       call: "تماس",
       city: "شهر",
     },

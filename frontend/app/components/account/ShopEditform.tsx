@@ -5,11 +5,10 @@ import { AccountUser } from "@/app/types/account/account";
 import { updateShopAction, UpdateShopResult } from "@/lib/server/shopaction";
 import { ShopEditMessages } from "@/lib/server/texts/shopEditMessages";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import MapPicker from "../map/MapPicker";
+import MapPicker from "../map/MapPicker"; // ← همین کامپوننت نقشه‌ای که ساختیم
 import { useRouter } from "next/navigation";
-
 
 function SubmitBtn({ t }: { t: ShopEditMessages }) {
   const { pending } = useFormStatus();
@@ -28,18 +27,20 @@ type Props = {
   locale?: "fa" | "en";
   t: ShopEditMessages;
   user: AccountUser;
-  role:string;
+  role: string;
 };
+
 const initialState: UpdateShopResult = { ok: false, error: "" };
 
-export default function ShopEditForm({ t, user,role }: Props) {
+export default function ShopEditForm({ t, user, role }: Props) {
   const [state, formAction] = useFormState<UpdateShopResult, FormData>(
     updateShopAction,
     initialState
   );
 
-  // image preview
   const router = useRouter();
+
+  // image preview
   const [imagePreview, setImagePreview] = useState<string | null>(
     user.imageUrl || null
   );
@@ -51,30 +52,17 @@ export default function ShopEditForm({ t, user,role }: Props) {
   const [website, setWebsite] = useState(user.websiteUrl || "");
   const [whatsapp, setWhatsapp] = useState(user.whatsappUrl || "");
 
-  // geo
+  // geo (string تا با inputها سینک باشد)
   const [lat, setLat] = useState<string>(user.latitude?.Decimal || "");
   const [lng, setLng] = useState<string>(user.longitude?.Decimal || "");
 
   useEffect(() => {
     if (state?.ok) {
-      // ساده: بعد از ذخیره موفق می‌تونیم پیام بدهیم یا رفرش کنیم
-    //  alert(t.actions.saved);
-    router.back()
-    } else if (state && !state.ok && state.error!="") {
+      router.back();
+    } else if (state && !state.ok && state.error !== "") {
       alert(state.error || t.errors.unknown);
     }
-  }, [state, t]);
-
-  const onPickGeo = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(String(pos.coords.latitude));
-        setLng(String(pos.coords.longitude));
-      },
-      () => {}
-    );
-  };
+  }, [state, t, router]);
 
   const onImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -88,11 +76,10 @@ export default function ShopEditForm({ t, user,role }: Props) {
       {/* avatar */}
       <input type="hidden" name="role" value="wholesaler" />
 
-
       <div className="flex flex-col items-center gap-2">
         <div className="relative h-20 w-20 overflow-hidden rounded-full ring-2 ring-indigo-200">
           <Image
-            src={"https://nerkhin.com/uploads/"+imagePreview || "/images/avatar-placeholder.png"}
+            src={"https://nerkhin.com/uploads/" + imagePreview || "/images/avatar-placeholder.png"}
             alt="avatar"
             fill
             sizes="80px"
@@ -171,72 +158,62 @@ export default function ShopEditForm({ t, user,role }: Props) {
         />
       </div>
 
-      {/* description (UI-only) */}
-      {/* <div className="space-y-1">
-        <label className="text-sm text-gray-600">{t.fields.description}</label>
-        <textarea
-          placeholder={t.fields.description}
-          className="min-h-24 w-full rounded-xl border px-3 py-2 text-sm"
-        />
-      </div> */}
-
       {/* map / geo */}
-        <div className="space-y-2">
-  <div className="flex items-center justify-between">
-    <label className="text-sm text-gray-600">{t.fields.map}</label>
-    {/* GeolocateControl خودِ Map هست؛ این دکمه فقط کمکی است */}
-    <button
-      type="button"
-      className="text-xs text-indigo-700"
-      onClick={() => {
-        if (!navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            setLat(String(pos.coords.latitude));
-            setLng(String(pos.coords.longitude));
-          },
-          () => {}
-        );
-      }}
-    >
-      انتخاب موقعیت فعلی
-    </button>
-  </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm text-gray-600">{t.fields.map}</label>
+          <button
+            type="button"
+            className="text-xs text-indigo-700"
+            onClick={() => {
+              if (!navigator.geolocation) return;
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  setLat(String(pos.coords.latitude));
+                  setLng(String(pos.coords.longitude));
+                },
+                () => {}
+              );
+            }}
+          >
+            انتخاب موقعیت فعلی
+          </button>
+        </div>
 
-  <MapPicker
-    lat={lat}
-    lng={lng}
-    onChange={(la, lo) => {
-      setLat(la);
-      setLng(lo);
-    }}
-    height={200}
-  />
+        {/* ✅ استفاده از همان کامپوننت نقشه */}
+        <MapPicker
+          lat={lat}
+          lng={lng}
+          onChange={(la, lo) => {
+            setLat(la);
+            setLng(lo);
+          }}
+          height={200}
+        />
 
-  {/* این ورودی‌ها ارسال می‌شوند و با نقشه sync هستند */}
-  <div className="mt-2 grid grid-cols-2 gap-3">
-    <input
-      name="latitude"
-      value={lat}
-      onChange={(e) => setLat(e.target.value)}
-      placeholder="عرض جغرافیایی"
-      className="w-full rounded-xl border px-3 py-2 text-sm"
-    />
-    <input
-      name="longitude"
-      value={lng}
-      onChange={(e) => setLng(e.target.value)}
-      placeholder="طول جغرافیایی"
-      className="w-full rounded-xl border px-3 py-2 text-sm"
-    />
-  </div>
-</div>
+        {/* این ورودی‌ها ارسال می‌شوند و با نقشه sync هستند */}
+        <div className="mt-2 grid grid-cols-2 gap-3">
+          <input
+            name="latitude"
+            value={lat}
+            onChange={(e) => setLat(e.target.value)}
+            placeholder="عرض جغرافیایی"
+            className="w-full rounded-xl border px-3 py-2 text-sm"
+          />
+          <input
+            name="longitude"
+            value={lng}
+            onChange={(e) => setLng(e.target.value)}
+            placeholder="طول جغرافیایی"
+            className="w-full rounded-xl border px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
 
       {/* socials */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-sm text-gray-600">{t.socials.title}</label>
-          {/* دکمه افزودن نمادین؛ فیلدهای ثابت‌اند */}
           <span className="text-xs text-gray-400">{t.socials.add} ➕</span>
         </div>
 
@@ -310,12 +287,15 @@ export default function ShopEditForm({ t, user,role }: Props) {
           />
         </div>
       </div>
-      <div className="flex flex-row gap-3">
 
-      <SubmitBtn t={t} />
-      <button className="w-full border-2 border-purple-medium  text-purple-medium rounded-xl" onClick={() => router.back()}>
-        {t.actions.cancel}
-      </button>
+      <div className="flex flex-row gap-3">
+        <SubmitBtn t={t} />
+        <button
+          className="w-full border-2 border-purple-medium  text-purple-medium rounded-xl"
+          onClick={() => router.back()}
+        >
+          {t.actions.cancel}
+        </button>
       </div>
     </form>
   );

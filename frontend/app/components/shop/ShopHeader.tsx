@@ -11,6 +11,8 @@ import Telegram from "../icon-components/Telegram";
 import Instagram from "../icon-components/Instagram";
 import WhatsApp from "../icon-components/WhatsApp";
 import ReportModal from "../report/ReportModal";
+import { Globe } from "lucide-react";
+import SocialIcons, { SocialItem } from "../shared/SocialItem";
 
 function absolutizeUploads(url?: string | null) {
   if (!url) return "";
@@ -74,23 +76,21 @@ export default function ShopHeader({ t, info }: Props) {
   }, [liked, favoriteId, targetUserId, addToFavorites, removeFavoritesByIds]);
 
   const handleShowMap = () => {
-    if (info?.shopInfo?.lat && info?.shopInfo?.lng) {
-      const q = `${info.shopInfo.lat},${info.shopInfo.lng}`;
+    console.log(info)
+    if (info?.shopInfo?.latitude && info?.shopInfo?.longitude) {
+      const q = `${info.shopInfo.latitude},${info.shopInfo.longitude}`;
       window.open(`https://www.google.com/maps?q=${encodeURIComponent(q)}`, "_blank");
     }
   };
 
-  const socials = [
-    {
-      key: "instagramUrl",
-      label: "Instagram",
-      href: info?.shopInfo?.instagramUrl,
-      Component: <Instagram />,
-    },
-    { key: "telegramUrl", label: "Telegram", href: info?.shopInfo?.telegramUrl, Component: <Telegram /> },
-    { key: "whatsappUrl", label: "WhatsApp", href: info?.shopInfo?.whatsappUrl, Component: <WhatsApp /> },
-    { key: "websiteUrl", label: "Website", href: info?.shopInfo?.websiteUrl, Component: <Telegram /> },
-  ].filter((x) => !!x.href);
+  const socials: SocialItem[] = [
+    { key: "instagramUrl", label: "Instagram", href: info?.shopInfo?.instagramUrl, Icon: Instagram },
+    { key: "telegramUrl",  label: "Telegram",  href: info?.shopInfo?.telegramUrl,  Icon: Telegram },
+    { key: "whatsappUrl",  label: "WhatsApp",  href: info?.shopInfo?.whatsappUrl,  Icon: WhatsApp },
+    { key: "websiteUrl",   label: "Website",   href: info?.shopInfo?.websiteUrl,   Icon: Globe },
+  ];
+
+
 
   return (
     <div dir="rtl" className="text-right">
@@ -185,14 +185,14 @@ export default function ShopHeader({ t, info }: Props) {
       <div className="mt-3 px-4 space-y-3 text-sm">
         {info?.shopInfo?.shopAddress && (
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 min-w-16">{t?.shop?.address ?? ""}</span>
+            <span className="text-gray-500 min-w-16">{t?.shop?.address ?? "آدرس:"}</span>
             <span className="leading-6">{info.shopInfo.shopAddress}</span>
           </div>
         )}
 
         {(info?.shopInfo?.shopPhone1 || info?.shopInfo?.shopPhone2) && (
           <div className="flex items-start gap-2">
-            <span className="text-gray-500 min-w-16">{t?.shop?.phones ?? ""}</span>
+            <span className="text-gray-500 min-w-16">{t?.shop?.phones ?? "شماره تلفن:"}</span>
             <span className="leading-6 ltr">
               {info.shopInfo?.shopPhone1 || ""}
               {info.shopInfo?.shopPhone1 && info.shopInfo?.shopPhone2 ? " | " : ""}
@@ -211,22 +211,10 @@ export default function ShopHeader({ t, info }: Props) {
 
       {/* ───── Social icons ───── */}
       {socials.length > 0 && (
-        <div className="mt-3 px-4 flex items-center justify_between gap-3">
-          {socials.map((s) => (
-            <a
-              key={s.key}
-              href={s.href as string}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center w-9 h-9 rounded-xl border hover:bg-gray-50"
-              aria-label={s.label}
-              title={s.label}
-            >
-              {s.Component}
-            </a>
-          ))}
-        </div>
+        <SocialIcons socials={socials} className="mt-3 px-4 flex items-center justify_between gap-3" />
       )}
+
+
 
       {/* ───── Report Modal ───── */}
       <ReportModal

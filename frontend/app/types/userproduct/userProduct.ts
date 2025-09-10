@@ -49,8 +49,8 @@ export type ShopViewModel = {
     city?: string;
     phoneNumber?: string;
     imageUrl?: string;
-    lat?: number;
-    lng?: number;
+    latitude?: number;
+    longitude?: number;
     likesCount?: number;
     shopAddress?: string;
     shopPhone1?: string;

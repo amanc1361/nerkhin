@@ -61,7 +61,7 @@ export default function ShopOffersList({ t, items,role }: Props) {
     <section className="mt-4">
       {/* هدر: تعداد فروشنده + کنترل مرتب‌سازی */}
       <div className="flex items-center justify-between mb-2">
-        <div className="text-sm text-gray-500">{sellerCountTxt}: {items.length}</div>
+        <div className="text-sm text-gray-500">{sellerCountTxt}</div>
 
         <div className="flex items-center gap-2">
          

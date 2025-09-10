@@ -25,10 +25,12 @@ export default function ShopProductsList({
   // اگر کارت آمادهٔ خودت هست، همون رو 
   // yاستفاده کن:
   const t=getUserProductMessages("fa");
+  console.log(products)
   if (UserProductItem) {
     return (
       <div className="grid grid-cols-1 gap-3 mt-4">
-        {products.map((p: any) => (
+        {products.map((p: UserProductView) => (
+          
           <Link  key={p.productId} href={`/${role}/product/${p.productId}`} >
           <UserProductItem showAction={false} key={p.id} item={p} messages={t}  onEdit={()=>{}} onDelete={()=>{}} onToggleVisible={()=>{}} onMoveUp={()=>{}} onMoveDown={()=>{}}/>
           </Link>

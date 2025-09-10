@@ -1,31 +1,37 @@
+// components/utils/PersianDate.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
 import moment from "moment-jalaali";
+import { AllowedDateInput, normalizeDbDate } from "../types/date/dbdate";
+
 
 type Props = {
-  /** تاریخ دلخواه. اگر خالی باشه → امروز */
-  value?: string | Date | number;
+  /** هر نوع تاریخ مجاز: ISO string | number | Date | DbDate | null/undefined */
+  value?: AllowedDateInput;
   className?: string;
 };
 
 const PersianDate: React.FC<Props> = ({ value, className }) => {
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
+  console.log("Date:",value)
 
   useEffect(() => {
+    // فعال‌سازی فارسی
     moment.loadPersian({ dialect: "persian-modern", usePersianDigits: true });
 
-    const m = value ? moment(value) : moment(); // اگر value نبود → امروز
+    const raw = normalizeDbDate(value);     // ← اینجا همه‌چیز نرمال می‌شود
+    const m = raw !== undefined ? moment(raw) : moment();  // اگر خالی بود، امروز
+
     const today = moment().format("jYYYY/jMM/jDD");
     const target = m.format("jYYYY/jMM/jDD");
 
     let dateStr: string;
-
-    if (!value) {
-      // حالت پیش‌فرض (قبلی): روز + ماه + سال شمسی امروز
+    if (raw === undefined) {
+      // اگر ورودی خالی/نامعتبر بود → امروز با فرمت کامل
       dateStr = m.format("jD jMMMM jYYYY");
     } else if (today === target) {
-      // اگر تاریخ داده شده مربوط به امروز بود → فقط ساعت
+      // اگر تاریخِ امروز باشد → فقط ساعت
       dateStr = m.format("HH:mm");
     } else {
       // سایر تاریخ‌ها → روز + ماه شمسی

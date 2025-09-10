@@ -1,3 +1,4 @@
+"use client"
 // components/account/AccountHeaderCard.tsx
 import { FC, useMemo } from "react";
 import Image from "next/image";
@@ -5,6 +6,11 @@ import Link from "next/link";
 import { normalizeRole, RoleInput, UserRole } from "@/app/types/role";
 import { AccountUser } from "@/app/types/account/account";
 import { getAccountMessages } from "@/lib/server/texts/accountMessages";
+import SocialIcons, { SocialItem } from "../shared/SocialItem";
+import { Globe } from "lucide-react";
+import Instagram from "../icon-components/Instagram";
+import Telegram from "../icon-components/Telegram";
+import WhatsApp from "../icon-components/WhatsApp";
 
 type Props = {
   locale?: "fa" | "en";
@@ -73,7 +79,12 @@ export const AccountHeaderCard: FC<Props> = ({
       : undefined;
 
   const phones = [user.shopPhone1, user.shopPhone2, user.shopPhone3].filter(Boolean) as string[];
-
+  const socials: SocialItem[] = [
+    { key: "instagramUrl", label: "Instagram", href: user.instagramUrl, Icon: Instagram },
+    { key: "telegramUrl",  label: "Telegram",  href: user.telegramUrl,  Icon: Telegram },
+    { key: "whatsappUrl",  label: "WhatsApp",  href: user.whatsappUrl,  Icon: WhatsApp },
+    { key: "websiteUrl",   label: "Website",   href: user.websiteUrl,   Icon: Globe },
+  ];
   const imageSrc = useMemo(() => {
     if (user?.imageUrl) return `https://nerkhin.com/uploads/${user.imageUrl}`;
     return "/uploads/avatar-placeholder.png";
@@ -167,47 +178,9 @@ export const AccountHeaderCard: FC<Props> = ({
 
       {/* شبکه‌های اجتماعی (دیو مستقل زیر تلفن‌ها) */}
       {isWholesale && (
-        <div className="mt-5 flex items-center justify-start gap-3 sm:gap-4 text-gray-700">
-          {user.instagramUrl && (
-            <Link
-              href={user.instagramUrl}
-              target="_blank"
-              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
-              aria-label="instagram"
-            >
-              {Ic.insta}
-            </Link>
-          )}
-          {user.telegramUrl && (
-            <Link
-              href={user.telegramUrl}
-              target="_blank"
-              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
-              aria-label="telegram"
-            >
-              {Ic.tg}
-            </Link>
-          )}
-          {user.websiteUrl && (
-            <Link
-              href={user.websiteUrl}
-              target="_blank"
-              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
-              aria-label="website"
-            >
-              {Ic.web}
-            </Link>
-          )}
-          {user.whatsappUrl && (
-            <Link
-              href={user.whatsappUrl}
-              target="_blank"
-              className="grid h-9 w-9 place-items-center rounded-full border border-gray-200 bg-white/90 backdrop-blur transition hover:bg-white hover:shadow"
-              aria-label="whatsapp"
-            >
-              {Ic.wa}
-            </Link>
-          )}
+        <div className="px-8 pt-4">
+
+          <SocialIcons socials={socials} />
         </div>
       )}
     </section>

@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 
 interface CustomMarkerProps {
@@ -15,7 +17,9 @@ const CustomMarker: React.FC<CustomMarkerProps> = ({ size = 60 }) => {
         alignItems: "center",
         justifyContent: "center",
         color: "white",
-        fontSize: size,
+        fontSize: size * 0.7,
+        lineHeight: 1,
+        transform: "translateY(6px)", // کمی پایین‌تر تا نوک پین طبیعی‌تر باشد
       }}
     >
       <span>📍</span>

@@ -16,12 +16,13 @@ import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 import { formatMoneyInput, toEnDigits } from "@/app/components/shared/MonyInput";
 
 import FilterControls, { type FilterControlsValue } from "@/app/components/shared/FilterControls";
+import { UserProductVM } from "@/app/types/userproduct/userProduct";
 
 type Role = "wholesaler" | "retailer";
 
 type Props = {
   role: Role;
-  initialItems: any[]; // UserProductVM[]
+  initialItems: UserProductVM[]; // UserProductVM[]
   usdPrice: string | number;
   locale: string;
 };
@@ -85,74 +86,7 @@ export default function MyproductsPage({
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
   }, [initialItems]);
 
-  // --- نرمالایزر: فیلدها را یکدست می‌کند (بدون تغییر ساختار ریکوئست) ---
-  function normalizeProducts(arr: any[]): any[] {
-    return (arr ?? []).map((it) => {
-      const id =
-        it?.id ?? it?.productId ?? it?.product_id ?? it?.product?.id ?? null;
 
-      const finalPrice =
-        it?.finalPrice ??
-        it?.final_price ??
-        it?.product?.final_price ??
-        it?.product?.finalPrice ??
-        null;
-
-      const updatedAt =
-        it?.product?.updatedAt 
-        
-
-      const brandId =
-        it?.brandId ??
-        it?.product?.brandId ??
-        it?.productBrandId ??
-        it?.product?.brand_id ??
-        null;
-
-      const brandTitle =
-        it?.brandTitle ??
-        it?.product?.brandTitle ??
-        it?.productBrand ??
-        it?.product?.brand_title ??
-        null;
-
-      // کپی سطح بالا + همسان‌سازی فیلدها
-      const out = {
-        ...it,
-        id,
-        finalPrice,
-        updatedAt,
-        brandId,
-        brandTitle,
-      };
-
-      // اگر آبجکت product هست، همانجا هم فیلدهای camelCase را ست کن
-      if (out.product && typeof out.product === "object") {
-        out.product = {
-          ...out.product,
-          id: out.product.id ?? id,
-          finalPrice:
-            out.product.finalPrice ??
-            out.product.final_price ??
-            finalPrice,
-          brandId:
-            out.product.brandId ??
-            out.product.brand_id ??
-            brandId,
-          brandTitle:
-            out.product.brandTitle ??
-            out.product.brand_title ??
-            brandTitle,
-          updatedAt:
-            out.product.updatedAt ??
-            out.product.updated_at ??
-            updatedAt,
-        };
-      }
-
-      return out;
-    });
-  }
 
   // ---- بدنه fetch (بدون تغییر در URL/Query/Headers) ----
   const doFetch = useCallback(
@@ -186,7 +120,7 @@ export default function MyproductsPage({
           : [];
 
         // ⬅️ نرمالایز و سپس ست در state
-        setItems(normalizeProducts(products));
+        setItems(products);
       } catch (e) {
         console.error("[Products][fetch][ERROR]", e);
       } finally {

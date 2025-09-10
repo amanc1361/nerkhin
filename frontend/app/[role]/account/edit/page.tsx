@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 
 import { fetchUserInfo } from "@/lib/server/server-api";
 import { normalizeRole, UserRole } from "@/app/types/role";
-import { AccountUser } from "@/app/types/account/account";
 import { getShopEditMessages } from "@/lib/server/texts/shopEditMessages";
 import ShopEditForm from "@/app/components/account/ShopEditform";
 import { FetchUserInfoResponse } from "@/app/types/account/subscriptionstatus";

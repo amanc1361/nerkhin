@@ -57,9 +57,9 @@ export default function ProductsToolbar({
       <div className="flex bg-gray-100 rounded-2xl items-center px-4 justify-between lg:hidden">
         <span>{messages.toolbar.priceList}</span>
         <div className="flex items-center gap-2">
-          <div>
+          <div className="py-2">
             
-         
+            
             <Link
               
               href={"/api/price-list"}
@@ -69,22 +69,15 @@ export default function ProductsToolbar({
               {messages.toolbar.pdf}
             </Link>
 
-            <button
+            {/* <button
               
               onClick={onShareJpg}
               className="rounded-full  px-3 py-1.5 text-sm bg-fuchsia-50 text-fuchsia-700"
             >
               {messages.toolbar.jpg}
-            </button>
+            </button> */}
 
-            <button
-              type="button"
-              onClick={share}
-              title={messages.toolbar.share}
-              className="rounded-full p-2.5 bg-sky-50 text-sky-700"
-            >
-              <ShareIcon className="h-5 w-5 text-sky-700" />
-            </button>
+        
           </div>
         </div>
       </div>
@@ -121,33 +114,25 @@ export default function ProductsToolbar({
           </div>
 
           {/* دکمه‌ها: JPG / PDF / اشتراک */}
-          <div className="space-y-2">
-            <button
+          <div className=" flex flex-col gap-4 space-y-2">
+            {/* <button
               onClick={onShareJpg}
               className="w-full rounded-lg border px-3 py-2 text-sm text-fuchsia-700 hover:bg-fuchsia-50"
             >
               {messages.toolbar.jpg}
             </button>
-            <div className="flex w-full rounded-lg border items-center justify-center ">
+         */}
 
             <Link
             type="button"
             href={"/api/price-list"}
-            className="  px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
+    
             >
+                  <div className="flex w-full px-3 py-2 rounded-lg border   text-rose-600 hover:bg-rose-50 items-center justify-center ">
               {messages.toolbar.pdf}
-            </Link>
               </div>
-            <button
-              onClick={share}
-              className="w-full rounded-lg border px-3 py-2 text-sm text-sky-700 hover:bg-sky-50 inline-flex items-center justify-center gap-2"
-            >
-              <svg viewBox="0 0 24 24" className="w-4 h-4" stroke="currentColor" fill="none" strokeWidth="1.8">
-                <path strokeLinecap="round" d="M12 5v7m0-7l-3 3m3-3l3 3" />
-                <path d="M7 11a5 5 0 108 4h2a7 7 0 11-10-6z" />
-              </svg>
-              {messages.toolbar.share}
-            </button>
+            </Link>
+           
           </div>
 
           {/* ورودی/نمایش قیمت دلار (جای اصلی خودش) */}
