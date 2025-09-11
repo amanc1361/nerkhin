@@ -1,12 +1,11 @@
-// فایل: FavoriteAccountsList.tsx
+// app/components/.../FavoriteAccountsList.tsx
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import moment from "moment-jalaali";
 import { useMemo, useState } from "react";
-import { FavoriteAccountViewModel, useFavoriteAccounts } from "@/app/hooks/useFavoriteAccounts";
-
+import { useFavoriteAccounts } from "@/app/hooks/useFavoriteAccounts";
 
 const t = {
   empty: "چیزی پیدا نشد.",
@@ -22,18 +21,15 @@ function toJalali(iso?: string | null) {
   return moment(iso).format("jD jMMMM jYYYY");
 }
 
-export function FavoriteAccountsList() {
-  // داده‌ها از هوک خودش
+export function FavoriteAccountsList({ role }: { role: string }) {
   const { data, isLoading, error } = useFavoriteAccounts();
-
   const [sort, setSort] = useState<"new" | "old">("new");
 
-  const sorted: FavoriteAccountViewModel[] = useMemo(() => {
+  const sorted = useMemo(() => {
     const arr = Array.isArray(data) ? [...data] : [];
-    // فرض: فیلدی مانند createdAt در دیتاتایپ وجود دارد
     arr.sort((a, b) => {
-      const da = new Date((a as any).createdAt).getTime();
-      const db = new Date((b as any).createdAt).getTime();
+      const da = new Date(a.createdAt).getTime();
+      const db = new Date(b.createdAt).getTime();
       return sort === "new" ? db - da : da - db;
     });
     return arr;
@@ -62,17 +58,14 @@ export function FavoriteAccountsList() {
       {!isLoading &&
         !error &&
         sorted.map((s) => {
-          // فرض: در دیتاتایپ شما فیلدهایی مثل shopId / shopName / imageUrl / createdAt وجود دارند
-          const name =
-            (s as any).shopName ?? (s as any).fullName ?? (s as any).title ?? "";
-          const img = s.shopImage;
-          const createdAt = (s as any).createdAt;
-
-          const shopHref = (s as any).shopId ? `/shop/${(s as any).shopId}` : "#";
+          const name = s.shopName || s.fullName || s.title || "بدون نام";
+          const img = s.imageUrl || s.avatarUrl || s.shopImageUrl || "";
+          const createdAt = s.createdAt;
+          const shopHref = s.shopId ? `/${role}/shop/${s.shopId}` : "#";
 
           return (
             <Link
-              key={(s as any).id ?? (s as any).shopId}
+              key={s.id}
               href={shopHref}
               className="block rounded-2xl border p-3 hover:bg-gray-50 dark:hover:bg-zinc-900 transition"
             >
@@ -80,7 +73,7 @@ export function FavoriteAccountsList() {
                 <div className="w-14 h-14 rounded-2xl bg-gray-100 overflow-hidden flex-shrink-0 relative">
                   {img ? (
                     <Image
-                      src={"https://nerkhin.com/" + img}
+                      src={"https://nerkhin.com/"+img}
                       alt={name}
                       fill
                       sizes="56px"
@@ -96,9 +89,11 @@ export function FavoriteAccountsList() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <div className="truncate text-[15px] VazirFontMedium">
-                      {name || "بدون نام"}
+                      {name}
                     </div>
-                    <div className="text-[12px] text-gray-500">{toJalali(createdAt)}</div>
+                    <div className="text-[12px] text-gray-500">
+                      {toJalali(createdAt)}
+                    </div>
                   </div>
 
                   <div className="text-[12px] text-blue-600 mt-1">{t.viewShop}</div>

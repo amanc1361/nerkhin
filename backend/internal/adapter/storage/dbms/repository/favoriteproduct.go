@@ -66,6 +66,7 @@ func (fpr *FavoriteProductRepository) GetFavoriteProducts(
 			pb.title             AS product_brand_title,
 			p.model_name         AS product_model_title,      -- جایگزین pm.title
 			p.default_image_url  AS product_default_image_url,
+			
 			p.shops_count        AS product_shops_count,
 			p.created_at         AS product_creation_at
 		`).

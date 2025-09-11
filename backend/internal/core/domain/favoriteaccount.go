@@ -10,6 +10,7 @@ type FavoriteAccount struct {
 
 type FavoriteAccountViewModel struct {
 	FavoriteAccount
+	ShopID         int64     `json:"shopId"`
 	ShopName       string    `json:"shopName"`
 	ShopAddress    string    `json:"shopAddress"`
 	ShopPhone1     string    `json:"shopPhone1"`

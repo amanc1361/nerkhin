@@ -68,6 +68,7 @@ func (far *FavoriteAccountRepository) GetFavoriteAccounts(ctx context.Context,
 		Order("fa.id ASC").
 		Select(
 			"fa.*",
+			"tu.id AS shop_id",
 			"tu.image_url AS shop_image",
 			"tu.shop_name AS shop_name",
 			"tu.shop_address AS shop_address",

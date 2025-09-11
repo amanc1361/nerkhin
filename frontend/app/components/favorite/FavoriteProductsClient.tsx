@@ -179,7 +179,7 @@ export default function FavoriteProductsClient({
         </div>
       ) : (
         // تب فروشگاه‌ها: کل منطق و فِچ داخل کامپوننت اختصاصی و با هوک خودش
-        <FavoriteAccountsList />
+        <FavoriteAccountsList role={role} />
       )}
     </div>
   );
