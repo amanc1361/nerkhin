@@ -15,6 +15,7 @@ type FavoriteAccountViewModel struct {
 	ShopPhone1     string    `json:"shopPhone1"`
 	ShopLikesCount int64     `json:"shopLikesCount"`
 	ShopCreationAt time.Time `json:"shopCreationAt"`
+	ShopImage      string    `json:"shopImage"`
 }
 
 type MyCustomersViewModel struct {
