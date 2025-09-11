@@ -15,6 +15,7 @@ type UserFilter struct {
 
 type UserViewModel struct {
 	User
+	IsActive             bool   `json:"isActive"`
 	CityName             string `json:"cityName"`
 	SubscriptionDaysLeft int32  `json:"subscriptionDaysLeft"`
 }

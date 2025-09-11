@@ -10,10 +10,18 @@ selectCityPlaceholder: "شهر را انتخاب کنید",
   searchPlaceholder: "جستجو بر اساس نام یا شماره همراه...",
   sortByCityPlaceholder: "مرتب سازی بر اساس شهر",
   allCities: "همه شهرها",
-  
+  deleteUserModalTitle: "حذف کاربر",
+  deleteUserConfirm: "کاربر {userName} حذف خواهد شد. ادامه می‌دهید؟",
+  toggleActiveUserModalTitle: "تغییر وضعیت کاربر",
+  toggleActiveUserConfirm: "آیا از تغییر وضعیت کاربر {userName} مطمئن هستید؟",
+ activateUserConfirm: "آیا از فعال کردن کاربر {userName} مطمئن هستید؟",
+ deactivateUserConfirm: "آیا از غیرفعال کردن کاربر {userName} مطمئن هستید؟", 
   // User Item Actions
   approveAction: "تایید",
   rejectAction: "رد",
+  userDeletedSuccess: "کاربر با موفقیت حذف شد.",
+  userActivatedSuccess: "کاربر با موفقیت فعال شد.",
+  userDeactivatedSuccess: "کاربر با موفقیت غیرفعال شد.",
   
   // Modal Titles
   addUserModalTitle: "افزودن کاربر جدید",
@@ -39,6 +47,9 @@ selectCityPlaceholder: "شهر را انتخاب کنید",
 
   // Empty State
   noUsersFound: "هیچ کاربری با این مشخصات یافت نشد.",
+  activateAction: "فعال کردن",
+  deactivateAction: "غیرفعال کردن",
+  deleteAction:"حذف",
 
   // Buttons
   submit: "ثبت",

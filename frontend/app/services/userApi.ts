@@ -1,22 +1,38 @@
 import { NewUserFormData } from "@/app/types/types";
 
-// services/userApi.ts
 export const userApi = {
-  // پارامترها باید شامل موارد صفحه‌بندی مانند page و limit باشند
+  // گرفتن لیست کاربران (با صفحه‌بندی و فیلترها)
   getAll: (params: { [key: string]: any }) => ({
-    url: '/user/fetch-users',
-    method: 'post' as const,
+    url: "/user/fetch-users",
+    method: "post" as const,
     body: params,
   }),
+
+  // ایجاد کاربر جدید
   create: (newUserData: NewUserFormData) => ({
-    url: '/user/add-new-user',
-    method: 'post' as const,
+    url: "/user/add-new-user",
+    method: "post" as const,
     body: newUserData,
   }),
-  changeState: (payload: { userId: number | string; targetState: number }) => ({
-    url: '/user/change-state',
-    method: 'post' as const,
+
+  // تغییر وضعیت (approve = 5, reject = 2 و غیره)
+  changeState: (payload: { userId: number ; targetState: number }) => ({
+    url: "/user/change-state",
+    method: "post" as const,
+    body: payload,
+  }),
+
+  // حذف کاربر
+  deleteUser: (payload: { userId: number  }) => ({
+    url: "/user/delete",
+    method: "post" as const,
+    body: payload,
+  }),
+
+  // فعال/غیرفعال کردن کاربر
+  setActive: (payload: { userId: number | string; active: boolean }) => ({
+    url: "/user/set-active",
+    method: "post" as const,
     body: payload,
   }),
 };
-

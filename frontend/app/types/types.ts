@@ -215,7 +215,7 @@ export interface SubscriptionUpdatePayload {
 export type UserRole = 'user' | 'admin' | 'editor' | 'content_manager' | string; // یا هر نقش دیگری
 
 export interface User {
-  id: string | number;
+  id:  number;
   state:number;
   username: string;
   email: string;

@@ -64,6 +64,7 @@ func (ur *UserRepository) GetUserByID(ctx context.Context, dbSession interface{}
 
 	return user, nil
 }
+
 // فقط اشتراک‌های فعالِ کاربر، یک رکورد به‌ازای هر شهر (جدیدترین بر اساس expires_at)
 func (ur *UserRepository) GetUserSubscriptionsWithCity(
 	ctx context.Context,
@@ -100,7 +101,6 @@ func (ur *UserRepository) GetUserSubscriptionsWithCity(
 
 	return
 }
-
 
 func (ur *UserRepository) GetDollarPrice(ctx context.Context, dbSession interface{}, id int64) (dollarPrice string, err error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
@@ -202,6 +202,7 @@ func (ur *UserRepository) GetUsersByFilter(ctx context.Context, dbSession interf
 		Select(
 			"u.*",
 			"c.name AS city_name",
+			"CASE WHEN u.state_c = 5 THEN TRUE ELSE FALSE END AS is_active",
 		).
 		Scan(&users).Error
 	if err != nil {
