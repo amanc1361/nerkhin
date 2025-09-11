@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
 	httputil "github.com/nerkhin/internal/adapter/handler/http/helper"
@@ -35,7 +37,7 @@ func (ush *UserSubscriptionHandler) FetchPaymentGatewayInfo(c *gin.Context) {
 		validationError(c, err, ush.AppConfig.Lang)
 		return
 	}
-
+	fmt.Println(req)
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserId := authPayload.UserID
 
@@ -49,6 +51,7 @@ func (ush *UserSubscriptionHandler) FetchPaymentGatewayInfo(c *gin.Context) {
 	ctx := c.Request.Context()
 	gatewayInfo, err := ush.service.FetchPaymentGatewayInfo(ctx, config)
 	if err != nil {
+		fmt.Println("err:", err)
 		HandleError(c, err, ush.AppConfig.Lang)
 		return
 	}
