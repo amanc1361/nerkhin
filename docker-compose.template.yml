@@ -1,70 +1,71 @@
-version: "3.9"
+  version: "3.9"
 
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    env_file: .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks: [nerkhin-net]
+  services:
+    postgres:
+      image: postgres:16-alpine
+      container_name: postgres
+      env_file: .env
+      environment:
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      volumes:
+        - postgres-data:/var/lib/postgresql/data
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      networks: [nerkhin-net]
 
-  backend:
-    image: backend:${DEPLOY_TAG}
-    container_name: nerkhin-backend
-    env_file: .env
-    expose: ["8084"]                 # فقط داخل شبکه؛ Nginx پروکسی می‌کند
-    volumes:
-      - server-data:/data
-      # ⬇️ bind mount ساده و شفاف (مسیر واقعی روی سرور را بنویس، ~ کار نمی‌کند)
-      - /home/ubuntu/nerkhin/uploads:/uploads
-    shm_size: "1gb"
-    environment:
-      - CHROMEDP_EXEC_PATH=/usr/bin/chromium-browser
-      - CHROME_PATH=/usr/bin/chromium-browser  
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    networks: [nerkhin-net]
+    backend:
+      image: backend:${DEPLOY_TAG}
+      container_name: nerkhin-backend
+      env_file: .env
+      expose: ["8084"]                 # فقط داخل شبکه؛ Nginx پروکسی می‌کند
+      volumes:
+        - server-data:/data
+        # ⬇️ bind mount ساده و شفاف (مسیر واقعی روی سرور را بنویس، ~ کار نمی‌کند)
+        - /home/ubuntu/nerkhin/uploads:/uploads
+      shm_size: "1gb"
+      environment:
+        - CHROMEDP_EXEC_PATH=/usr/bin/chromium-browser
+        - CHROME_PATH=/usr/bin/chromium-browser  
+      user: "1000:1000"   
+      depends_on:
+        postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      networks: [nerkhin-net]
 
-  frontend:
-    image: frontend:${DEPLOY_TAG}
-    container_name: nerkhin-frontend
-    env_file: .env.frontend
-    expose: ["3000"]
-    depends_on: [backend]
-    restart: unless-stopped
-    networks: [nerkhin-net]
+    frontend:
+      image: frontend:${DEPLOY_TAG}
+      container_name: nerkhin-frontend
+      env_file: .env.frontend
+      expose: ["3000"]
+      depends_on: [backend]
+      restart: unless-stopped
+      networks: [nerkhin-net]
 
-  nginx:
-    image: nginx:alpine
-    container_name: nerkhin-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      # ⬇️ همان bind mount، ولی فقط-خواندنی برای سرو فایل‌ها
-      - /home/ubuntu/nerkhin/uploads:/uploads:ro
-    depends_on:
-      - frontend
-      - backend
-    networks: [nerkhin-net]
+    nginx:
+      image: nginx:alpine
+      container_name: nerkhin-nginx
+      ports:
+        - "80:80"
+        - "443:443"
+      volumes:
+        - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        - /etc/letsencrypt:/etc/letsencrypt:ro
+        # ⬇️ همان bind mount، ولی فقط-خواندنی برای سرو فایل‌ها
+        - /home/ubuntu/nerkhin/uploads:/uploads:ro
+      depends_on:
+        - frontend
+        - backend
+      networks: [nerkhin-net]
 
-volumes:
-  postgres-data:
-  server-data:
+  volumes:
+    postgres-data:
+    server-data:
 
-networks:
-  nerkhin-net:
-    driver: bridge
+  networks:
+    nerkhin-net:
+      driver: bridge
