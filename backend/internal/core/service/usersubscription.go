@@ -48,6 +48,7 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 
 	err = uss.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
 		if config.CallBackUrl == "" {
+			fmt.Println("CallBackUrl:", config.CallBackUrl)
 			return errors.New(msg.ErrCallBackUrlShouldNotBeEmpty)
 		}
 
