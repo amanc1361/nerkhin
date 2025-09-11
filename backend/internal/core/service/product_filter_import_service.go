@@ -64,8 +64,9 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			filterMap[key] = fd
 		}
 
-		type pair struct{ fId, optId int64 }
-		existingRelCache := map[int64]map[pair]struct{}{} // productID → set[(filterID, optionID)]
+		// ❗️تغییر: کش روابط موجود به‌ازای هر محصول، فقط با کلید filter_id
+		// یعنی: productID → set[filterID]
+		existingRelCache := map[int64]map[int64]struct{}{}
 
 		// --- Lookup ساده برند: بدون هیچ دستکاری روی متن ورودی ---
 		ensureBrandID := func(tx *gorm.DB, category_id int64, name string) (int64, error) {
@@ -118,7 +119,8 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 		}
 
 		// روابط موجود محصول
-		loadExistingRelations := func(tx *gorm.DB, productID int64) (map[pair]struct{}, error) {
+		// ❗️تغییر: به‌جای map[(filterID, optionID)]struct{}، فقط set[filterID]
+		loadExistingRelations := func(tx *gorm.DB, productID int64) (map[int64]struct{}, error) {
 			if m, ok := existingRelCache[productID]; ok {
 				return m, nil
 			}
@@ -126,9 +128,9 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 			if err != nil {
 				return nil, err
 			}
-			m := map[pair]struct{}{}
+			m := map[int64]struct{}{}
 			for _, r := range relVMs {
-				m[pair{fId: r.FilterID, optId: r.FilterOptionID}] = struct{}{}
+				m[r.FilterID] = struct{}{}
 			}
 			existingRelCache[productID] = m
 			return m, nil
@@ -207,7 +209,7 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 				res.NotFoundProducts = append(res.NotFoundProducts, map[string]string{"brand": brand, "model": model})
 				continue
 			}
-			exRel, err := loadExistingRelations(tx, productID)
+			exRelSet, err := loadExistingRelations(tx, productID)
 			if err != nil {
 				return err
 			}
@@ -232,11 +234,13 @@ func (s *ProductFilterImportService) ImportCSV(ctx context.Context, args port.Im
 					return err
 				}
 
-				key := pair{fId: fd.Filter.ID, optId: opt.ID}
-				if _, exists := exRel[key]; exists {
+				// ❗️تغییرِ کلیدی: اگر برای این محصول، قبلاً همین filter_id وجود داشته،
+				// یعنی (product_id, filter_id) قبلاً ساخته شده؛ درج جدید باعث Duplicate Key می‌شود → رد کن.
+				if _, exists := exRelSet[fd.Filter.ID]; exists {
 					continue
 				}
-				exRel[key] = struct{}{}
+				// در غیر این صورت، اولین مورد از CSV برای این فیلتر ثبت می‌شود
+				exRelSet[fd.Filter.ID] = struct{}{}
 
 				toCreateRelations = append(toCreateRelations, &domain.ProductFilterRelation{
 					ProductID:      productID,
