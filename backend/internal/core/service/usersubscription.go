@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nerkhin/internal/adapter/config"
@@ -53,42 +54,52 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 		currentUserSub, err := uss.repo.GetUserSubscription(ctx, txSession,
 			config.CurrentUserID, config.CityID)
 		if err != nil {
+			fmt.Print("user:", err)
 			return err
 		}
 		if currentUserSub != nil {
 			if currentUserSub.ExpiresAt.After(time.Now()) {
+				fmt.Println("userSub:", currentUserSub)
 				return errors.New(msg.ErrYouHaveAlreadyBoughtSubscriptionForThisCity)
 			}
 		}
 
 		currentUser, err := uss.userRepo.GetUserByID(ctx, txSession, config.CurrentUserID)
 		if err != nil {
+			fmt.Print("CurrentUser:", err)
 			return err
 		}
 
 		sub, err := uss.subRepo.GetSubscriptionByID(ctx, txSession, config.SubscriptionID)
 		if err != nil {
+			fmt.Print("Subscription:", err)
 			return err
 		}
 		if sub == nil {
+			fmt.Println("Subscription:", sub)
 			return errors.New(msg.ErrSubscriptionPeriodIsNotValid)
 		}
 
 		city, err := uss.cityRepo.GetCityByID(ctx, txSession, config.CityID)
 		if err != nil {
+			fmt.Print("City1:", err)
 			return err
 		}
 		if city == nil {
+			fmt.Println("City2:", city)
 			return errors.New(msg.ErrChosenSubscriptionIsNotValid)
 		}
 
 		amount := sub.Price
 		if currentUser.CityID != config.CityID {
+			fmt.Println("City3:", city)
 			amount = calculatePriceByCityType(sub.Price, city.Type)
 		}
 
 		zarinPay, err := zarinpal.NewZarinpal(uss.appConfig.ZarinPalMerchantID, false)
 		if err != nil {
+			fmt.Print("zarinpal:")
+			fmt.Println(err)
 			return err
 		}
 
