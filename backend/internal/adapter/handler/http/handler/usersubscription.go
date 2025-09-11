@@ -37,6 +37,7 @@ func (ush *UserSubscriptionHandler) FetchPaymentGatewayInfo(c *gin.Context) {
 		validationError(c, err, ush.AppConfig.Lang)
 		return
 	}
+	fmt.Println("^^^^^^^^^^^^^^^^re^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 	fmt.Println(req)
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserId := authPayload.UserID
@@ -49,6 +50,8 @@ func (ush *UserSubscriptionHandler) FetchPaymentGatewayInfo(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	fmt.Println("************************ config ********************************")
+	fmt.Println(config)
 	gatewayInfo, err := ush.service.FetchPaymentGatewayInfo(ctx, config)
 	if err != nil {
 		fmt.Println("err:", err)
