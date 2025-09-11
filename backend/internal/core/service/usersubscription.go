@@ -41,12 +41,15 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 	config *domain.PaymentConfig) (gatewayInfo *domain.PaymentGatewayInfo, err error) {
 	db, err := uss.dbms.NewDB(ctx)
 	if err != nil {
+		fmt.Println("0000000000000000000000000")
+		fmt.Println(err)
 		return
 	}
-
+	fmt.Println("111111111111111111111111111111111111")
 	gatewayInfo = &domain.PaymentGatewayInfo{}
 
 	err = uss.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		fmt.Println("222222222222222222222222222222222222")
 		if config.CallBackUrl == "" {
 			fmt.Println("CallBackUrl:", config.CallBackUrl)
 			return errors.New(msg.ErrCallBackUrlShouldNotBeEmpty)
@@ -108,7 +111,12 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 		url, auth, statusCode, err := zarinPay.NewPaymentRequest(
 			int(amount.IntPart()), config.CallBackUrl, message, "", "")
 		if err != nil {
+			fmt.Println("3333333333333333333333333")
+			fmt.Println(err)
 			if statusCode == -3 {
+				fmt.Println("44444444444444444444444444444444444")
+				fmt.Println(statusCode)
+				fmt.Println("statusCode == -3")
 				return err
 			}
 
@@ -127,6 +135,8 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 
 		_, err = uss.repo.CreateTempAuthority(ctx, txSession, tempAuth)
 		if err != nil {
+			fmt.Println("5555555555555555555555555555555555555")
+			fmt.Println(err)
 			return err
 		}
 
