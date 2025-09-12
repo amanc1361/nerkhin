@@ -131,7 +131,7 @@ func main() {
 		tokenService, appConfig)
 	userHandler := handler.RegisterUserHandler(userService, tokenService, appConfig)
 	authHandler := handler.RegisterAuthHandler(authService, tokenService,
-		verificationCodeService, appConfig)
+		verificationCodeService, userSubscriptionService, appConfig)
 	userProductHandler := handler.RegisterUserProductHandler(userProductService, tokenService,
 		appConfig)
 	reportHandler := handler.RegisterReportHandler(reportService, tokenService, appConfig)

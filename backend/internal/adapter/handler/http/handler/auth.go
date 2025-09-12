@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nerkhin/internal/adapter/config"
@@ -16,6 +17,7 @@ type AuthHandler struct {
 	authService             port.AuthService
 	verificationCodeService port.VerificationCodeService
 	config                  config.App
+	userSubRepo             port.UserSubscriptionService
 }
 
 // RegisterAuthHandler
@@ -23,13 +25,14 @@ func RegisterAuthHandler(
 	authService port.AuthService,
 	tokenService port.TokenService,
 	verificationCodeService port.VerificationCodeService,
-
+	userSubRepo port.UserSubscriptionService,
 	appConfig config.App) *AuthHandler {
 	return &AuthHandler{
 		tokenService:            tokenService,
 		authService:             authService,
 		verificationCodeService: verificationCodeService,
 		config:                  appConfig,
+		userSubRepo:             userSubRepo,
 	}
 }
 
@@ -77,11 +80,13 @@ type tokenResponse struct {
 }
 
 type UserResponse struct {
-	ID       int64  `json:"id"`
-	FullName string `json:"fullName,omitempty"`
-	Phone    string `json:"phone,omitempty"`
-	Role     int16  `json:"role,omitempty"`
-	CityID   int64  `json:"cityId,omitempty"`
+	ID                    int64   `json:"id"`
+	FullName              string  `json:"fullName,omitempty"`
+	Phone                 string  `json:"phone,omitempty"`
+	Role                  int16   `json:"role,omitempty"`
+	CityID                int64   `json:"cityId,omitempty"`
+	SubscriptionStatus    string  `json:"subscriptionStatus,omitempty"`    // "active" | "trial" | "expired" | "none"
+	SubscriptionExpiresAt *string `json:"subscriptionExpiresAt,omitempty"` // ISO8601 مثل "2025-12-31T23:59:59Z"
 }
 
 // --- VerifyCode Handler (Corrected) ---
@@ -115,13 +120,22 @@ func (ah *AuthHandler) VerifyCode(ctx *gin.Context) {
 		HandleError(ctx, err, ah.config.Lang)
 		return
 	}
+	subStatus, subExp, _ := ah.fetchSubscriptionInfo(ctx, user.ID)
+
+	var subExpStr *string
+	if subExp != nil {
+		s := subExp.UTC().Format(time.RFC3339)
+		subExpStr = &s
+	}
 
 	clientUserResponse := &UserResponse{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Phone:    user.Phone,
-		Role:     int16(user.Role),
-		CityID:   user.CityID,
+		ID:                    user.ID,
+		FullName:              user.FullName,
+		Phone:                 user.Phone,
+		Role:                  int16(user.Role),
+		CityID:                user.CityID,
+		SubscriptionStatus:    subStatus,
+		SubscriptionExpiresAt: subExpStr,
 	}
 
 	responsePayload := &tokenResponse{
@@ -172,13 +186,22 @@ func (ah *AuthHandler) RefreshAccessToken(ctx *gin.Context) {
 		HandleError(ctx, err, ah.config.Lang)
 		return
 	}
+	subStatus, subExp, _ := ah.fetchSubscriptionInfo(ctx, user.ID)
+
+	var subExpStr *string
+	if subExp != nil {
+		s := subExp.UTC().Format(time.RFC3339)
+		subExpStr = &s
+	}
 
 	clientUserResponse := &UserResponse{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Phone:    user.Phone,
-		Role:     int16(user.Role),
-		CityID:   user.CityID,
+		ID:                    user.ID,
+		FullName:              user.FullName,
+		Phone:                 user.Phone,
+		Role:                  int16(user.Role),
+		CityID:                user.CityID,
+		SubscriptionStatus:    subStatus,
+		SubscriptionExpiresAt: subExpStr,
 	}
 
 	responsePayload := &tokenResponse{
@@ -188,4 +211,35 @@ func (ah *AuthHandler) RefreshAccessToken(ctx *gin.Context) {
 		User:                 clientUserResponse,
 	}
 	handleSuccess(ctx, responsePayload)
+}
+
+// در فایل handler
+func (ah *AuthHandler) fetchSubscriptionInfo(
+	ctx *gin.Context,
+	userID int64,
+) (status string, expiresAt *time.Time, err error) {
+
+	// همه اشتراک‌های کاربر (برای هر شهر ممکن)
+	list, err := ah.userSubRepo.FetchUserSubscriptionList(ctx, userID)
+	if err != nil {
+		return "none", nil, err
+	}
+	if len(list) == 0 {
+		return "none", nil, nil
+	}
+
+	now := time.Now()
+	for _, it := range list {
+		if it == nil {
+			continue
+		}
+		// اولین اشتراک معتبر را ملاک قرار بده
+		if it.ExpiresAt.After(now) {
+			return "active", &it.ExpiresAt, nil
+		}
+		// اگر منقضی شده بود همون را برگردون و تمام
+		return "expired", &it.ExpiresAt, nil
+	}
+
+	return "none", nil, nil
 }
