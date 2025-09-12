@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/nerkhin/internal/adapter/config"
@@ -41,69 +40,55 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 	config *domain.PaymentConfig) (gatewayInfo *domain.PaymentGatewayInfo, err error) {
 	db, err := uss.dbms.NewDB(ctx)
 	if err != nil {
-		fmt.Println("0000000000000000000000000")
-		fmt.Println(err)
 		return
 	}
-	fmt.Println("111111111111111111111111111111111111")
 	gatewayInfo = &domain.PaymentGatewayInfo{}
 
 	err = uss.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-		fmt.Println("222222222222222222222222222222222222")
 		if config.CallBackUrl == "" {
-			fmt.Println("CallBackUrl:", config.CallBackUrl)
 			return errors.New(msg.ErrCallBackUrlShouldNotBeEmpty)
 		}
 
 		currentUserSub, err := uss.repo.GetUserSubscription(ctx, txSession,
 			config.CurrentUserID, config.CityID)
 		if err != nil {
-			fmt.Print("user:", err)
 			return err
 		}
 		if currentUserSub != nil {
 			if currentUserSub.ExpiresAt.After(time.Now()) {
-				fmt.Println("userSub:", currentUserSub)
 				return errors.New(msg.ErrYouHaveAlreadyBoughtSubscriptionForThisCity)
 			}
 		}
 
 		currentUser, err := uss.userRepo.GetUserByID(ctx, txSession, config.CurrentUserID)
 		if err != nil {
-			fmt.Print("CurrentUser:", err)
 			return err
 		}
 
 		sub, err := uss.subRepo.GetSubscriptionByID(ctx, txSession, config.SubscriptionID)
 		if err != nil {
-			fmt.Print("Subscription:", err)
 			return err
 		}
 		if sub == nil {
-			fmt.Println("Subscription:", sub)
 			return errors.New(msg.ErrSubscriptionPeriodIsNotValid)
 		}
 
 		city, err := uss.cityRepo.GetCityByID(ctx, txSession, config.CityID)
 		if err != nil {
-			fmt.Print("City1:", err)
 			return err
 		}
 		if city == nil {
-			fmt.Println("City2:", city)
 			return errors.New(msg.ErrChosenSubscriptionIsNotValid)
 		}
 
 		amount := sub.Price
 		if currentUser.CityID != config.CityID {
-			fmt.Println("City3:", city)
 			amount = calculatePriceByCityType(sub.Price, city.Type)
 		}
 
 		zarinPay, err := zarinpal.NewZarinpal(uss.appConfig.ZarinPalMerchantID, false)
 		if err != nil {
-			fmt.Print("zarinpal:")
-			fmt.Println(err)
+
 			return err
 		}
 
@@ -111,12 +96,9 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 		url, auth, statusCode, err := zarinPay.NewPaymentRequest(
 			int(amount.IntPart()), config.CallBackUrl, message, "", "")
 		if err != nil {
-			fmt.Println("3333333333333333333333333")
-			fmt.Println(err)
+
 			if statusCode == -3 {
-				fmt.Println("44444444444444444444444444444444444")
-				fmt.Println(statusCode)
-				fmt.Println("statusCode == -3")
+
 				return err
 			}
 
@@ -135,8 +117,7 @@ func (uss *UserSubscriptionService) FetchPaymentGatewayInfo(ctx context.Context,
 
 		_, err = uss.repo.CreateTempAuthority(ctx, txSession, tempAuth)
 		if err != nil {
-			fmt.Println("5555555555555555555555555555555555555")
-			fmt.Println(err)
+
 			return err
 		}
 
