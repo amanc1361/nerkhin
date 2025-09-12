@@ -1,19 +1,47 @@
 // app/subscribe/page.tsx  (Server Component)
 import Link from "next/link";
 
-export default function SubscribePage({
+type Query = Record<string, string | string[] | undefined>;
+
+function firstStr(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function addParam(url: string, key: string, value: string) {
+  const hasQuery = url.includes("?");
+  const sep = hasQuery ? "&" : "?";
+  return `${url}${sep}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+}
+
+function toSafePath(p: string | undefined, fallback = "/") {
+  if (!p) return fallback;
+  if (/^https?:\/\//i.test(p) || /\s/.test(p)) return fallback;
+  return p.startsWith("/") ? p : `/${p}`;
+}
+
+export default async function SubscribePage({
   searchParams,
 }: {
-  searchParams: { msg?: string; buy?: string; next?: string; reason?: string };
+  // ✅ Next 15: فقط Promise یا undefined مجاز است
+  searchParams?: Promise<Query>;
 }) {
+  // اگر undefined بود، آبجکت خالی جایگزین کن
+  const sp: Query = (searchParams ? await searchParams : {}) as Query;
+
+  const msgParam = firstStr(sp.msg);
+  const buyParam = firstStr(sp.buy);
+  const nextParam = firstStr(sp.next);
+  const reasonParam = firstStr(sp.reason);
+
   const msg =
-    searchParams?.msg ||
-    (searchParams?.reason === "expired"
+    msgParam ||
+    (reasonParam === "expired"
       ? "اشتراک شما منقضی شده است."
       : "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
 
-  const buyUrl = searchParams?.buy || "https://nerkhin.com/subscribe/buy";
-  const next = searchParams?.next || "/";
+  const buyUrl = buyParam || "https://nerkhin.com/subscribe/buy";
+  const next = toSafePath(nextParam, "/");
+  const buyHref = next ? addParam(buyUrl, "next", next) : buyUrl;
 
   return (
     <main className="mx-auto max-w-xl p-6">
@@ -23,7 +51,7 @@ export default function SubscribePage({
 
         <div className="flex items-center gap-3">
           <a
-            href={buyUrl + (next ? `?next=${encodeURIComponent(next)}` : "")}
+            href={buyHref}
             className="inline-flex items-center rounded-xl px-4 py-2 border font-medium hover:opacity-90"
           >
             خرید اشتراک
