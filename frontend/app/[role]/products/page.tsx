@@ -15,7 +15,7 @@ export default async function Page({
   const { role } = await params;
 
   const [shopData, priceList] = await Promise.all([
-    fetchMyShopProductsSSR({ limit: 10, offset: 0 }), // شروع با صفحه اول
+    fetchMyShopProductsSSR({ limit: 40, offset: 0 }), // شروع با صفحه اول
     
     fetchPriceListSSR(),
   ]);
