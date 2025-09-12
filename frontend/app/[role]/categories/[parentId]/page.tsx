@@ -30,9 +30,7 @@ export default async function SubCategoriesPage({
   return (
     <main className="bg-white">
       <div dir="rtl" className="mx-auto max-w-6xl px-4 pt-4">
-        <h1 className="text-slate-800 text-base md:text-lg mb-3">
-          {t.subcategoriesTitle}
-        </h1>
+       
 
         <CategoryGrid
           categories={subs}
