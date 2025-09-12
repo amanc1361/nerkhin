@@ -1,3 +1,119 @@
+// import { NextResponse, type NextRequest } from "next/server";
+// import { getToken } from "next-auth/jwt";
+// import { defaultRouteForRole, isAdmin, isRetailer, isWholesaler } from "./app/types/role";
+
+// const SECRET = process.env.NEXTAUTH_SECRET!;
+
+// const LOGIN  = "/auth/login";
+// const SIGNUP = "/auth/sign-up";
+// const PANEL  = "/panel";
+// const HOME   = "/";
+
+// const WHOLESALER = "/wholesaler";
+// const RETAILER   = "/retailer";
+
+// // مسیرهای محافظت‌شده (بدون bazaar)
+// const PROTECTED = [PANEL, WHOLESALER, RETAILER, "/profile"];
+
+// export async function middleware(req: NextRequest) {
+//   const url = req.nextUrl;
+//   const { pathname } = url;
+
+//   // اجازه‌ی لاگین با reauth=1 (جلوگیری از لوپ)
+//   const forceReauth = pathname.startsWith(LOGIN) && url.searchParams.get("reauth") === "1";
+//   if (forceReauth) return NextResponse.next();
+
+//   // استاتیک/NextAuth/API
+//   if (
+//     pathname.startsWith("/api/") ||
+//     pathname.startsWith("/_next/") ||
+//     pathname.startsWith("/images/") ||
+//     pathname === "/favicon.ico"
+//   ) return NextResponse.next();
+
+//   // فقط GET را هندل کن
+//   if (req.method !== "GET") return NextResponse.next();
+
+//   // احراز
+//   const session = await getToken({ req, secret: SECRET });
+
+//   // 👇 نقش را از چند محل ممکنِ سشن استخراج کن (بدون دست‌کاری فایل‌های دیگر)
+//   const role =
+//     (session as any)?.role ??
+//     (session as any)?.user?.role ??
+//     (session as any)?.userRole ??
+//     (session as any)?.user?.userRole ?? 
+//     (session as any)?.claims?.role ??
+//     null;
+
+//   // ⬅️ تغییر 1: فقط اگر نقش «قطعاً شناخته‌شده» است، true می‌شود
+//   const hasKnownRole = !!role && (isAdmin(role) || isWholesaler(role) || isRetailer(role));
+
+//   // انقضا با بافر 30 ثانیه
+//   const exp = typeof (session as any)?.accessTokenExpires === "number"
+//     ? ((session as any).accessTokenExpires as number)
+//     : 0;
+//   const isExpired = exp > 0 && Date.now() >= exp - 30_000;
+
+//   const isAuth = !!session && !isExpired;
+
+//   const onAuth      = pathname.startsWith(LOGIN) || pathname.startsWith(SIGNUP);
+//   const onHome      = pathname === HOME;
+//   const onProtected = PROTECTED.some((p) => pathname.startsWith(p));
+
+//   // 1) اگر لاگین است و روی / یا /auth/*:
+//   // ⬅️ تغییر 2: فقط وقتی نقش «واقعاً مشخص» است ریدایرکت کن
+//   if (isAuth && (onAuth || onHome) && hasKnownRole) {
+//     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
+//   }
+
+//   // 2) اگر لاگین نیست و روی مسیر محافظت‌شده است: بفرست لاگین (+redirect)
+//   if (!isAuth && onProtected) {
+//     const to = new URL(LOGIN, req.url);
+//     to.searchParams.set("redirect", pathname + url.search);
+//     return NextResponse.redirect(to);
+//   }
+
+//   // 3) اگر لاگین است و وارد /panel شده ولی ادمین نیست:
+//   // ⬅️ تغییر 3: فقط وقتی نقش مشخص و غیرادمینه، ریدایرکت کن
+//   if (isAuth && pathname.startsWith(PANEL) && hasKnownRole && !isAdmin(role)) {
+//     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
+//   }
+
+//   // 4) گارد تطابق مسیر با نقش — فقط وقتی نقش «قطعاً» خلاف مسیر است، ریدایرکت کن
+//   if (isAuth && pathname.startsWith(WHOLESALER) && hasKnownRole) {
+//     if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
+//     if (isRetailer(role))     return NextResponse.redirect(new URL(RETAILER, req.url));
+//     // عمده‌فروش؟ دست نزن
+//   }
+
+//   if (isAuth && pathname.startsWith(RETAILER) && hasKnownRole) {
+//     if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
+//     if (isWholesaler(role))   return NextResponse.redirect(new URL(WHOLESALER, req.url));
+//     // خرده‌فروش؟ دست نزن
+//   }
+
+//   return NextResponse.next();
+// }
+
+// export const config = {
+//   matcher: [
+//     "/",
+//     "/panel/:path*",
+//     "/wholesaler/:path*",
+//     "/retailer/:path*",
+//     "/profile/:path*",
+//     "/auth/login",
+//     "/auth/sign-up",
+//   ],
+// };
+
+
+
+
+
+
+// middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { defaultRouteForRole, isAdmin, isRetailer, isWholesaler } from "./app/types/role";
@@ -12,8 +128,39 @@ const HOME   = "/";
 const WHOLESALER = "/wholesaler";
 const RETAILER   = "/retailer";
 
-// مسیرهای محافظت‌شده (بدون bazaar)
+// مسیرهای محافظت‌شده (نیاز به لاگین)
 const PROTECTED = [PANEL, WHOLESALER, RETAILER, "/profile"];
+
+/**
+ * مسیرهایی که «اشتراک فعال» لازم دارند.
+ * فقط این آرایه را گسترش بدهید.
+ *
+ * هر آیتم می‌تواند:
+ *  - string (prefix)  مثل "/panel/analytics"
+ *  - یا RegExp        مثل /^\/(wholesaler|retailer)\/products(\/|$)/
+ */
+const SUBSCRIPTION_REQUIRED: Array<string | RegExp> = [
+  // نمونه‌های فعلی شما:
+  /^\/(wholesaler|retailer)\/products(\/|$)/, // عمده‌فروش/خرده‌فروش: لیست محصولات
+  // بعداً هرچی خواستید اضافه کنید: "/panel/analytics", /^\/market\/offers/
+];
+
+function pathMatches(pathname: string, rule: string | RegExp) {
+  if (typeof rule === "string") return pathname.startsWith(rule);
+  return rule.test(pathname);
+}
+
+function isSubscriptionGate(pathname: string) {
+  return SUBSCRIPTION_REQUIRED.some((r) => pathMatches(pathname, r));
+}
+
+function isActiveSubscription(status?: string, expiresAt?: string | number | Date) {
+  // می‌توانید وضعیت‌ها را بسته به بک‌اند خودتان کم/زیاد کنید
+  if (status !== "active" && status !== "trial") return false;
+  if (!expiresAt) return false;
+  const t = typeof expiresAt === "number" ? expiresAt : new Date(expiresAt).getTime();
+  return t > Date.now();
+}
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
@@ -36,17 +183,21 @@ export async function middleware(req: NextRequest) {
 
   // احراز
   const session = await getToken({ req, secret: SECRET });
+  console.log("🔑 Subscription check:", {
+    status: (session as any)?.subscriptionStatus,
+    expires: (session as any)?.subscriptionExpiresAt,
+  });
 
-  // 👇 نقش را از چند محل ممکنِ سشن استخراج کن (بدون دست‌کاری فایل‌های دیگر)
+
+  // استخراج نقش بدون تغییر فایل‌های دیگر
   const role =
     (session as any)?.role ??
     (session as any)?.user?.role ??
     (session as any)?.userRole ??
-    (session as any)?.user?.userRole ?? 
+    (session as any)?.user?.userRole ??
     (session as any)?.claims?.role ??
     null;
 
-  // ⬅️ تغییر 1: فقط اگر نقش «قطعاً شناخته‌شده» است، true می‌شود
   const hasKnownRole = !!role && (isAdmin(role) || isWholesaler(role) || isRetailer(role));
 
   // انقضا با بافر 30 ثانیه
@@ -61,32 +212,45 @@ export async function middleware(req: NextRequest) {
   const onHome      = pathname === HOME;
   const onProtected = PROTECTED.some((p) => pathname.startsWith(p));
 
-  // 1) اگر لاگین است و روی / یا /auth/*:
-  // ⬅️ تغییر 2: فقط وقتی نقش «واقعاً مشخص» است ریدایرکت کن
+  // 1) اگر لاگین است و روی / یا /auth/* و نقش مشخص است → بفرست مسیر پیش‌فرض نقش
   if (isAuth && (onAuth || onHome) && hasKnownRole) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }
 
-  // 2) اگر لاگین نیست و روی مسیر محافظت‌شده است: بفرست لاگین (+redirect)
+  // 2) اگر لاگین نیست و روی مسیر محافظت‌شده است → بفرست لاگین (+redirect)
   if (!isAuth && onProtected) {
     const to = new URL(LOGIN, req.url);
     to.searchParams.set("redirect", pathname + url.search);
     return NextResponse.redirect(to);
   }
 
-  // 3) اگر لاگین است و وارد /panel شده ولی ادمین نیست:
-  // ⬅️ تغییر 3: فقط وقتی نقش مشخص و غیرادمینه، ریدایرکت کن
+  // 2.5) اگر لاگین است ولی «اشتراک لازم» برای مسیر وجود دارد و فعال نیست → بفرست صفحه‌ی اشتراک
+  if (isAuth && isSubscriptionGate(pathname)) {
+    // فیلدهای JWT برای اشتراک (از بک‌اند/Callback پر شوند)
+    const subStatus = (session as any)?.subscriptionStatus as string | undefined;
+    const subExp    = (session as any)?.subscriptionExpiresAt as string | number | Date | undefined;
+
+    if (!isActiveSubscription(subStatus, subExp)) {
+      const to = new URL("/subscribe", req.url);
+      // پیام و لینک خرید اشتراک + next برای برگشت بعد از خرید
+      to.searchParams.set("msg", "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
+      to.searchParams.set("buy", "https://nerkhin.com/subscription");
+      to.searchParams.set("next", pathname + url.search);
+      return NextResponse.redirect(to);
+    }
+  }
+
+  // 3) اگر لاگین است و وارد /panel شده ولی ادمین نیست → ریدایرکت به مسیر نقش
   if (isAuth && pathname.startsWith(PANEL) && hasKnownRole && !isAdmin(role)) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }
 
-  // 4) گارد تطابق مسیر با نقش — فقط وقتی نقش «قطعاً» خلاف مسیر است، ریدایرکت کن
+  // 4) گارد تطابق مسیر با نقش
   if (isAuth && pathname.startsWith(WHOLESALER) && hasKnownRole) {
     if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
     if (isRetailer(role))     return NextResponse.redirect(new URL(RETAILER, req.url));
     // عمده‌فروش؟ دست نزن
   }
-
   if (isAuth && pathname.startsWith(RETAILER) && hasKnownRole) {
     if (isAdmin(role))        return NextResponse.redirect(new URL(PANEL, req.url));
     if (isWholesaler(role))   return NextResponse.redirect(new URL(WHOLESALER, req.url));

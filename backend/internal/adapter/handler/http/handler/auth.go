@@ -73,10 +73,12 @@ type refreshRequest struct {
 }
 
 type tokenResponse struct {
-	AccessToken          string        `json:"accessToken"`
-	RefreshToken         string        `json:"refreshToken,omitempty"`
-	AccessTokenExpiresAt int64         `json:"accessTokenExpiresAt"` // Unix Timestamp
-	User                 *UserResponse `json:"user"`
+	AccessToken           string        `json:"accessToken"`
+	RefreshToken          string        `json:"refreshToken,omitempty"`
+	AccessTokenExpiresAt  int64         `json:"accessTokenExpiresAt"` // Unix Timestamp
+	User                  *UserResponse `json:"user"`
+	SubscriptionStatus    string        `json:"subscriptionStatus,omitempty"`    // "active" | "trial" | "expired" | "none"
+	SubscriptionExpiresAt *string       `json:"subscriptionExpiresAt,omitempty"` // ISO8601 مثل "2025-12-31T23:59:59Z"
 }
 
 type UserResponse struct {
@@ -139,10 +141,12 @@ func (ah *AuthHandler) VerifyCode(ctx *gin.Context) {
 	}
 
 	responsePayload := &tokenResponse{
-		AccessToken:          accessTokenString,
-		RefreshToken:         refreshTokenString,
-		AccessTokenExpiresAt: accessTokenExpiration.Unix(), // <--- استفاده صحیح از زمان انقضای بازگشتی
-		User:                 clientUserResponse,
+		AccessToken:           accessTokenString,
+		RefreshToken:          refreshTokenString,
+		AccessTokenExpiresAt:  accessTokenExpiration.Unix(), // <--- استفاده صحیح از زمان انقضای بازگشتی
+		User:                  clientUserResponse,
+		SubscriptionStatus:    subStatus,
+		SubscriptionExpiresAt: subExpStr,
 	}
 	handleSuccess(ctx, responsePayload)
 }
@@ -205,10 +209,12 @@ func (ah *AuthHandler) RefreshAccessToken(ctx *gin.Context) {
 	}
 
 	responsePayload := &tokenResponse{
-		AccessToken:          newAccessTokenString,
-		RefreshToken:         req.RefreshToken, // همان رفرش توکن قبلی
-		AccessTokenExpiresAt: Expiration.Unix(),
-		User:                 clientUserResponse,
+		AccessToken:           newAccessTokenString,
+		RefreshToken:          req.RefreshToken, // همان رفرش توکن قبلی
+		AccessTokenExpiresAt:  Expiration.Unix(),
+		User:                  clientUserResponse,
+		SubscriptionStatus:    subStatus,
+		SubscriptionExpiresAt: subExpStr,
 	}
 	handleSuccess(ctx, responsePayload)
 }
