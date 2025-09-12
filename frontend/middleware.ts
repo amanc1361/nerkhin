@@ -183,6 +183,7 @@ export async function middleware(req: NextRequest) {
 
   // احراز
   const session = await getToken({ req, secret: SECRET });
+  console.log("🔑 Middleware session token payload:", JSON.stringify(session, null, 2));
   console.log("🔑 Subscription check:", {
     status: (session as any)?.subscriptionStatus,
     expires: (session as any)?.subscriptionExpiresAt,
