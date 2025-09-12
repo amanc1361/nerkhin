@@ -1,5 +1,3 @@
-// app/types/userproduct/userProduct.ts
-
 // برای decimal ها در فرانت‌اند رشته در نظر می‌گیریم
 export type DecimalString = string;
 
@@ -62,10 +60,9 @@ export type ShopViewModel = {
     whatsappUrl?: string;
     websiteUrl?: string;
     updatedAt?: string;
-
-    // سایر فیلدهای کاربر که نیاز داری به تدریج اضافه کن
   } | null;
   products: UserProductView[];
+  total: number; // ⬅️ اضافه شد
 };
 
 // --------- تایپ‌های استفاده‌شده در UI فعلی (بدون تغییر نام‌) ---------
@@ -103,7 +100,6 @@ export type CreateUserProductPayload = {
   otherCosts?: DecimalString;  // decimal string
   finalPrice: DecimalString;   // decimal string
 };
-
 
 export type UpdateUserProductPayload = {
   id: number;

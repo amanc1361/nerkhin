@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"math"
 
@@ -271,7 +272,7 @@ func (ps *UserProductService) FetchShopProductsFiltered(
 		}
 		query.ShopID = shop.ID
 
-		products, err := ps.repo.FetchShopProductsFiltered(ctx, tx, query)
+		products, total, err := ps.repo.FetchShopProductsFiltered(ctx, tx, query)
 		if err != nil {
 			return err
 		}
@@ -292,11 +293,13 @@ func (ps *UserProductService) FetchShopProductsFiltered(
 		}
 
 		vm.Products = products
+		vm.Total = total
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Service vm:", vm)
 	return vm, nil
 }
 

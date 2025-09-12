@@ -41,7 +41,7 @@ type UserProductRepository interface {
 
 	// متد جدید برای دریافت داده‌های جمع‌آوری شده برای فیلترها
 	GetAggregatedFilterDataForSearch(ctx context.Context, dbSession interface{}, filter *domain.UserProductFilter) (*domain.SearchProductsData, error)
-	FetchShopProductsFiltered(ctx context.Context, dbSession interface{}, q *domain.UserProductQuery) ([]*domain.UserProductView, error)
+	FetchShopProductsFiltered(ctx context.Context, dbSession interface{}, q *domain.UserProductQuery) ([]*domain.UserProductView, int64, error)
 	FetchMarketProductsFiltered(
 		ctx context.Context,
 		dbSession interface{},

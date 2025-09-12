@@ -648,10 +648,10 @@ func (upr *UserProductRepository) FetchShopProductsFiltered(
 	ctx context.Context,
 	dbSession interface{},
 	q *domain.UserProductQuery,
-) ([]*domain.UserProductView, error) {
+) ([]*domain.UserProductView, int64, error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if q == nil {
@@ -673,23 +673,12 @@ func (upr *UserProductRepository) FetchShopProductsFiltered(
 	// COALESCE برای مواقعی که updated_at نال است
 	orderExpr := fmt.Sprintf("COALESCE(up.updated_at, up.created_at) %s, up.id %s", sortDir, sortDir)
 
+	// base query
 	qb := db.Table("user_product AS up").
 		Joins("JOIN product AS p ON p.id = up.product_id").
 		Joins("JOIN product_brand AS pb ON pb.id = p.brand_id").
 		Joins("LEFT JOIN product_category AS pc ON pc.id = pb.category_id").
-		Where("up.user_id = ?", q.ShopID).
-		Select(`
-			up.*,
-			pb.category_id       AS category_id,
-			p.brand_id           AS brand_id,
-			p.model_name         AS model_name,
-			p.description        AS description,
-			p.default_image_url  AS default_image_url,
-			pc.title             AS product_category,
-			pb.title             AS product_brand,
-			p.model_name         AS product_model,
-			p.shops_count        AS shops_count
-		`)
+		Where("up.user_id = ?", q.ShopID)
 
 	// فیلتر برند (IN)
 	if len(q.BrandIDs) > 0 {
@@ -703,7 +692,6 @@ func (upr *UserProductRepository) FetchShopProductsFiltered(
 
 	// زیر‌دسته (در صورت وجود ستون روی product)
 	if q.SubCategoryID > 0 {
-		// اگر در اسکیمای شما نام ستون چیز دیگری است، اصلاحش کن
 		qb = qb.Where("p.sub_category_id = ?", q.SubCategoryID)
 	}
 
@@ -712,7 +700,7 @@ func (upr *UserProductRepository) FetchShopProductsFiltered(
 		qb = qb.Where("up.is_dollar = ?", *q.IsDollar)
 	}
 
-	// جستجو (ساده و سریع؛ در صورت نیاز می‌شه ایندکس/tsvector گذاشت)
+	// جستجو
 	if s := strings.TrimSpace(q.Search); s != "" {
 		like := "%" + s + "%"
 		qb = qb.Where(`
@@ -723,16 +711,36 @@ func (upr *UserProductRepository) FetchShopProductsFiltered(
 		`, like, like, like, like)
 	}
 
+	// total count
+	var total int64
+	if err := qb.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// select data
 	var out []*domain.UserProductView
 	if err := qb.
+		Select(`
+			up.*,
+			pb.category_id       AS category_id,
+			p.brand_id           AS brand_id,
+			p.model_name         AS model_name,
+			p.description        AS description,
+			p.default_image_url  AS default_image_url,
+			pc.title             AS product_category,
+			pb.title             AS product_brand,
+			p.model_name         AS product_model,
+			p.shops_count        AS shops_count
+		`).
 		Order(clause.Expr{SQL: orderExpr}).
 		Limit(limit).
 		Offset(offset).
 		Find(&out).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-
-	return out, nil
+	fmt.Println("Total:", total)
+	fmt.Println("out", out)
+	return out, total, nil
 }
 
 func (upr *UserProductRepository) FetchUserProductById(

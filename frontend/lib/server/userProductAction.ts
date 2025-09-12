@@ -111,29 +111,7 @@ function buildFetchShopQueryString(q?: ShopProductsQuery) {
   return qs ? `?${qs}` : "";
 }
 
-// ---------------- Actions (names unchanged) ----------------
-// نکته: امضا را توسعه دادیم تا پارامتر اختیاری بگیرد؛
-// اگر آرگیومانی ندهی مثل قبل «همهٔ محصولات» را برمی‌گرداند.
-export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<UserProductView[]> {
-  const headers = await authHeader();
-  const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
-  const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
 
- 
-  const res = await fetch(url, { headers, cache: "no-store" });
-
-  // خروجی می‌تواند مستقیم یا داخل data باشد: { shopInfo, products }
-  const payload = await readJson<ShopViewModel | UserProductView[] | { products: UserProductView[] }>(res);
-
-  let products: UserProductView[] = [];
-  if (Array.isArray(payload)) {
-    products = payload;
-  } else if (payload && Array.isArray((payload as any).products)) {
-    products = (payload as any).products;
-  }
-  return products;
- // return products.map(mapUserProductViewToVM);
-}
 export async function fetchShopByUserIdSSR({ userId }: { userId: number }): Promise<ShopViewModel> {
   if (!userId || Number.isNaN(Number(userId))) {
     throw new Error("fetchShopByUserIdSSR: invalid userId");
@@ -271,6 +249,25 @@ function mapMarketItemToVM(p: UserProductMarketView): MarketItemVM {
    isLiked:p.isFavorite,
     updatedAt: p.updatedAt,
   };
+}
+
+// ... بقیه کد بدون تغییر ...
+
+// ---------------- Actions ----------------
+export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<ShopViewModel> {
+  const headers = await authHeader();
+  const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
+  const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
+
+  const res = await fetch(url, { headers, cache: "no-store" });
+  console.log("****************************88")
+  console.log("status:", res.status, "statusText:", res.statusText);
+  
+  console.log("RESPONSE:", await res.clone().text());
+
+  const payload = await readJson<ShopViewModel>(res);
+  console.log("Total:",payload.total)
+  return payload; // الان شامل products و total
 }
 
 // --------- اکشن SSR: جستجوی بازار عمده‌فروشان ---------

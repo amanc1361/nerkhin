@@ -1,9 +1,5 @@
-// app/[role]/products/page.tsx
-
 import { fetchMyShopProductsSSR, fetchPriceListSSR } from "@/lib/server/userProductAction";
 import MyProductsPage from "./MyproductsPage";
-
-
 
 type Role = "wholesaler" | "retailer";
 type RoleParam = { role: Role };
@@ -13,25 +9,23 @@ export default async function Page({
   params,
   searchParams,
 }: Readonly<{
-  // ✅ همسو با PageProps سراسری شما که Promise می‌خواهد
   params: Promise<RoleParam>;
   searchParams?: Promise<Search>;
 }>) {
-  const { role } = await params; // اگر Promise نباشد هم TS سازگار است (await روی non-Promise مشکلی ندارد)
+  const { role } = await params;
 
-
-
-  const [items, priceList] = await Promise.all([
-    fetchMyShopProductsSSR(),
+  const [shopData, priceList] = await Promise.all([
+    fetchMyShopProductsSSR({ limit: 40, offset: 0 }), // شروع با صفحه اول
+    
     fetchPriceListSSR(),
   ]);
-
+  console.log(shopData)
   const usdPrice = priceList?.usdPrice ?? "";
 
   return (
     <MyProductsPage
       role={role}
-      initialItems={items}
+      initialData={shopData}
       usdPrice={usdPrice}
       locale="fa"
     />

@@ -1,4 +1,3 @@
-// app/[role]/products/MyproductsPage.tsx
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,114 +12,99 @@ import ProductsList from "@/app/components/userproduct/ProductsList";
 import DollarPriceModal from "@/app/components/userproduct/DollarPriceModal";
 import { useDollarPriceAction } from "@/app/hooks/useDollarPriceAction";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
-import { formatMoneyInput, toEnDigits } from "@/app/components/shared/MonyInput";
+import { formatMoneyInput } from "@/app/components/shared/MonyInput";
 
 import FilterControls, { type FilterControlsValue } from "@/app/components/shared/FilterControls";
-import { UserProductVM } from "@/app/types/userproduct/userProduct";
+import { ShopViewModel, UserProductView } from "@/app/types/userproduct/userProduct";
+import Pagination from "@/app/components/shared/Pagination";
+import LoadingSpinnerMobile from "@/app/components/shared/LoadingSpinnerMobile";
 
 type Role = "wholesaler" | "retailer";
 
 type Props = {
   role: Role;
-  initialItems: UserProductVM[]; // UserProductVM[]
+  initialData: ShopViewModel;
   usdPrice: string | number;
   locale: string;
 };
 
 export default function MyproductsPage({
   role,
-  initialItems,
+  initialData,
   usdPrice,
   locale,
 }: Props) {
-  // i18n
   const messages: UserProductMessages = useMemo(
-    () =>
-      typeof getUserProductMessages === "function"
-        ? getUserProductMessages((locale as "fa" | "en") || "fa")
-        : ({} as any),
+    () => getUserProductMessages((locale as "fa" | "en") || "fa"),
     [locale]
   );
 
-  // session & api
   const { data: session, status } = useSession();
   const { api } = useAuthenticatedApi();
   const canFetch = status === "authenticated" && !!(session?.user as any)?.id;
 
   // --- USD modal state ---
   const [localUsd, setLocalUsd] = useState<string>(String(usdPrice ?? ""));
-  useEffect(() => { setLocalUsd(String(usdPrice ?? "")); }, [usdPrice]);
-  const displayUsd = useMemo(() => formatMoneyInput(String(localUsd ?? ""), false), [localUsd]);
+  useEffect(() => {
+    setLocalUsd(String(usdPrice ?? ""));
+  }, [usdPrice]);
+  const displayUsd = useMemo(
+    () => formatMoneyInput(String(localUsd ?? ""), false),
+    [localUsd]
+  );
   const addHref = `/${role}/products/create`;
   const [openUsdModal, setOpenUsdModal] = useState(false);
 
-  // --- products state ---
-  const [items, setItems] = useState<any[]>(initialItems ?? []);
+  // --- محصولات + صفحه‌بندی ---
+  const [items, setItems] = useState<UserProductView[]>(
+    initialData?.products ?? []
+  );
+  const [total, setTotal] = useState(initialData?.total ?? 0);
+  const [offset, setOffset] = useState(0);
+  const limit = 20;
+
   const [loading, setLoading] = useState(false);
 
-  // برای جلوگیری از شلیک درخواست روی mount اولیه‌ی FilterControls
   const firstFireRef = useRef(true);
-  // آخرین فیلترها برای refetch بعد از تغییرات
   const lastFiltersRef = useRef<Partial<FilterControlsValue> | null>(null);
 
-  // --- برندها از initialItems (بدون تغییر در ریکوئست) ---
-  const brandOptions = useMemo(() => {
-    const map = new Map<number, string>();
-    (initialItems ?? []).forEach((it: any) => {
-      const brandId =
-        it?.brandId ??
-        it?.product?.brandId ??
-        it?.productBrandId ??
-        it?.product?.brand_id ??
-        null;
-      const title =
-        it?.product?.brandTitle ??
-        it?.productBrand ??
-        it?.brandTitle ??
-        it?.product?.brand_title ??
-        "";
-      if (brandId && title && !map.has(Number(brandId))) {
-        map.set(Number(brandId), String(title));
-      }
-    });
-    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
-  }, [initialItems]);
-
-
-
-  // ---- بدنه fetch (بدون تغییر در URL/Query/Headers) ----
+  // ---- fetch ----
   const doFetch = useCallback(
-    async (v?: Partial<FilterControlsValue> | null) => {
+    async (
+      v?: Partial<FilterControlsValue> | null,
+      nextOffset = 0,
+      replace = false
+    ) => {
       if (!canFetch) return;
-
       setLoading(true);
       try {
         const params = new URLSearchParams();
         const shopId = (session?.user as any)?.id;
         if (shopId) params.set("shopId", String(shopId));
+        params.set("limit", String(limit));
+        params.set("offset", String(nextOffset));
 
         if (v?.brandIds?.length) params.set("brandIds", v.brandIds.join(","));
         if (v?.categoryId) params.set("categoryId", String(v.categoryId));
         if (v?.subCategoryId) params.set("subCategoryId", String(v.subCategoryId));
-        if (v?.isDollar !== null && typeof v?.isDollar === "boolean") {
+        if (typeof v?.isDollar === "boolean") {
           params.set("isDollar", v.isDollar ? "1" : "0");
         }
         if (v?.search) params.set("search", v.search);
         if (v?.sortUpdated) params.set("sortUpdated", v.sortUpdated as string);
 
-        const url = `/user-product/fetch-shop${params.toString() ? `?${params.toString()}` : ""}`;
+        const url = `/user-product/fetch-shop?${params.toString()}`;
         const res: any = await api.get({ url });
-       
-        const payload = (res && typeof res === "object" && "data" in res) ? res.data : res;
+        const payload: ShopViewModel = res?.data ?? res;
 
-        const products = Array.isArray(payload?.products)
-          ? payload.products
-          : Array.isArray(payload)
-          ? payload
-          : [];
+        setTotal(payload.total ?? 0);
+        setOffset(nextOffset);
 
-        // ⬅️ نرمالایز و سپس ست در state
-        setItems(products);
+        if (replace || nextOffset === 0) {
+          setItems(payload.products ?? []);
+        } else {
+          setItems((prev) => [...prev, ...(payload.products ?? [])]);
+        }
       } catch (e) {
         console.error("[Products][fetch][ERROR]", e);
       } finally {
@@ -130,92 +114,43 @@ export default function MyproductsPage({
     [api, canFetch, session?.user]
   );
 
-  // --- تغییر فیلترها (بدون تغییر ساختار ریکوئست) ---
   const fetchWithFilters = useCallback(
     async (v: FilterControlsValue) => {
       lastFiltersRef.current = v;
-
       if (firstFireRef.current) {
         firstFireRef.current = false;
         return;
       }
-
-      await doFetch(v);
+      await doFetch(v, 0, true);
     },
     [doFetch]
   );
 
-  // --- خواندن نرخ دلار کاربر برای نمایش (بدون تغییر ریکوئست) ---
+  // --- Infinite Scroll فقط روی موبایل ---
+  const loaderRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!canFetch) return;
-    const uid = (session?.user as any)?.id;
-    (async () => {
-      try {
-        const res: any = await api.get({ url: `/user/dollar-price/${uid}` });
-        const payload = res && typeof res === "object" && "data" in res ? res.data : res;
-
-        const toIntegerDigits = (v: any): string => {
-          if (v == null) return "";
-          if (typeof v === "number") return String(Math.trunc(v));
-          if (typeof v === "string") {
-            const s = toEnDigits(v).replace(/,/g, "").replace(/\s+/g, "").replace(/٫/g, ".");
-            const intPart = s.split(".")[0];
-            return intPart.replace(/[^0-9]/g, "");
-          }
-          if (typeof v === "object" && "value" in (v as any)) {
-            return toIntegerDigits((v as any).value);
-          }
-          return toIntegerDigits(String(v));
-        };
-
-        const digits = toIntegerDigits(payload);
-        if (digits !== "") setLocalUsd(digits);
-      } catch (e) {
-        console.log("[DollarPrice][ERROR] =>", e);
+    if (!loaderRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && !loading) {
+        if (items.length < total) {
+          doFetch(lastFiltersRef.current, offset + limit);
+        }
       }
-    })();
-  }, [canFetch, session?.user, api]);
+    });
+    observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [items, total, offset, loading, doFetch]);
 
-  // --- آپدیت دلار: بعد از موفقیت، همان fetch قبلی + آخرین فیلترها ---
+  // --- Pagination دسکتاپ ---
+  const currentPage = Math.floor(offset / limit) + 1;
+  const totalPages = Math.ceil(total / limit);
+
+  // --- آپدیت دلار ---
   const { update, isSubmitting } = useDollarPriceAction(async (digits) => {
     setLocalUsd(digits);
     setOpenUsdModal(false);
-    await doFetch(lastFiltersRef.current);
+    await doFetch(lastFiltersRef.current, 0, true);
   });
-
-  const handleUsdSubmit = async (digits: string) => {
-    await update(digits);
-    await doFetch(lastFiltersRef.current);
-  };
-
-  // --- کلید ریمونت لیست: وابسته به id + finalPrice + updatedAt (برای رندر قطعی) ---
-  const listKey = useMemo(() => {
-    const sig = (items ?? [])
-      .map((x: any) => {
-        const id =
-          x?.id ?? x?.productId ?? x?.product?.id ?? "";
-        const fp =
-          x?.finalPrice ??
-          x?.final_price ??
-          x?.product?.finalPrice ??
-          x?.product?.final_price ??
-          "";
-        const up =
-          x?.updatedAt ??
-          x?.updated_at ??
-          x?.product?.updatedAt ??
-          x?.product?.updated_at ??
-          "";
-        return `${id}:${fp}:${up}`;
-      })
-      .join("|");
-    return sig || "empty";
-  }, [items]);
-
-  // اشتراک‌گذاری‌ها
-  const onShareJpg = () => {};
-  const onSharePdf = () => {};
-  const onShare = () => {};
 
   return (
     <div dir="rtl" className="container mx-auto px-3 py-4 lg:py-6 text-right">
@@ -226,9 +161,9 @@ export default function MyproductsPage({
             <ProductsToolbar
               usdPrice={displayUsd}
               addHref={addHref}
-              onShareJpg={onShareJpg}
-              onSharePdf={onSharePdf}
-              onShare={onShare}
+              onShareJpg={() => {}}
+              onSharePdf={() => {}}
+              onShare={() => {}}
               messages={messages}
               onOpenUsdModal={() => setOpenUsdModal(true)}
             />
@@ -237,14 +172,14 @@ export default function MyproductsPage({
 
         {/* ستون چپ */}
         <main className="flex-1">
-          {/* موبایل: تولبار بالا */}
+          {/* موبایل */}
           <div className="lg:hidden mb-4">
             <ProductsToolbar
               usdPrice={displayUsd}
               addHref={addHref}
-              onShareJpg={onShareJpg}
-              onSharePdf={onSharePdf}
-              onShare={onShare}
+              onShareJpg={() => {}}
+              onSharePdf={() => {}}
+              onShare={() => {}}
               messages={messages}
               onOpenUsdModal={() => setOpenUsdModal(true)}
             />
@@ -254,7 +189,7 @@ export default function MyproductsPage({
           <div className="mb-3">
             <FilterControls
               messages={messages}
-              brands={brandOptions}
+              brands={[]}
               categories={[]}
               subCategories={[]}
               onChange={fetchWithFilters}
@@ -270,30 +205,39 @@ export default function MyproductsPage({
           </div>
 
           {/* هدر تعداد */}
-          <ProductsHeader count={items?.length ?? 0} messages={messages} />
+          <ProductsHeader count={total ?? 0} messages={messages} />
 
-          {/* لیست محصولات — با key برای remount در تغییر قیمت/آپدیت */}
-          <ProductsList
-            key={listKey}
-            items={items ?? []}
-            messages={messages}
-          />
+          {/* لیست محصولات */}
+          <ProductsList items={items ?? []} messages={messages} />
 
-          {/* وضعیت بارگذاری */}
-          {loading && (
-            <div className="mt-3 text-xs text-neutral-500">
-              {messages?.loading ?? "در حال بارگذاری..."}
-            </div>
-          )}
+          {/* Loader فقط روی موبایل */}
+          <div ref={loaderRef} className="h-10 lg:hidden">
+            {loading && <LoadingSpinnerMobile />}
+          </div>
+
+          {/* Pagination فقط روی دسکتاپ */}
+          <div className="hidden lg:block">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={(page) => {
+                const newOffset = (page - 1) * limit;
+                doFetch(lastFiltersRef.current, newOffset, true);
+              }}
+            />
+          </div>
         </main>
       </div>
 
-      {/* مودال قیمت دلار */}
+      {/* مودال دلار */}
       <DollarPriceModal
         open={openUsdModal}
         initialValue={localUsd}
         onClose={() => setOpenUsdModal(false)}
-        onSubmit={handleUsdSubmit}
+        onSubmit={async (digits) => {
+          await update(digits);
+          await doFetch(lastFiltersRef.current, 0, true);
+        }}
         loading={isSubmitting}
       />
     </div>

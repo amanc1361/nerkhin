@@ -106,17 +106,11 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 			cityIDPtr = &id
 		}
 	}
-	fmt.Println("**********************************")
-	fmt.Println(c.Query("priceMin"))
-	fmt.Println(c.Query("priceMax"))
-	fmt.Println("**********************************")
+
 	priceMin := decimalPtrIfPositive(c.Query("priceMin"))
 	priceMax := decimalPtrIfPositive(c.Query("priceMax"))
 
-	fmt.Println("**********************************")
-	fmt.Println(priceMin)
-	fmt.Println(priceMax)
-	fmt.Println("**********************************")
+
 
 	enforceSubscription := c.Query("enforceSubscription") == "1"
 
@@ -417,10 +411,6 @@ type updateUserProductRequest struct {
 // GET /api/go/user-product/fetch-shop
 // ?shopId=...&brandIds=1,2&categoryId=...&subCategoryId=...&isDollar=1|0&sortUpdated=asc|desc&search=...&limit=...&offset=...
 func (psh *UserProductHandler) FetchShopProducts(c *gin.Context) {
-	ctx := c.Request.Context()
-	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
-	c.Header("Pragma", "no-cache")
-	c.Header("Expires", "0")
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
 	userID := currentUserID
@@ -471,14 +461,13 @@ func (psh *UserProductHandler) FetchShopProducts(c *gin.Context) {
 		Offset:        offset,
 	}
 
-	vm, err := psh.service.FetchShopProductsFiltered(ctx, currentUserID, shopID, userID, q)
+	vm, err := psh.service.FetchShopProductsFiltered(c, currentUserID, shopID, userID, q)
 	if err != nil {
 		HandleError(c, err, psh.AppConfig.Lang)
 		return
 	}
 	handleSuccess(c, vm)
 }
-
 func (uph *UserProductHandler) Update(c *gin.Context) {
 	var req updateUserProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

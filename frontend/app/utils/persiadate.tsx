@@ -14,7 +14,7 @@ type Props = {
 
 const PersianDate: React.FC<Props> = ({ value, className }) => {
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
-  console.log("Date:",value)
+  
 
   useEffect(() => {
     // فعال‌سازی فارسی

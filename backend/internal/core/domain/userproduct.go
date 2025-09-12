@@ -48,6 +48,7 @@ type UserProductView struct {
 type ShopViewModel struct {
 	ShopInfo *User              `json:"shopInfo"`
 	Products []*UserProductView `json:"products"`
+	Total    int64              `json:"total"`
 }
 type SearchProductsData struct {
 	ProductItems []*SearchProductViewModel `json:"productItems"`
