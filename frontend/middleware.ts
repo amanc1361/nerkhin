@@ -183,11 +183,6 @@ export async function middleware(req: NextRequest) {
 
   // احراز
   const session = await getToken({ req, secret: SECRET });
-  console.log("🔑 Middleware session token payload:", JSON.stringify(session, null, 2));
-  console.log("🔑 Subscription check:", {
-    status: (session as any)?.subscriptionStatus,
-    expires: (session as any)?.subscriptionExpiresAt,
-  });
 
 
   // استخراج نقش بدون تغییر فایل‌های دیگر
@@ -227,16 +222,20 @@ export async function middleware(req: NextRequest) {
 
   // 2.5) اگر لاگین است ولی «اشتراک لازم» برای مسیر وجود دارد و فعال نیست → بفرست صفحه‌ی اشتراک
   if (isAuth && isSubscriptionGate(pathname)) {
-    // فیلدهای JWT برای اشتراک (از بک‌اند/Callback پر شوند)
     const subStatus = (session as any)?.subscriptionStatus as string | undefined;
     const subExp    = (session as any)?.subscriptionExpiresAt as string | number | Date | undefined;
-
+  
     if (!isActiveSubscription(subStatus, subExp)) {
-      const to = new URL("/subscribe", req.url);
-      // پیام و لینک خرید اشتراک + next برای برگشت بعد از خرید
+      const roleSlug = roleSlugFrom(role); // ← نقش فعلی از همون قبل استخراج شده
+      const to = new URL(`/${roleSlug}/subscribe`, req.url);
+  
+      // پیام و لینک و next
       to.searchParams.set("msg", "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
-      to.searchParams.set("buy", "https://nerkhin.com/subscription");
+      to.searchParams.set("buy", "https://nerkhin.com/subscribe/buy");
       to.searchParams.set("next", pathname + url.search);
+      // مهم: خود role را هم بفرست
+      if (roleSlug) to.searchParams.set("role", roleSlug);
+  
       return NextResponse.redirect(to);
     }
   }
@@ -260,7 +259,12 @@ export async function middleware(req: NextRequest) {
 
   return NextResponse.next();
 }
-
+function roleSlugFrom(role: any) {
+  if (isWholesaler(role)) return "wholesaler";
+  if (isRetailer(role))   return "retailer";
+  if (isAdmin(role))      return "panel"; // اگر لازم شد
+  return ""; // fallback
+}
 export const config = {
   matcher: [
     "/",
