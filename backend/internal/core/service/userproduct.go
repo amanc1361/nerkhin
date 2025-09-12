@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"math"
 
@@ -299,7 +298,7 @@ func (ps *UserProductService) FetchShopProductsFiltered(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Service vm:", vm)
+
 	return vm, nil
 }
 

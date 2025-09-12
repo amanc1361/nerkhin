@@ -738,8 +738,7 @@ func (upr *UserProductRepository) FetchShopProductsFiltered(
 		Find(&out).Error; err != nil {
 		return nil, 0, err
 	}
-	fmt.Println("Total:", total)
-	fmt.Println("out", out)
+
 	return out, total, nil
 }
 

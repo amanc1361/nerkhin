@@ -166,17 +166,10 @@ export async function fetchPriceListSSR(): Promise<PriceListVM> {
   } catch {
     return {};
   }
-  const data = parsed?.data ?? parsed;
+  
 
-  const usd =
-    data?.usdPrice ??
-    data?.dollarPrice ??
-    data?.price?.usd ??
-    data?.priceUSD ??
-    data?.USD ??
-    null;
 
-  return { usdPrice: usd ?? null };
+  return { usdPrice: parsed?.shopInfo?.dollarPrice ?? null };
 }
 function absolutizeUploads(imageUrl?: string | null) {
   if (!imageUrl) return null;
@@ -260,13 +253,10 @@ export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<Sho
   const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
 
   const res = await fetch(url, { headers, cache: "no-store" });
-  console.log("****************************88")
-  console.log("status:", res.status, "statusText:", res.statusText);
-  
-  console.log("RESPONSE:", await res.clone().text());
+
 
   const payload = await readJson<ShopViewModel>(res);
-  console.log("Total:",payload.total)
+  
   return payload; // الان شامل products و total
 }
 

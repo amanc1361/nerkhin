@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { UserProductMessages } from "@/lib/server/texts/userProdutMessages";
-import { ShareIcon } from "lucide-react";
+import type { UserProductMessages } from "@/lib/server/texts/userProdutMessages";
+import { ShareIcon, DollarSign, FileDown, PlusCircle } from "lucide-react";
 
 type Props = {
   usdPrice?: number | string | null;
@@ -13,12 +13,11 @@ type Props = {
   onShare?: () => void;
   messages: UserProductMessages;
 
-  // حالت قبلی دسکتاپ (ورودی داخل خود تولبار)
   usdEditable?: boolean;
   onUsdChange?: (val: string) => void;
   onUsdSave?: () => void;
 
-  // ← جدید: اگر پاس داده شود، از همین جا مودال را باز می‌کنیم
+  /** اگر پاس داده شود، با کلیک روی «دلار» مودال باز می‌شود */
   onOpenUsdModal?: () => void;
 };
 
@@ -44,104 +43,92 @@ export default function ProductsToolbar({
   const share = () => {
     if (onShare) return onShare();
     if (typeof navigator !== "undefined" && (navigator as any).share) {
-      (navigator as any).share({ title: messages.toolbar.priceList }).catch(() => {});
+      (navigator as any)
+        .share({ title: messages.toolbar.priceList })
+        .catch(() => {});
     }
   };
 
-  // اگر مودال را از اینجا باز می‌کنیم، ورودی دسکتاپ فقط خواندنی باشد
   const useModalForDollar = Boolean(onOpenUsdModal);
 
   return (
     <div dir="rtl" className="space-y-3">
-      {/* ======= موبایل (<= lg-) : همان چینش چیپ افقی قبلی ======= */}
-      <div className="flex bg-gray-100 rounded-2xl items-center px-4 justify-between lg:hidden">
-        <span>{messages.toolbar.priceList}</span>
-        <div className="flex items-center gap-2">
-          <div className="py-2">
-            
-            
-            <Link
-              
-              href={"/api/price-list"}
-              
-              className="rounded-full w-full px-3 py-1.5 text-sm  bg-rose-50 text-rose-600"
-            >
+      {/* ===== موبایل: هدر کوچک + ردیف سه‌تایی اکشن‌ها ===== */}
+      <div className="lg:hidden space-y-2">
+   
+
+        {/* ردیف سه‌تایی جمع‌وجور (هر سه در یک ردیف) */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* کاشی دلار */}
+          <button
+            type="button"
+            onClick={onOpenUsdModal}
+            className="group rounded-2xl border bg-white px-2 py-2.5 text-center shadow-sm active:scale-[0.98] transition"
+            aria-label="تنظیم قیمت دلار"
+            title="تنظیم قیمت دلار"
+          >
+            <div className="mx-auto grid place-items-center w-9 h-9 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-100">
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <div className="mt-1.5 text-[11px] leading-4 text-neutral-600">
+              {messages.toolbar.dollarPrice("")}{" "}
+              <span className="font-medium text-neutral-800">
+                {localUsd || "—"} $
+              </span>
+            </div>
+          </button>
+
+          {/* کاشی PDF */}
+          <Link
+            href={"/api/price-list"}
+            className="group rounded-2xl border bg-white px-2 py-2.5 text-center shadow-sm active:scale-[0.98] transition"
+            aria-label={messages.toolbar.pdf}
+            title={messages.toolbar.pdf}
+          >
+            <div className="mx-auto grid place-items-center w-9 h-9 rounded-xl bg-rose-50 text-rose-600 group-hover:bg-rose-100">
+              <FileDown className="w-5 h-5" />
+            </div>
+            <div className="mt-1.5 text-[11px] leading-4 text-neutral-800 font-medium">
               {messages.toolbar.pdf}
-            </Link>
+            </div>
+          </Link>
 
-            {/* <button
-              
-              onClick={onShareJpg}
-              className="rounded-full  px-3 py-1.5 text-sm bg-fuchsia-50 text-fuchsia-700"
-            >
-              {messages.toolbar.jpg}
-            </button> */}
-
-        
-          </div>
+          {/* کاشی افزودن کالا */}
+          <Link
+            href={addHref}
+            className="group rounded-2xl border bg-white px-2 py-2.5 text-center shadow-sm active:scale-[0.98] transition"
+            aria-label={messages.toolbar.addProduct}
+            title={messages.toolbar.addProduct}
+          >
+            <div className="mx-auto grid place-items-center w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100">
+              <PlusCircle className="w-5 h-5" />
+            </div>
+            <div className="mt-1.5 text-[11px] leading-4 text-neutral-800 font-medium">
+              {messages.toolbar.addProduct}
+            </div>
+          </Link>
         </div>
       </div>
 
-      {/* دکمه/نوار آبی (موبایل) → از همین‌جا مودال باز می‌شود */}
-      <div className="lg:hidden w-full">
-        <button
-          type="button"
-          onClick={onOpenUsdModal}
-          className="w-full rounded-xl bg-blue-600 text-white text-center py-3 text-sm flex items-center justify-center gap-2"
-          aria-label="تنظیم قیمت دلار"
-        >
-          <svg viewBox="0 0 24 24" className="w-5 h-5" stroke="currentColor" fill="none" strokeWidth="1.6">
-            <path d="M12 1v22" />
-            <path d="M17 5.5c0-1.933-2.239-3.5-5-3.5S7 3.567 7 5.5 9.239 9 12 9s5 1.567 5 3.5S14.761 16 12 16 7 14.433 7 12.5" />
-          </svg>
-          {messages.toolbar.dollarPrice(localUsd || "—")} {" $"}
-        </button>
-      </div>
-
-      <Link
-        href={addHref}
-        className="lg:hidden block w-full rounded-xl bg-neutral-100 text-center py-3 text-sm text-neutral-600"
-      >
-        {messages.toolbar.addProduct}
-      </Link>
-
-      {/* ======= دسکتاپ (lg+) : سایدبار عمودی در ستون راست ======= */}
+      {/* ===== دسکتاپ: همان نسخه ستونی قبلی ===== */}
       <div className="hidden lg:block">
         <div className="rounded-2xl flex flex-col border bg-white p-3 space-y-3 shadow-sm">
-          {/* عنوان کوچک */}
           <div className="text-sm font-medium text-neutral-700 mb-1">
             {messages.toolbar.priceList}
           </div>
 
-          {/* دکمه‌ها: JPG / PDF / اشتراک */}
-          <div className=" flex flex-col gap-4 space-y-2">
-            {/* <button
-              onClick={onShareJpg}
-              className="w-full rounded-lg border px-3 py-2 text-sm text-fuchsia-700 hover:bg-fuchsia-50"
-            >
-              {messages.toolbar.jpg}
-            </button>
-         */}
-
-            <Link
-            type="button"
-            href={"/api/price-list"}
-    
-            >
-                  <div className="flex w-full px-3 py-2 rounded-lg border   text-rose-600 hover:bg-rose-50 items-center justify-center ">
-              {messages.toolbar.pdf}
+          <div className="flex flex-col gap-4 space-y-2">
+            <Link href={"/api/price-list"}>
+              <div className="flex w-full px-3 py-2 rounded-lg border text-rose-600 hover:bg-rose-50 items-center justify-center">
+                {messages.toolbar.pdf}
               </div>
             </Link>
-           
           </div>
 
-          {/* ورودی/نمایش قیمت دلار (جای اصلی خودش) */}
           <div className="mt-3 space-y-2">
             <label className="text-xs text-neutral-500">
               {messages.toolbar.dollarPrice("")}
             </label>
-
-            {/* اگر onOpenUsdModal داشته باشیم، ورودی فقط‌خواندنی است و با کلیک مودال باز می‌شود */}
             <div className="flex items-center gap-2">
               <input
                 type={useModalForDollar ? "text" : "number"}
@@ -154,15 +141,12 @@ export default function ProductsToolbar({
                 onClick={useModalForDollar ? onOpenUsdModal : undefined}
                 onFocus={useModalForDollar ? onOpenUsdModal : undefined}
                 onChange={(e) => {
-                  // فقط اگر مودال نداریم و حالت ادیت فعاله، تغییر را به والد بده
                   if (useModalForDollar) return;
                   setLocalUsd(e.target.value);
                   onUsdChange?.(e.target.value);
                 }}
                 aria-label="قیمت دلار"
               />
-
-              {/* اگر مودال داریم، دکمهٔ ذخیرهٔ داخلی نمایش داده نشود */}
               {!useModalForDollar && usdEditable && (
                 <button
                   onClick={onUsdSave}
@@ -174,7 +158,6 @@ export default function ProductsToolbar({
             </div>
           </div>
 
-          {/* افزودن محصول */}
           <Link
             href={addHref}
             className="block w-full rounded-lg bg-neutral-100 text-center py-2.5 text-sm text-neutral-700"

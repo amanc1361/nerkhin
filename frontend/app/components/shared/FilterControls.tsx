@@ -1,7 +1,8 @@
 // app/components/shared/FilterControls.tsx
 "use client";
-import { useEffect, useState, useMemo } from "react";
-import { UserProductMessages } from "@/lib/server/texts/userProdutMessages";
+import { useState } from "react";
+import type { UserProductMessages } from "@/lib/server/texts/userProdutMessages";
+import { Search, Coins, Banknote, DollarSign } from "lucide-react";
 
 type Option = { value: string | number; label: string };
 
@@ -14,188 +15,157 @@ export type FilterControlsValue = {
   search: string;
 };
 
-type VisibleKeys =
-  | "brand"
-  | "category"
-  | "subCategory"
-  | "priceType"
-  | "sortUpdated"
-  | "search";
-
 type Props = {
   messages: UserProductMessages;
+  // برای سازگاری با امضای قبلی
   brands?: Option[];
   categories?: Option[];
   subCategories?: Option[];
   initial?: Partial<FilterControlsValue>;
   onChange: (v: FilterControlsValue) => void;
-
-  /** کنترل نمایش هر آیتم؛ مقدار پیش‌فرض: همه true */
-  visible?: Partial<Record<VisibleKeys, boolean>>;
+  visible?: Partial<Record<"priceType" | "search", boolean>>;
 };
 
 export default function FilterControls({
   messages,
-  brands = [],
-  categories = [],
-  subCategories = [],
   initial,
   onChange,
   visible,
 }: Props) {
-  const [brandIds, setBrandIds] = useState<number[]>(initial?.brandIds ?? []);
-  const [categoryId, setCategoryId] = useState<number | undefined>(initial?.categoryId);
-  const [subCategoryId, setSubCategoryId] = useState<number | undefined>(initial?.subCategoryId);
+  // payload کامل ولی UI مینیمال
+  const [brandIds] = useState<number[]>(initial?.brandIds ?? []);
+  const [categoryId] = useState<number | undefined>(initial?.categoryId);
+  const [subCategoryId] = useState<number | undefined>(initial?.subCategoryId);
+  const [sortUpdated] = useState<"asc" | "desc">(initial?.sortUpdated ?? "desc");
+
   const [isDollar, setIsDollar] = useState<boolean | null>(
-    typeof initial?.isDollar === "boolean" ? initial?.isDollar! : null
+    typeof initial?.isDollar === "boolean" ? initial?.isDollar : null
   );
-  const [sortUpdated, setSortUpdated] = useState<"asc" | "desc">(initial?.sortUpdated ?? "desc");
   const [search, setSearch] = useState<string>(initial?.search ?? "");
 
-  // پیش‌فرض‌ها: همه نمایش داده شوند مگر اینکه false داده شود
-  const show = useMemo(() => {
-    const def: Record<VisibleKeys, boolean> = {
-      brand: true,
-      category: true,
-      subCategory: true,
-      priceType: true,
-      sortUpdated: true,
-      search: true,
-    };
-    return { ...def, ...(visible ?? {}) };
-  }, [visible]);
-
-  useEffect(() => {
-    const payload: FilterControlsValue = {
-      brandIds,
-      categoryId,
-      subCategoryId,
-      isDollar,
-      sortUpdated,
-      search,
-    };
-    onChange(payload);
-  }, [brandIds, categoryId, subCategoryId, isDollar, sortUpdated, search, onChange]);
-
   const t = messages.filters;
+  const showPriceType = visible?.priceType ?? true;
+  const showSearch = visible?.search ?? true;
+
+  const buildPayload = (overrides?: Partial<FilterControlsValue>): FilterControlsValue => ({
+    brandIds,
+    categoryId,
+    subCategoryId,
+    isDollar,
+    sortUpdated,
+    search: search?.trim?.() ?? "",
+    ...overrides,
+  });
+
+  const submitSearch = () => onChange(buildPayload());
+
+  const changePriceType = (v: boolean | null) => {
+    setIsDollar(v);
+    onChange(buildPayload({ isDollar: v }));
+  };
 
   return (
-    <div dir="rtl" className="rounded-2xl border bg-white p-3 shadow-sm space-y-3">
-      {/* سطر ۱: برند + دسته + زیردسته (هر کدام قابل مخفی شدن) */}
-      {(show.brand || show.category || show.subCategory) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {show.brand && (
-            <label className="text-sm">
-              <span className="block mb-1">{t.brand}</span>
-              <select
-                multiple
-                className="w-full border rounded-xl px-3 py-2 bg-white"
-                value={brandIds.map(String)}
-                onChange={(e) => {
-                  const vals = Array.from(e.target.selectedOptions).map((o) => Number(o.value));
-                  setBrandIds(vals);
-                }}
-              >
-                {brands.length === 0 && <option value="">{t.brandAll}</option>}
-                {brands.map((b) => (
-                  <option key={b.value} value={String(b.value)}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+    <div dir="rtl" className="rounded-2xl border bg-white p-3 shadow-sm">
+      {/* ردیف واحد (موبایل و دسکتاپ): سرچ + آیکن‌های قیمت */}
+      <div className="flex items-center gap-2">
+        {showSearch && (
+          <div className="relative flex-1">
+            <input
+              className="w-full border rounded-xl pr-3 pl-10 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gray-300"
+              placeholder={t.searchPlaceholder}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitSearch()}
+            />
+            <button
+              type="button"
+              onClick={submitSearch}
+              aria-label={t.searchPlaceholder}
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 hover:bg-gray-100 active:scale-95 transition"
+              title={t.searchPlaceholder}
+            >
+              <Search className="w-5 h-5 text-gray-700" />
+            </button>
+          </div>
+        )}
 
-          {show.category && (
-            <label className="text-sm">
-              <span className="block mb-1">{t.category}</span>
-              <select
-                className="w-full border rounded-xl px-3 py-2 bg-white"
-                value={categoryId ?? ""}
-                onChange={(e) =>
-                  setCategoryId(e.target.value ? Number(e.target.value) : undefined)
-                }
-              >
-                <option value="">{t.brandAll}</option>
-                {categories.map((c) => (
-                  <option key={c.value} value={String(c.value)}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+        {showPriceType && (
+          <div
+            className="flex items-center gap-1 rounded-xl border bg-gray-50 px-1 py-1"
+            aria-label={t.priceType}
+            title={t.priceType}
+          >
+            {/* همه */}
+            <IconChip
+              active={isDollar === null}
+              onClick={() => changePriceType(null)}
+              ariaLabel={t.priceAny}
+              title={t.priceAny}
+            >
+              <Coins className="w-4 h-4" />
+            </IconChip>
 
-          {show.subCategory && (
-            <label className="text-sm">
-              <span className="block mb-1">{t.subCategory}</span>
-              <select
-                className="w-full border rounded-xl px-3 py-2 bg-white"
-                value={subCategoryId ?? ""}
-                onChange={(e) =>
-                  setSubCategoryId(e.target.value ? Number(e.target.value) : undefined)
-                }
-              >
-                <option value="">{t.brandAll}</option>
-                {subCategories.map((sc) => (
-                  <option key={sc.value} value={String(sc.value)}>
-                    {sc.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-      )}
+            {/* ریال / پول کاغذی */}
+            <IconChip
+              active={isDollar === false}
+              onClick={() => changePriceType(false)}
+              ariaLabel={t.priceRial}
+              title={t.priceRial}
+            >
+              <Banknote className="w-4 h-4" />
+            </IconChip>
 
-      {/* سطر ۲: نوع قیمت + مرتب‌سازی + جستجو (هر کدام قابل مخفی شدن) */}
-      {(show.priceType || show.sortUpdated || show.search) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {show.priceType && (
-            <label className="text-sm">
-              <span className="block mb-1">{t.priceType}</span>
-              <select
-                className="w-full border rounded-xl px-3 py-2 bg-white"
-                value={isDollar === null ? "any" : isDollar ? "1" : "0"}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setIsDollar(v === "any" ? null : v === "1");
-                }}
-              >
-                <option value="any">{t.priceAny}</option>
-                <option value="1">{t.priceDollar}</option>
-                <option value="0">{t.priceRial}</option>
-              </select>
-            </label>
-          )}
-
-          {show.sortUpdated && (
-            <label className="text-sm">
-              <span className="block mb-1">{t.sortUpdated}</span>
-              <select
-                className="w-full border rounded-xl px-3 py-2 bg-white"
-                value={sortUpdated}
-                onChange={(e) => setSortUpdated(e.target.value as "asc" | "desc")}
-              >
-                <option value="desc">{t.sortNewest}</option>
-                <option value="asc">{t.sortOldest}</option>
-              </select>
-            </label>
-          )}
-
-          {show.search && (
-            <label className="text-sm">
-              <span className="block mb-1">{t.searchPlaceholder}</span>
-              <input
-                className="w-full border rounded-xl px-3 py-2 bg-white"
-                placeholder={t.searchPlaceholder}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-          )}
-        </div>
-      )}
+            {/* دلار */}
+            <IconChip
+              active={isDollar === true}
+              onClick={() => changePriceType(true)}
+              ariaLabel={t.priceDollar}
+              title={t.priceDollar}
+            >
+              <DollarSign className="w-4 h-4" />
+            </IconChip>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+/* --- جزء مینیمال آیکنی --- */
+function IconChip({
+  active,
+  onClick,
+  ariaLabel,
+  title,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  ariaLabel: string;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      title={title ?? ariaLabel}
+      className={[
+        "relative grid place-items-center rounded-lg p-2 transition",
+        active
+          ? "bg-white text-gray-900 shadow-sm"
+          : "text-gray-600 hover:bg-white/70",
+      ].join(" ")}
+    >
+      {children}
+      {/* underline فعال با کنتراست قوی */}
+      <span
+        className={[
+          "absolute -bottom-1 left-1/2 -translate-x-1/2 h-0.5 w-5 rounded-full",
+          active ? "bg-blue-600" : "bg-transparent",
+        ].join(" ")}
+      />
+    </button>
   );
 }

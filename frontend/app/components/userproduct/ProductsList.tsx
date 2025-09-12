@@ -1,7 +1,6 @@
-// app/components/userproduct/UserProductList.tsx
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { UserProductView, UpdateUserProductPayload, ChangeOrderPayload } from "@/app/types/userproduct/userProduct";
 import { getUserProductMessages, type UserProductMessages } from "@/lib/server/texts/userProdutMessages";
 
@@ -15,7 +14,7 @@ type Props = {
   subCategoryId?: number;
   locale?: "fa" | "en";
 
-  /** ←← اضافه شد: اگر از صفحه بالا هندل می‌کنی، این‌ها اختیاری‌اند */
+  /** ←← اگر از صفحه بالا هندل می‌کنی، این‌ها اختیاری‌اند */
   messages?: UserProductMessages;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
@@ -37,15 +36,24 @@ export default function UserProductList({
   // اگر messages از بالا اومد، همونو استفاده کن؛ وگرنه از دیکشنری بساز
   const t = messages ?? getUserProductMessages(locale);
 
-  const [list, setList] = useState<UserProductView[]>(() => {
-    const copied = [...items];
+  // --- helper برای سورت اولیه/بازسازی لیست ---
+  const sortByOrder = (arr: UserProductView[]) => {
+    const copied = [...(arr ?? [])];
     copied.sort((a: any, b: any) => {
-      const oa = (a as any).order_c ?? (a as any).orderC ?? 0;
-      const ob = (b as any).order_c ?? (b as any).orderC ?? 0;
+      const oa = a?.order_c ?? a?.orderC ?? a?.order ?? 0;
+      const ob = b?.order_c ?? b?.orderC ?? b?.order ?? 0;
       return oa - ob;
     });
     return copied;
-  });
+  };
+
+  // State داخلی که قابل ویرایش/سواپ و ... هست
+  const [list, setList] = useState<UserProductView[]>(() => sortByOrder(items));
+
+  // ⬅️⬅️ مهم: هر وقت props.items عوض شد، لیست داخلی رو همگام کن
+  useEffect(() => {
+    setList(sortByOrder(items));
+  }, [items]);
 
   const [busy, setBusy] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -108,46 +116,44 @@ export default function UserProductList({
   }, [onEdit, update]);
 
 
-const handleMove = useCallback(
-  async (id: number, direction: "up" | "down") => {
-    setBusy(true);
+  const handleMove = useCallback(
+    async (id: number, direction: "up" | "down") => {
+      setBusy(true);
 
-    // 1) از state فعلی محاسبه کن (نه داخل setList)
-    const idx = list.findIndex((x: any) => x.id === id);
-    const neighborIdx = direction === "up" ? idx - 1 : idx + 1;
+      // 1) از state فعلی محاسبه کن
+      const idx = list.findIndex((x: any) => x.id === id);
+      const neighborIdx = direction === "up" ? idx - 1 : idx + 1;
 
-    // اگر مرزی بود، کاری نکن
-    if (idx < 0 || neighborIdx < 0 || neighborIdx >= list.length) {
-      setBusy(false);
-      return;
-    }
+      // اگر مرزی بود، کاری نکن
+      if (idx < 0 || neighborIdx < 0 || neighborIdx >= list.length) {
+        setBusy(false);
+        return;
+      }
 
-    const neighborId = (list[neighborIdx] as any).id;
+      const neighborId = (list[neighborIdx] as any).id;
 
-    // 2) payload سازگار با بک‌اند: top/bottom
-    const payload =
-      direction === "up"
-        ? { topProductId: id,         bottomProductId: neighborId }
-        : { topProductId: neighborId, bottomProductId: id };
+      // 2) payload برای بک‌اند
+      const payload: ChangeOrderPayload =
+        direction === "up"
+          ? { topProductId: id,         bottomProductId: neighborId }
+          : { topProductId: neighborId, bottomProductId: id };
 
-    // 3) سواپ خوش‌بینانهٔ UI
-    setList((prev) => {
-      // برای اطمینان، با ایندکس‌های از قبل محاسبه‌شده کار کن
-      const copy = [...prev];
-      [copy[idx], copy[neighborIdx]] = [copy[neighborIdx], copy[idx]];
-      return copy;
-    });
+      // 3) سواپ خوش‌بینانهٔ UI
+      setList((prev) => {
+        const copy = [...prev];
+        [copy[idx], copy[neighborIdx]] = [copy[neighborIdx], copy[idx]];
+        return copy;
+      });
 
-    // 4) درخواست به سرور
-    try {
-      await changeOrder(payload);
-    } finally {
-      setBusy(false);
-    }
-  },
-  [list, changeOrder]
-);
-
+      // 4) درخواست به سرور
+      try {
+        await changeOrder(payload);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [list, changeOrder]
+  );
 
   return (
     <div className="grid gap-2" dir="rtl">
