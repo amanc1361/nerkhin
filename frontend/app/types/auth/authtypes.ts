@@ -21,6 +21,8 @@ export interface UserAuthData {
   fullName?: string;
   role?: string | number; // یا هر نوع دیگری که برای نقش دارید
   cityId?: number;
+  subscriptionStatus?: string;
+  subscriptionExpiresAt?: string | null;
   // ... سایر اطلاعات کاربر
 }
 
@@ -32,6 +34,8 @@ export interface VerifyCodeApiResponse {
   accessTokenExpiresAt: number; // <--- اضافه شد: زمان انقضا به صورت Unix Timestamp (ثانیه)
   user: UserAuthData;
   message?: string;
+  subscriptionStatus?: string;
+  subscriptionExpiresAt?: string | null;
 }
 
 // پاسخ مورد انتظار از endpoint بازآوری توکن (/auth/refresh-token)
@@ -40,6 +44,8 @@ export interface RefreshTokenApiResponse {
   accessTokenExpiresAt: number; // <--- اضافه شد
   user: UserAuthData;
   message?: string;
+  subscriptionStatus?: string;
+  subscriptionExpiresAt?: string | null;
 }
 
 // --- دیگر نیازی به DecodedAccessTokenPayload نداریم و می‌توانید آن را حذف کنید ---
