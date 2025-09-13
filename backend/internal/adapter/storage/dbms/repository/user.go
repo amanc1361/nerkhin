@@ -135,23 +135,90 @@ func (ur *UserRepository) GetUserByPhone(ctx context.Context, dbSession interfac
 
 	return user, nil
 }
-
-func (ur *UserRepository) BatchDeleteUsers(ctx context.Context, dbSession interface{}, ids []int64) (
-	err error) {
+func (ur *UserRepository) BatchDeleteUsers(ctx context.Context, dbSession interface{}, ids []int64) (err error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return
+		return err
+	}
+	if len(ids) == 0 {
+		return nil
 	}
 
-	err = db.Model(&domain.User{}).
-		Where("id IN ?", ids).
-		Delete(&domain.User{}).Error
-	if err != nil {
-		return
-	}
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// -------------------------------------------------------
+		// 1) پاک‌سازی همهٔ وابستگی‌ها
+		// -------------------------------------------------------
 
-	return nil
+		// -- Model-based (اگر مدل‌های دامنه را دارید این بخش را استفاده کنید)
+		// محصولات ایجادشده توسط کاربر (مثلاً فیلد CreatedBy یا UserID)
+
+		// پسندِ محصولات توسط کاربر
+
+		// پسندِ فروشگاه‌ها توسط کاربر
+		if err := tx.Where("user_id IN ?", ids).Delete(&domain.FavoriteAccount{}).Error; err != nil {
+			return err
+		}
+		// تراکنش‌های مالی کاربر
+		if err := tx.Where("user_id IN ?", ids).Delete(&domain.FavoriteProduct{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id IN ?", ids).Delete(&domain.ProductRequest{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id IN ?", ids).Delete(&domain.UserProduct{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id IN ?", ids).Delete(&domain.PaymentTransactionHistory{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id IN ?", ids).Delete(&domain.Report{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id IN ?", ids).Delete(&domain.UserSubscription{}).Error; err != nil {
+			return err
+		}
+
+		// -- Raw SQL-based (اگر مدل ندارید، این بلوک را جایگزین کنید)
+		// مثال نام جدول‌ها؛ مطابق اسامی واقعی خودتان تغییر دهید.
+		// if err := tx.Exec(`DELETE FROM product_like_t    WHERE user_id IN (?)`, ids).Error; err != nil { return err }
+		// if err := tx.Exec(`DELETE FROM shop_like_t       WHERE user_id IN (?)`, ids).Error; err != nil { return err }
+		// if err := tx.Exec(`DELETE FROM fin_transaction_t WHERE user_id IN (?)`, ids).Error; err != nil { return err }
+		// if err := tx.Exec(`DELETE FROM product_t         WHERE created_by IN (?)`, ids).Error; err != nil { return err }
+		// if err := tx.Exec(`DELETE FROM shop_t            WHERE owner_id IN (?)`, ids).Error; err != nil { return err }
+
+		// (اختیاری) اگر auth/session/token جداگانه دارید، این‌ها را هم پاک کنید:
+		// _ = tx.Exec(`DELETE FROM user_session_t WHERE user_id IN (?)`, ids).Error
+		// _ = tx.Exec(`DELETE FROM refresh_token_t WHERE user_id IN (?)`, ids).Error
+
+		// -------------------------------------------------------
+		// 2) حذف خود کاربرها
+		// -------------------------------------------------------
+		if err := tx.Where("id IN ?", ids).Delete(&domain.User{}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return err
 }
+
+// func (ur *UserRepository) BatchDeleteUsers1(ctx context.Context, dbSession interface{}, ids []int64) (
+// 	err error) {
+// 	db, err := gormutil.CastToGORM(ctx, dbSession)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	err = db.Model(&domain.User{}).
+// 		Where("id IN ?", ids).
+// 		Delete(&domain.User{}).Error
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	return nil
+// }
 
 func (ur *UserRepository) GetUsersByFilter(ctx context.Context, dbSession interface{},
 	filter domain.UserFilter, limit int,
