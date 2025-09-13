@@ -40,7 +40,7 @@ const withLeadingSlash = (s: string) => (s.startsWith('/') ? s : `/${s}`);
 /** ریشهٔ درست را می‌سازد؛ چه INTERNAL تهش /api/go داشته باشد چه نداشته باشد */
 function resolveRootBase(publicBase: string, internalBase: string) {
   const pb = clean(publicBase || '/api/go');         // مثلا "/api/go"
-  const ib = clean(internalBase || '');              // مثلا "http://nerkhin-backend:8084" یا ".../api/go"
+  const ib = clean(internalBase || '');              // مثلا "http://nerrkhin-backend:8084" یا ".../api/go"
 
   if (isAbs(pb)) return pb;                          // اگر public مطلق بود، همان
   if (!ib) return withLeadingSlash(pb);              // internal نداریم → نسبی

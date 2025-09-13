@@ -21,7 +21,7 @@ type Props = SVGProps<SVGSVGElement> & {
 export default function BrandLogo({
   variant = "logo3",
   href = "",
-  title = "Nerkhin",
+  title = "Nerrkhin",
   className = "w-14 h-auto",
   ...rest
 }: Props) {

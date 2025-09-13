@@ -1,7 +1,7 @@
 // فایل: lib/server/api.ts (اصلاح شده)
 import 'server-only';
 import { serverApiService } from './serverApiService'; // <--- ایمپورت کلاینت API جدید
-import type { Report, User, ProductRequest, UserViewModel, FetchUsersByFilterResponse } from '@/app/types/types'; // مسیر به تایپ‌های شما
+import type {  ProductRequest, UserViewModel, FetchUsersByFilterResponse } from '@/app/types/types'; // مسیر به تایپ‌های شما
 import { FetchReportsByFilterResponse, ReportViewModel } from '@/app/types/report/reportManagement';
 
 // --- توابع دریافت داده برای داشبورد (با استفاده از serverApiService) ---
