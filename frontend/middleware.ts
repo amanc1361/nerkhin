@@ -73,7 +73,6 @@ export async function middleware(req: NextRequest) {
   const session = await getToken({ req, secret: SECRET });
 
 
-  // استخراج نقش بدون تغییر فایل‌های دیگر
   const role =
     (session as any)?.role ??
     (session as any)?.user?.role ??
@@ -128,7 +127,6 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 3) اگر لاگین است و وارد /panel شده ولی ادمین نیست → ریدایرکت به مسیر نقش
   if (isAuth && pathname.startsWith(PANEL) && hasKnownRole && !isAdmin(role)) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }
