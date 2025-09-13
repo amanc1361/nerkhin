@@ -66,11 +66,11 @@ async function getAuthHeader() {
 /**
  * سرور معمولاً فقط filename یا مسیر نسبی می‌دهد؛ این متد آن را مطلق می‌کند.
  * می‌تونی این دو env را در .env.frontend تنظیم کنی، وگرنه پیش‌فرض امن داریم:
- *   NEXT_PUBLIC_FILE_HOST=https://nerkhin.com
+ *   NEXT_PUBLIC_FILE_HOST=https://nerrkhin.com
  *   NEXT_PUBLIC_FILE_PREFIX=/uploads
  */
 const FILE_HOST =
-  (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+  (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
 const FILE_PREFIX = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "").replace(/\/+$/, "");
 
 function absolutizeImageUrl(img?: string | null): string | undefined {

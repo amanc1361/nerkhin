@@ -787,7 +787,7 @@ func fontDataURI(path, mime string) (string, error) {
 	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b), nil
 }
 
-const siteBaseURL = "https://nerkhin.com"
+const siteBaseURL = "https://nerrkhin.com"
 
 // CSS @font-face با فونت لوکال به صورت data:URI
 func buildLocalVazirmatnCSS() string {

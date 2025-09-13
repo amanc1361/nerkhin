@@ -174,7 +174,7 @@ export async function fetchPriceListSSR(): Promise<PriceListVM> {
 function absolutizeUploads(imageUrl?: string | null) {
   if (!imageUrl) return null;
   if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
-  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
   const prefix = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "");
   const clean = imageUrl.replace(/^\/+/, "");
   return clean.startsWith("uploads/") ? `${host}/${clean}` : `${host}${prefix}/${clean}`;
