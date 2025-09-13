@@ -44,14 +44,12 @@ export default function InstallPrompt({ messages = defaultMessages }: { messages
   const { isMobile, isAndroid, isIOS } = getUAFlags();
   const standalone = isStandalone();
 
-  // اگر قبلا نصب شده بود، دیگه نشان نده
   useEffect(() => {
     if (typeof window === "undefined") return;
     const flag = localStorage.getItem("pwa_installed") === "1";
     setAlreadyInstalled(flag);
   }, []);
 
-  // اندروید: گرفتن beforeinstallprompt
   useEffect(() => {
     if (!isMobile || !isAndroid || standalone) return;
     if (alreadyInstalled) return;
