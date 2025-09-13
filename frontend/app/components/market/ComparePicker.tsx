@@ -136,7 +136,7 @@ export default function ComparePicker({
     }
   };
 
-  const getImg = (p: Item) => p.defaultImageUrl || `https://nerkhin.com/uploads/${p.id}/1.webp`;
+  const getImg = (p: Item) => p.defaultImageUrl || `https://nerrkhin.com/uploads/${p.id}/1.webp`;
 
   const content = (
     <div className="max-w-lg w-full" dir="rtl">

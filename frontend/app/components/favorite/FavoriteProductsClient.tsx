@@ -22,7 +22,7 @@ const useMessages = () => ({
 function absolutizeUploads(u?: string | null) {
   if (!u) return null;
   if (/^https?:\/\//i.test(u)) return u;
-  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
   const prefix = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "");
   const clean = u.replace(/^\/+/, "");
   return clean.startsWith("uploads/") ? `${host}/${clean}` : `${host}${prefix}/${clean}`;
@@ -151,7 +151,7 @@ export default function FavoriteProductsClient({
                     <div className="w-16 h-16 rounded-2xl bg-gray-100 overflow-hidden flex-shrink-0 relative">
                       {/* طبق الگوی پروژه: /uploads/<productId>/1.webp */}
                       <Image
-                        src={`https://nerkhin.com/uploads/${it.productId}/1.webp`}
+                        src={`https://nerrkhin.com/uploads/${it.productId}/1.webp`}
                         alt={title}
                         fill
                         sizes="64px"

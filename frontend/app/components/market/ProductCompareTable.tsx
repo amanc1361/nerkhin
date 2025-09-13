@@ -23,7 +23,7 @@ function mainImage(p: ProductViewModel): string | null {
   if (typeof url === "string" && url.trim()) return url;
 
   // در غیر این‌صورت از الگوی uploads استفاده کن
-  if (p?.id) return `https://nerkhin.com/uploads/${p.id}/1.webp`;
+  if (p?.id) return `https://nerrkhin.com/uploads/${p.id}/1.webp`;
   return null;
 }
 

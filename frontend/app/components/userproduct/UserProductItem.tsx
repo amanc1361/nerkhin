@@ -14,7 +14,7 @@ import PersianDate from "@/app/utils/persiadate";
 function absolutizeUploads(imageUrl?: string | null) {
   if (!imageUrl) return null;
   if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
-  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
   const prefix = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "");
   const clean = imageUrl.replace(/^\/+/, "");
   return clean.startsWith("uploads/") ? `${host}/${clean}` : `${host}${prefix}/${clean}`;
@@ -42,7 +42,7 @@ function buildImageCandidates(imgRel?: string | null, productId?: number | null)
   const abs = absolutizeUploads(imgRel || "");
   if (abs) list.push(abs);
   if (productId) {
-    const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+    const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
     const base = `${host}/uploads/${productId}`;
     ["1.webp"].forEach((name) => list.push(`${base}/${name}`));
   }

@@ -39,7 +39,7 @@ export default async function SubscribePage({
       ? "اشتراک شما منقضی شده است."
       : "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
 
-  const buyUrl = buyParam || "https://nerkhin.com/subscribe/buy";
+  const buyUrl = buyParam || "https://nerrkhin.com/subscribe/buy";
   const next = toSafePath(nextParam, "/");
   const buyHref = next ? addParam(buyUrl, "next", next) : buyUrl;
 

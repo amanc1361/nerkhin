@@ -14,7 +14,7 @@ type Props = { t: Messages; item: ProductShop };
 function absolutizeUploads(u?: string | null) {
   if (!u) return null;
   if (/^https?:\/\//i.test(u)) return u;
-  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
   const prefix = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "");
   const clean = u.replace(/^\/+/, "");
   return clean.startsWith("uploads/")

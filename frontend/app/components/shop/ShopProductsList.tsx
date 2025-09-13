@@ -9,7 +9,7 @@ import Link from "next/link";
 function absolutize(url?: string | null) {
   if (!url) return "/images/placeholders/product.jpg";
   if (/^https?:\/\//i.test(url)) return url;
-  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerkhin.com").replace(/\/+$/, "");
+  const host = (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
   const prefix = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "");
   const clean = String(url).replace(/^\/+/, "");
   return clean.startsWith("uploads/") ? `${host}/${clean}` : `${host}${prefix}/${clean}`;

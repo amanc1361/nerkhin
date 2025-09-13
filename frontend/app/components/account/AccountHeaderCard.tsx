@@ -86,7 +86,7 @@ export const AccountHeaderCard: FC<Props> = ({
     { key: "websiteUrl",   label: "Website",   href: user.websiteUrl,   Icon: Globe },
   ];
   const imageSrc = useMemo(() => {
-    if (user?.imageUrl) return `https://nerkhin.com/uploads/${user.imageUrl}`;
+    if (user?.imageUrl) return `https://nerrkhin.com/uploads/${user.imageUrl}`;
     return "/uploads/avatar-placeholder.png";
   }, [user?.imageUrl]);
 

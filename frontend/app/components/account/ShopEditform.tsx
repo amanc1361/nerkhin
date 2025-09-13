@@ -79,7 +79,7 @@ export default function ShopEditForm({ t, user, role }: Props) {
       <div className="flex flex-col items-center gap-2">
         <div className="relative h-20 w-20 overflow-hidden rounded-full ring-2 ring-indigo-200">
           <Image
-            src={"https://nerkhin.com/uploads/" + imagePreview || "/images/avatar-placeholder.png"}
+            src={"https://nerrkhin.com/uploads/" + imagePreview || "/images/avatar-placeholder.png"}
             alt="avatar"
             fill
             sizes="80px"

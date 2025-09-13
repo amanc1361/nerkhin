@@ -26,7 +26,7 @@ export default function MarketProductItem({
           {/* تصویر */}
           <div className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border">
             <Image
-              src={`https://nerkhin.com/uploads/${item.productId}/1.webp`}
+              src={`https://nerrkhin.com/uploads/${item.productId}/1.webp`}
               alt={String(item.productId)}
               width={56}
               height={56}

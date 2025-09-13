@@ -73,7 +73,7 @@ export function FavoriteAccountsList({ role }: { role: string }) {
                 <div className="w-14 h-14 rounded-2xl bg-gray-100 overflow-hidden flex-shrink-0 relative">
                   {img ? (
                     <Image
-                      src={"https://nerkhin.com/uploads/"+img}
+                      src={"https://nerrkhin.com/uploads/"+img}
                       alt={name}
                       fill
                       sizes="56px"
