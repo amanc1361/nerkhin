@@ -57,15 +57,6 @@ func (vc *VerificationCodeService) SendVerificationCode(ctx context.Context, pho
 		return "", fmt.Errorf("failed to save verification code: %w", err)
 	}
 
-	// api := kavenegar.New(vc.appConfig.SmsApiKey)
-	// receptor := phone
-	// template := "otp-code"
-	// params := &kavenegar.VerifyLookupParam{}
-
-	// if _, errSend := api.Verify.Lookup(receptor, template, codeGenerated, params); errSend != nil {
-	// 	return "", fmt.Errorf("failed to send SMS via Kavenegar: %w", errSend)
-	// }
-
 	return codeGenerated, nil
 }
 
