@@ -153,14 +153,14 @@ func (us *UserService) GetUserByID(ctx context.Context, id int64) (user *domain.
 	return user, nil
 }
 
-func (us *UserService) BatchDeleteUsers(ctx context.Context, ids []int64) (err error) {
+func (us *UserService) DeleteUser(ctx context.Context, id int64) (err error) {
 	db, err := us.dbms.NewDB(ctx)
 	if err != nil {
 		return
 	}
 
 	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-		err = us.repo.BatchDeleteUsers(ctx, txSession, ids)
+		err = us.repo.DeleteUser(ctx, txSession, id)
 		if err != nil {
 			return err
 		}
@@ -381,7 +381,7 @@ func (us *UserService) DeleteAdmin(ctx context.Context, adminID int64) (err erro
 	}
 
 	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-		err = us.repo.BatchDeleteUsers(ctx, txSession, []int64{adminID})
+		err = us.repo.DeleteUser(ctx, txSession, adminID)
 		if err != nil {
 			return err
 		}

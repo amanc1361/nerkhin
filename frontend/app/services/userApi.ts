@@ -23,10 +23,10 @@ export const userApi = {
   }),
 
   // حذف کاربر
-  deleteUser: (payload: { userId: number  }) => ({
-    url: "/user/delete",
-    method: "post" as const,
-    body: payload,
+  deleteUser: ( userId: number  ) => ({
+    url: `/user/delete/${userId}`,
+    method: "delete" as const,
+   
   }),
 
   // فعال/غیرفعال کردن کاربر

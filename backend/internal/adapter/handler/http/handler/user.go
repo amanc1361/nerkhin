@@ -149,18 +149,14 @@ func (uh *UserHandler) FetchUser(ctx *gin.Context) {
 	handleSuccess(ctx, fetchedUser)
 }
 
-type deleteUsersRequest struct {
-	Ids []int64 `json:"ids" example:"[1, 2]"`
-}
-
-func (uh *UserHandler) BatchDelete(ctx *gin.Context) {
-	var req deleteUsersRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+func (uh *UserHandler) Delete(ctx *gin.Context) {
+	userId, err := strconv.Atoi(ctx.Param("userId"))
+	if err != nil {
 		validationError(ctx, err, uh.AppConfig.Lang)
 		return
 	}
 
-	err := uh.service.BatchDeleteUsers(ctx, req.Ids)
+	err = uh.service.DeleteUser(ctx, int64(userId))
 	if err != nil {
 		HandleError(ctx, err, uh.AppConfig.Lang)
 		return

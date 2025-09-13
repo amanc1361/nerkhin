@@ -12,8 +12,8 @@ type Messages = {
 const defaultMessages: Messages = {
   install: "نصب اپلیکیشن",
   iosTitle: "نصب در iOS",
-  iosTip: "برای نصب در iOS از Safari روی دکمهٔ اشتراک‌گذاری بزنید و «Add to Home Screen» را انتخاب کنید.",
-  close: "بستن",
+  iosTip: "در Safari روی دکمهٔ اشتراک‌گذاری بزنید و «Add to Home Screen» را انتخاب کنید.",
+  close: "بستن"
 };
 
 function isIOS() {
@@ -22,58 +22,67 @@ function isIOS() {
 }
 
 function isInStandaloneMode() {
-  // iOS: window.navigator.standalone
-  // دیگر پلتفرم‌ها: matchMedia
   if (typeof window === "undefined") return false;
   // @ts-ignore
   return window.matchMedia?.("(display-mode: standalone)")?.matches || (window.navigator as any).standalone === true;
+}
+
+function isMobileUA() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 export default function InstallPrompt({ messages = defaultMessages }: { messages?: Messages }) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showIOSHelp, setShowIOSHelp] = useState(false);
 
-  // اندروید/کروم
+  const isMobile = isMobileUA();
+
   useEffect(() => {
+    if (!isMobile) return;
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener("beforeinstallprompt", handler);
     return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
+  }, [isMobile]);
 
-  // iOS راهنما
   useEffect(() => {
+    if (!isMobile) return;
     if (isIOS() && !isInStandaloneMode()) {
-      // کمی تاخیر تا مزاحم UX اولیه نشه
       const t = setTimeout(() => setShowIOSHelp(true), 2000);
       return () => clearTimeout(t);
     }
-  }, []);
+  }, [isMobile]);
 
   const canShowInstall = useMemo(() => !!deferredPrompt, [deferredPrompt]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
+    try {
+      await deferredPrompt.userChoice;
+    } finally {
+      setDeferredPrompt(null);
+    }
   };
+
+  if (!isMobile) return null;
 
   return (
     <>
       {canShowInstall && (
         <button
           onClick={handleInstall}
-          className="fixed z-50 bottom-4 right-4 rounded-xl bg-blue-600 text-white px-4 py-2 shadow-lg hover:bg-blue-700 focus:outline-none"
+          className="fixed z-[60] bottom-4 right-4 rounded-xl bg-blue-600 text-white px-4 py-2 shadow-lg hover:bg-blue-700 focus:outline-none"
         >
           {messages.install}
         </button>
       )}
 
-      {showIOSHelp && (
-        <div className="fixed z-50 bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-[360px] rounded-2xl bg-white/95 shadow-xl border border-slate-200 p-4 text-slate-800 backdrop-blur-sm">
+      {showIOSHelp && !canShowInstall && (
+        <div className="fixed z-[60] bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-[360px] rounded-2xl bg-white/95 shadow-xl border border-slate-200 p-4 text-slate-800 backdrop-blur-sm">
           <div className="font-bold mb-2">{messages.iosTitle}</div>
           <p className="text-sm leading-6">{messages.iosTip}</p>
           <div className="flex justify-end mt-3">

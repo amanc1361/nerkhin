@@ -21,7 +21,7 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.UserHandler) {
 	adminUserGroup := userGroup.Use(
 		middleware.AdminMiddleware(handler.TokenService, handler.AppConfig))
 
-	adminUserGroup.POST("/delete", handler.BatchDelete)
+	adminUserGroup.DELETE("/delete/:userId", handler.Delete)
 	adminUserGroup.POST("/change-state", handler.ChangeState)
 	adminUserGroup.POST("/fetch-users", handler.FetchUsersByFilter)
 	adminUserGroup.POST("/add-new-user", handler.AddNewUser)

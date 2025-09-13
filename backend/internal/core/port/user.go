@@ -13,7 +13,7 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, dbSession interface{}, id int64) (user *domain.User, err error)
 	GetUserByPhone(ctx context.Context, dbSession interface{}, phone string) (
 		user *domain.User, err error)
-	BatchDeleteUsers(ctx context.Context, dbSession interface{}, ids []int64) (err error)
+	DeleteUser(ctx context.Context, dbSession interface{}, id int64) (err error)
 	GetUsersByFilter(ctx context.Context, dbSession interface{}, filter domain.UserFilter, limit int,
 		offset int) (
 		users []*domain.UserViewModel, totalCount int64, err error)
@@ -36,7 +36,7 @@ type UserService interface {
 	RegisterUser(ctx context.Context, user *domain.User) (id int64, err error)
 	UpdateUser(ctx context.Context, user *domain.User) (id int64, err error)
 	GetUserByID(ctx context.Context, id int64) (*domain.User, error)
-	BatchDeleteUsers(ctx context.Context, ids []int64) (err error)
+	DeleteUser(ctx context.Context, id int64) (err error)
 	GetUsersByFilter(ctx context.Context, filter domain.UserFilter, page int, limit int) (users []*domain.UserViewModel,
 		totalCount int64, err error)
 	ChangeUserState(ctx context.Context, userID int64, targetState domain.UserState) (err error)

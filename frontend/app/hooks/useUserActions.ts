@@ -38,7 +38,7 @@ export const useUserActions = (onSuccess: () => void) => {
         } else if (action === "delete") {
           const { userId } = data as DeletePayload;
           // توجه: نام اندپوینت را با سرویس خودت سینک کن
-          await api.post<SuccessResponse>(userApi.deleteUser({ userId }));
+          await api.delete<SuccessResponse>(userApi.deleteUser(userId ));
           successMessage = messages.userDeletedSuccess ?? "کاربر با موفقیت حذف شد.";
         } else if (action === "toggleActive") {
           const { userId, nextActive } = data as ToggleActivePayload;
