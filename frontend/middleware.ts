@@ -231,7 +231,7 @@ export async function middleware(req: NextRequest) {
   
       // پیام و لینک و next
       to.searchParams.set("msg", "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
-      to.searchParams.set("buy", "https://nerkhin.com/subscribe/buy");
+      to.searchParams.set("buy", "https://nerrkhin.com/subscribe/buy");
       to.searchParams.set("next", pathname + url.search);
       // مهم: خود role را هم بفرست
       if (roleSlug) to.searchParams.set("role", roleSlug);
