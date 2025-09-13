@@ -178,21 +178,7 @@ func (ur *UserRepository) DeleteUser(ctx context.Context, dbSession interface{},
 			return err
 		}
 
-		// -- Raw SQL-based (اگر مدل ندارید، این بلوک را جایگزین کنید)
-		// مثال نام جدول‌ها؛ مطابق اسامی واقعی خودتان تغییر دهید.
-		// if err := tx.Exec(`DELETE FROM product_like_t    WHERE user_id = (?)`, id).Error; err != nil { return err }
-		// if err := tx.Exec(`DELETE FROM shop_like_t       WHERE user_id = (?)`, id).Error; err != nil { return err }
-		// if err := tx.Exec(`DELETE FROM fin_transaction_t WHERE user_id = (?)`, id).Error; err != nil { return err }
-		// if err := tx.Exec(`DELETE FROM product_t         WHERE created_by = (?)`, id).Error; err != nil { return err }
-		// if err := tx.Exec(`DELETE FROM shop_t            WHERE owner_id = (?)`, id).Error; err != nil { return err }
-
-		// (اختیاری) اگر auth/session/token جداگانه دارید، این‌ها را هم پاک کنید:
-		// _ = tx.Exec(`DELETE FROM user_session_t WHERE user_id = (?)`, id).Error
-		// _ = tx.Exec(`DELETE FROM refresh_token_t WHERE user_id = (?)`, id).Error
-
-		// -------------------------------------------------------
-		// 2) حذف خود کاربرها
-		// -------------------------------------------------------
+	
 		if err := tx.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil {
 			return err
 		}
@@ -203,22 +189,7 @@ func (ur *UserRepository) DeleteUser(ctx context.Context, dbSession interface{},
 	return err
 }
 
-// func (ur *UserRepository) BatchDeleteUsers1(ctx context.Context, dbSession interface{}, ids []int64) (
-// 	err error) {
-// 	db, err := gormutil.CastToGORM(ctx, dbSession)
-// 	if err != nil {
-// 		return
-// 	}
 
-// 	err = db.Model(&domain.User{}).
-// 		Where("id IN ?", ids).
-// 		Delete(&domain.User{}).Error
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	return nil
-// }
 
 func (ur *UserRepository) GetUsersByFilter(ctx context.Context, dbSession interface{},
 	filter domain.UserFilter, limit int,

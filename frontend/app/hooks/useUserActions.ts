@@ -43,7 +43,7 @@ export const useUserActions = (onSuccess: () => void) => {
         } else if (action === "toggleActive") {
           const { userId, nextActive } = data as ToggleActivePayload;
           // توجه: اگر در بک‌اند اندپوینت دیگری داری، اینجا جایگزین کن
-          await api.post<SuccessResponse>(userApi.changeState({ userId, targetState: nextActive ? 2 : 5 }));
+          await api.post<SuccessResponse>(userApi.changeState({ userId, targetState: nextActive ? 5 : 2 }));
           successMessage =
             nextActive
               ? (messages.userActivatedSuccess ?? "کاربر فعال شد.")
