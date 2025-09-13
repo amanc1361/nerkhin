@@ -228,11 +228,6 @@ func (s *UserService) ChangeUserState(ctx context.Context, userID int64,
 			return nil
 		}
 
-		err = validateUserChangeState(ctx, user, targetState)
-		if err != nil {
-			return err
-		}
-
 		user.State = targetState
 		_, err = s.repo.UpdateUser(ctx, txSession, user)
 		if err != nil {
