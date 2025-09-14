@@ -366,3 +366,17 @@ func (ur *UserRepository) UpdateUserDeviceLimit(ctx context.Context, dbSession i
     }
     return db.Model(&domain.User{}).Where("id = ?", userID).Update("device_limit", limit).Error
 }
+func (ur *UserRepository) DeleteUserDevice(ctx context.Context, dbSession interface{}, userID int64, deviceID string) error {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return err
+    }
+    result := db.Where("user_id = ? AND device_id = ?", userID, deviceID).Delete(&domain.ActiveDevice{})
+    if result.Error != nil {
+        return result.Error
+    }
+    if result.RowsAffected == 0 {
+        return gorm.ErrRecordNotFound
+    }
+    return nil
+}

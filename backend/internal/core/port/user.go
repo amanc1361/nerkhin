@@ -36,6 +36,9 @@ type UserRepository interface {
 	RegisterNewDevice(ctx context.Context, dbSession interface{}, device *domain.ActiveDevice) error
 	UpdateDeviceLastLogin(ctx context.Context, dbSession interface{}, device *domain.ActiveDevice) error
 	UpdateUserDeviceLimit(ctx context.Context, dbSession interface{}, userID int64, limit int) error
+	DeleteUserDevice(ctx context.Context, dbSession interface{}, userID int64, deviceID string) error // <-- ADDED
+	
+	
 }
 
 type UserService interface {
@@ -61,5 +64,8 @@ type UserService interface {
 
 	// --- ADDED for Admin Device Limit Management ---
 	UpdateUserDeviceLimit(ctx context.Context, userID int64, limit int) error
+	DeleteUserDevice(ctx context.Context, userID int64, deviceID string) error // <-- ADDED
+	// متد GetUserActiveDevices هم در سرویس لازم است
+	GetUserActiveDevices(ctx context.Context, userID int64) ([]*domain.ActiveDevice, error) // <-- ADDED
 }
 

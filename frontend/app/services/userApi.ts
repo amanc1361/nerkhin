@@ -38,9 +38,17 @@ export const userApi = {
 
 
   updateDeviceLimit: (payload: { userId: number; limit: number }) => ({
-    url: `/admin/users/device-limit`, // You need to create this route in your Go backend
+    url: `/user/users/device-limit`, // You need to create this route in your Go backend
     method: 'PUT', // Using PUT for updating a specific resource property
     body: payload,
+  }),
+  listUserDevices: (userId: number) => ({
+    url: `/user/users/${userId}/devices`,
+    method: 'GET',
+  }),
+  deleteUserDevice: (userId: number, deviceId: string) => ({
+    url: `/user/users/${userId}/devices/${deviceId}`,
+    method: 'DELETE',
   }),
 };
 

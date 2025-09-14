@@ -657,3 +657,34 @@ func (uh *UserHandler) UpdateAdminAccess(c *gin.Context) {
 
 	handleSuccess(c, nil)
 }
+// ... به انتهای فایل اضافه شود
+func (uh *UserHandler) ListUserDevices(c *gin.Context) {
+    userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+    if err != nil {
+        validationError(c, errors.New("invalid user ID"), uh.AppConfig.Lang)
+        return
+    }
+
+    devices, err := uh.service.GetUserActiveDevices(c.Request.Context(), userID)
+    if err != nil {
+        HandleError(c, err, uh.AppConfig.Lang)
+        return
+    }
+    handleSuccess(c, devices)
+}
+
+func (uh *UserHandler) DeleteUserDevice(c *gin.Context) {
+    userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+    if err != nil {
+        validationError(c, errors.New("invalid user ID"), uh.AppConfig.Lang)
+        return
+    }
+    deviceID := c.Param("deviceId")
+
+    err = uh.service.DeleteUserDevice(c.Request.Context(), userID, deviceID)
+    if err != nil {
+        HandleError(c, err, uh.AppConfig.Lang)
+        return
+    }
+    handleSuccess(c, gin.H{"message": "Device deleted successfully"})
+}

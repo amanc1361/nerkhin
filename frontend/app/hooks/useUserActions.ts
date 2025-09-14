@@ -75,13 +75,13 @@ import { userApi } from "@/app/services/userApi";
 import { ApiError } from "@/app/services/apiService";
 
 // ADDED: New action type
-type ActionType = "approve" | "reject" | "add" | "delete" | "toggleActive" | "updateLimit";
+type ActionType = "approve" | "reject" | "add" | "delete" | "toggleActive" | "updateLimit" | "deleteDevice";
 
 type ToggleActivePayload = { userId: number; nextActive: boolean };
 type DeletePayload = { userId: number };
 type UpdateLimitPayload = { userId: number; limit: number }; // <--- ADDED
-
-type ActionPayload = User | NewUserFormData | ToggleActivePayload | DeletePayload | UpdateLimitPayload;
+type DeleteDevicePayload = { userId: number; deviceId: string };
+type ActionPayload = User | NewUserFormData | ToggleActivePayload | DeletePayload | UpdateLimitPayload | DeleteDevicePayload;
 
 export const useUserActions = (onSuccess: () => void) => {
   const { api } = useAuthenticatedApi();
@@ -120,7 +120,11 @@ export const useUserActions = (onSuccess: () => void) => {
         } else if (action === "updateLimit") { // <--- ADDED
             await api.put<SuccessResponse>(userApi.updateDeviceLimit(data as UpdateLimitPayload));
             successMessage = "محدودیت دستگاه با موفقیت به‌روز شد.";
-        }
+        } else if (action === "deleteDevice") {
+          const { userId, deviceId } = data as DeleteDevicePayload;
+          await api.delete<SuccessResponse>(userApi.deleteUserDevice(userId, deviceId));
+          successMessage = "دستگاه با موفقیت حذف شد.";
+      }
 
 
         toast.success(successMessage);

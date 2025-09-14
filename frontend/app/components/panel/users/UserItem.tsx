@@ -2,7 +2,7 @@
 import React from "react";
 import { User } from "@/app/types/types";
 import { userManagementMessages as messages } from "@/app/constants/userManagementMessages";
-import { Check, X, Trash2, ToggleLeft, ToggleRight, Users } from "lucide-react"; // <--- ADDED Users icon
+import { Check, X, Trash2, ToggleLeft, ToggleRight, Users, MonitorSmartphone } from "lucide-react"; // <--- ADDED Users icon
 
 interface UserItemProps {
   user: User;
@@ -11,6 +11,7 @@ interface UserItemProps {
   onDelete: (user: User) => void;
   onToggleActive: (user: User) => void;
   onEditLimit: (user: User) => void; // <--- ADDED
+  onManageDevices: (user: User) => void;
 }
 
 const UserItem: React.FC<UserItemProps> = ({
@@ -20,6 +21,7 @@ const UserItem: React.FC<UserItemProps> = ({
   onDelete,
   onToggleActive,
   onEditLimit, // <--- ADDED
+  onManageDevices,
 }) => {
   const isActive = (user as any)?.isActive === true;
 
@@ -50,6 +52,13 @@ const UserItem: React.FC<UserItemProps> = ({
       {/* Actions */}
       <div className="col-span-3 flex justify-end gap-2">
         {/* ADDED: Edit limit button */}
+        <button
+            onClick={() => onManageDevices(user)}
+            title="مدیریت دستگاه‌ها"
+            className="rounded-md p-2 transition bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-800/40 dark:text-purple-300"
+        >
+            <MonitorSmartphone size={16} />
+        </button>
         <button
           onClick={() => onEditLimit(user)}
           title="ویرایش محدودیت دستگاه"

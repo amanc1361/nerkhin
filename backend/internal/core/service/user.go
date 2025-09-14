@@ -621,3 +621,24 @@ func (us *UserService) UpdateUserDeviceLimit(ctx context.Context, userID int64, 
 
 	return err
 }
+
+// ... به انتهای فایل اضافه شود
+func (us *UserService) DeleteUserDevice(ctx context.Context, userID int64, deviceID string) (err error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return
+	}
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		return us.repo.DeleteUserDevice(ctx, txSession, userID, deviceID)
+	})
+	return
+}
+
+func (us *UserService) GetUserActiveDevices(ctx context.Context, userID int64) (devices []*domain.ActiveDevice, err error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// این یک عملیات فقط خواندنی است، نیازی به تراکنش ندارد
+	return us.repo.GetUserActiveDevices(ctx, db, userID)
+}

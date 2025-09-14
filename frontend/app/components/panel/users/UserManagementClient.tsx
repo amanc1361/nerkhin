@@ -13,10 +13,21 @@ import EmptyState from "@/app/components/empty-state/empty-state";
 import ReusableModal from "@/app/components/shared/generalModal";
 import ConfirmationDialog from "@/app/components/shared/ConfirmationDialog";
 import AddNewUserForm from "./AddNewUserForm";
+import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
+import { toast } from "react-toastify";
+import { userApi } from "@/app/services/userApi";
+import LoadingSpinner from "../../Loading/Loading";
+import { Trash2 } from "lucide-react";
 
 // CHANGED: Added "editLimit"
 type ModalType = "approve" | "reject" | "add" | "delete" | "toggleActive" | "editLimit";
-
+interface ActiveDevice {
+  id: number;
+  userId: number;
+  deviceId: string;
+  userAgent: string;
+  lastLoginAt: string;
+}
 interface UserManagementClientProps {
   initialData: {
     users: User[];
@@ -41,7 +52,10 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
   });
   // ADDED: State for the new limit value
   const [newDeviceLimit, setNewDeviceLimit] = useState(2);
-
+  const [devicesModal, setDevicesModal] = useState<{ isOpen: boolean; user?: User | null }>({ isOpen: false, user: null });
+const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
+const [isLoadingDevices, setIsLoadingDevices] = useState(false);
+const { api } = useAuthenticatedApi(); // هوک api را بگیرید
   const { isSubmitting, performAction } = useUserActions(() => {
     setModalState({ type: null });
     router.refresh();
@@ -85,7 +99,27 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
         performAction("updateLimit", { userId: user.id, limit: newDeviceLimit });
     }
   };
+  const handleManageDevices = async (user: User) => {
+    setDevicesModal({ isOpen: true, user });
+    setIsLoadingDevices(true);
+    try {
+        const devices = await api.get<ActiveDevice[]>(userApi.listUserDevices(user.id));
+        setActiveDevices(devices);
+    } catch (error) {
+        toast.error("خطا در دریافت لیست دستگاه‌ها");
+        setActiveDevices([]);
+    } finally {
+        setIsLoadingDevices(false);
+    }
+};
 
+const handleDeleteDevice = (deviceId: string) => {
+    if (devicesModal.user) {
+        performAction('deleteDevice', { userId: devicesModal.user.id, deviceId });
+        // Refresh list after delete
+        setActiveDevices(prev => prev.filter(d => d.deviceId !== deviceId));
+    }
+};
   const handleAddUserSubmit = () => {
     performAction("add", newUserFormData);
   };
@@ -109,6 +143,7 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
               onDelete={(u) => openConfirmationModal(u, "delete")}
               onToggleActive={(u) => openConfirmationModal(u, "toggleActive")}
               onEditLimit={(u) => openConfirmationModal(u, "editLimit")} // <--- ADDED
+              onManageDevices={handleManageDevices}
             />
           ))
         ) : (
@@ -153,6 +188,34 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
             </div>
         </div>
       </ReusableModal>
+      <ReusableModal
+    isOpen={devicesModal.isOpen}
+    onClose={() => setDevicesModal({ isOpen: false, user: null })}
+    title={`مدیریت دستگاه‌های ${devicesModal.user?.fullName}`}
+>
+    <div className="p-4">
+        {isLoadingDevices ? (
+            <LoadingSpinner />
+        ) : activeDevices.length > 0 ? (
+            <ul className="flex flex-col gap-3">
+                {activeDevices.map(device => (
+                    <li key={device.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div className="flex flex-col text-xs">
+                            <span className="font-mono text-gray-500 dark:text-gray-400">{device.deviceId.substring(0, 16)}...</span>
+                            <span className="text-gray-600 dark:text-gray-300 truncate max-w-xs">{device.userAgent}</span>
+                            <span className="text-gray-400">{new Date(device.lastLoginAt).toLocaleString('fa-IR')}</span>
+                        </div>
+                        <button onClick={() => handleDeleteDevice(device.deviceId)} disabled={isSubmitting} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-full disabled:opacity-50">
+                            <Trash2 size={16} />
+                        </button>
+                    </li>
+                ))}
+            </ul>
+        ) : (
+            <p>هیچ دستگاه فعالی برای این کاربر ثبت نشده است.</p>
+        )}
+    </div>
+</ReusableModal>
     </div>
   );
 };
