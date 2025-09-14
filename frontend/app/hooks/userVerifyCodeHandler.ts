@@ -1,12 +1,12 @@
-// hooks/useVerifyCodeHandler.ts
 "use client";
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
-import { verifyCodeAPI } from '@/app/services/authapi'; // مسیر به authApi.ts
-import { ApiError } from '@/app/services/apiService';         // مسیر به apiService.ts
-import { verifyCodeMessages } from '@/app/constants/string'; // مسیر به فایل پیام‌ها
+import FingerprintJS from '@fingerprintjs/fingerprintjs'; // <--- ADDED
+import { verifyCodeAPI } from '@/app/services/authapi';
+import { ApiError } from '@/app/services/apiService';
+import { verifyCodeMessages } from '@/app/constants/string';
 
 interface UseVerifyCodeHandlerProps {
   phone: string;
@@ -28,23 +28,33 @@ export const useVerifyCodeHandler = ({ phone }: UseVerifyCodeHandlerProps): UseV
 
   const handleSubmit = useCallback(async (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
+    
+    if (!code.trim()) {
+      toast.error("کد تایید نمی‌تواند خالی باشد.");
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
 
-    if (!code.trim()) {
-      toast.error("کد تایید نمی‌تواند خالی باشد."); // می‌توانید این متن را هم به authMessages اضافه کنید
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      // verifyCodeAPI طبق طراحی ما، آبجکتی شامل accessToken و user برمی‌گرداند
-      const response = await verifyCodeAPI(phone, code);
+      // --- ADDED: Generate the unique device ID ---
+      const fp = await FingerprintJS.load();
+      const result = await fp.get();
+      const deviceId = result.visitorId;
 
-  
-         toast.success(verifyCodeMessages.success);
+      if (!deviceId) {
+          throw new Error("امکان شناسایی دستگاه وجود ندارد. لطفا دوباره تلاش کنید.");
+      }
+      
+      // --- CHANGED: Pass deviceId as the third argument ---
+      const response = await verifyCodeAPI(phone, code, deviceId);
+      
+      toast.success(verifyCodeMessages.success);
+      
+      // Handle the successful response, e.g., redirecting the user
+      // router.push('/dashboard'); 
 
-     
     } catch (err) {
       console.error('Error verifying code:', err);
       if (err instanceof ApiError) {
@@ -61,5 +71,6 @@ export const useVerifyCodeHandler = ({ phone }: UseVerifyCodeHandlerProps): UseV
       setIsLoading(false);
     }
   }, [phone, code, router]); 
+
   return { code, setCode, isLoading, error, handleSubmit };
 };
