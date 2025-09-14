@@ -141,7 +141,7 @@
 "use client";
 
 import React, { useState, FormEvent, useCallback } from 'react';
-import { signIn } from 'next-auth/react';
+import { getSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '@/app/components/Loading/Loading';
@@ -204,12 +204,25 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
       }
 
 
+      await router.refresh();
+            const session = await getSession();
       
-      // router.refresh() is a good practice to update server-side rendered data after login
-
-      
-      // Instead of complex role checking here, let the middleware handle the redirect.
-      // This simplifies client logic and centralizes routing rules.
+            const role =
+              (session as any)?.role ??
+              (session?.user as any)?.role ??
+              (session as any)?.userRole ??
+              (session?.user as any)?.userRole ??
+              null;
+      if (role === 1 || role === 2 || role === "admin") {
+                router.replace("/panel");
+              } else if (role === "wholesaler" || role === 3) {
+                router.replace("/wholesaler");
+              } else if (role === "retailer" || role === 4) {
+                router.replace("/retailer");
+              } else {
+                // نقش نامشخص → نریز به bazaar؛ بگذار برود خانه تا middleware/SSR نقش را مشخص کند
+                router.replace("/");
+              }
       router.replace('/'); 
 
     } catch (error: any) {
