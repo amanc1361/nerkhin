@@ -410,9 +410,11 @@ func (us *UserService) FetchUserInfo(ctx context.Context, id int64) (
 			return err
 		}
 
-		adminAccessInfo, err = us.repo.GetAdminAccess(ctx, txSession, user.ID)
-		if err != nil {
-			return err
+		if user.Role == domain.Admin || user.Role == domain.SuperAdmin {
+			adminAccessInfo, err = us.repo.GetAdminAccess(ctx, txSession, user.ID)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
