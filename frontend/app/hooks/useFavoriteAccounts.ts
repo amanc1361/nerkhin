@@ -38,7 +38,7 @@ export function useFavoriteAccounts() {
       const res = await api.get<FavoriteAccountViewModel[]>({
         url: "/favorite-account/my-favorite-accounts",
       });
-      console.log(res);
+      
       const list = Array.isArray(res) ? res : [];
       
       setState({ data: list, isLoading: false, error: null });

@@ -191,7 +191,6 @@ export function useMarketSearch(initial?: MarketSearchQuery, locale: "fa" | "en"
         }
         // لاگ کنسول برای سهولت
         // eslint-disable-next-line no-console
-        console.log("[useMarketSearch] RAW response before map →", { url: finalUrl, res });
 
         // ---- سپس map کن:
         const items = Array.isArray(res?.items) ? res.items : [];

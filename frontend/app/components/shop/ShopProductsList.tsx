@@ -25,7 +25,7 @@ export default function ShopProductsList({
   // اگر کارت آمادهٔ خودت هست، همون رو 
   // yاستفاده کن:
   const t=getUserProductMessages("fa");
-  console.log(products)
+
   if (UserProductItem) {
     return (
       <div className="grid grid-cols-1 gap-3 mt-4">

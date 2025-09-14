@@ -50,27 +50,25 @@ export default function ShopHeader({ t, info }: Props) {
   }, [info]);
 
   const { addToFavorites, removeFavoritesByIds } = useFavoriteAccountActions(() => {});
-  console.log("info:",info);
+  
   const handleInternalToggleLike = useCallback(async () => {
-   console.log("TargetUserID:",targetUserId)
+  
+   
     if (!targetUserId) return;
     try {
       if (!liked) {
         const id = await addToFavorites(targetUserId);
-        if (typeof id === "number") setFavoriteId(id);
+       
         setLiked(true);
         setLikesCount((n) => n + 1);
       } else {
-        if (favoriteId) {
-          console.log("FavoriteID:",favoriteId)
+       
+  
           await removeFavoritesByIds([targetUserId]);
           setLiked(false);
           setLikesCount((n) => (n > 0 ? n - 1 : 0));
           setFavoriteId(null);
-        } else {
-          // پیام از t گرفته نمی‌شود تا هاردکد نشود؛ در صورت نیاز کلید متن مناسب به دیکشنری اضافه کن
-          toast.warn("");
-        }
+      
       }
     } catch {
       // توست داخل هوک مدیریت می‌شود

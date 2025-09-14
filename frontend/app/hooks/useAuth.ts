@@ -30,10 +30,9 @@ const useAuth = (): AuthState => {
 
     if (!currentToken) {
       try {
-        console.log("useAuth: No token in session, attempting refresh…");
+        
         currentToken = await refreshAccessToken(); // انتظار می‌رود سرور توکن جدید برگرداند
       } catch (err) {
-        console.warn("useAuth: Refresh attempt failed.", err);
         currentToken = null;
       }
     }
