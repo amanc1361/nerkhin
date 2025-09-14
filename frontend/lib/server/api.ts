@@ -4,12 +4,6 @@ import { serverApiService } from './serverApiService'; // <--- ایمپورت ک
 import type {  ProductRequest, UserViewModel, FetchUsersByFilterResponse } from '@/app/types/types'; // مسیر به تایپ‌های شما
 import { FetchReportsByFilterResponse, ReportViewModel } from '@/app/types/report/reportManagement';
 
-// --- توابع دریافت داده برای داشبورد (با استفاده از serverApiService) ---
-
-// export async function getNewReports(): Promise<Report[]> {
-//   // state: 1 برای گزارش‌های جدید
-//   return serverApiService.post<Report[]>('/report/fetch-reports', { state: 1 });
-// }
 
 export async function getNewUsers(
   limit = 4
