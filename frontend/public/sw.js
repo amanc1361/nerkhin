@@ -1,58 +1,39 @@
-const CACHE_NAME = "nerkhin-cache-v1";
-const PRECACHE_URLS = ["/", "/favicon.ico", "/manifest.webmanifest"];
-// نصب: کش اولیه
+// sw.js — No-Cache / No-Offline
+
+// هیچ فایل پیش‌بارگذاری/کش نداریم
+// فقط مطمئن می‌شیم SW سریع فعال بشه و کش‌های قدیمی پاک شن.
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
-  );
+  // سریع فعال شو
   self.skipWaiting();
 });
-// فعال‌سازی: حذف کش‌های قدیمی
+
 self.addEventListener("activate", (event) => {
+  // تمام کش‌های قبلی رو پاک کن
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => (k === CACHE_NAME ? null : caches.delete(k))))
-    )
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+      // کنترل همه‌ی کلاینت‌ها رو بگیر
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
-// هندل درخواست‌ها
+
+// هیچ درخواستی را کش نکن و هیچ fallback آفلاینی نده.
+// برای GETها هم صرفاً همون شبکه رو پاس می‌دیم (بدون کش SW).
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  // ❌ فقط GET را کش کن؛ POST/PUT/DELETE اصلاً هندل نشوند
-  if (req.method !== "GET") {
-    return; // اجازه بده مستقیم بره شبکه
-  }
-  // Network-first برای صفحات (document)
-  if (req.destination === "document") {
+
+  // فقط برای GET به‌صورت Network Only پاسخ می‌دیم تا مطمئن باشیم
+  // هیچ چیزی از کش SW برنگرده.
+  if (req.method === "GET") {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req))
+      fetch(req, { cache: "no-store" }) // تلاش برای دورزدن HTTP cache مرورگر
     );
     return;
   }
-  // Cache-first برای استاتیک (script, style, image, font,…)
-  event.respondWith(
-    caches.match(req).then((cached) => {
-      return (
-        cached ||
-        fetch(req).then((res) => {
-          // فقط فایل‌های استاتیک را کش کن
-          if (
-            ["style", "script", "image", "font"].includes(req.destination) ||
-            req.url.endsWith(".webmanifest")
-          ) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-          }
-          return res;
-        })
-      );
-    })
-  );
+
+  // برای سایر متدها (POST/PUT/DELETE...) اصلاً دخالت نمی‌کنیم
+  // تا مستقیم بره شبکه.
 });

@@ -203,10 +203,10 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
         throw new Error(result?.error || "ورود ناموفق");
       }
 
-      toast.success(verifyCodeMessages.success);
+
       
       // router.refresh() is a good practice to update server-side rendered data after login
-      router.refresh(); 
+
       
       // Instead of complex role checking here, let the middleware handle the redirect.
       // This simplifies client logic and centralizes routing rules.
