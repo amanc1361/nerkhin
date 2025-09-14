@@ -140,11 +140,14 @@ func (vc *VerificationCodeService) VerifyCode(ctx context.Context, phone, code, 
 		}
 
 		// 3. Get admin access (existing logic)
-		localAdminAccess, txErr := vc.userRepo.GetAdminAccess(ctx, txSession, user.ID)
-		if txErr != nil && !errors.Is(txErr, errors.New(msg.ErrRecordNotFound)) {
-			return fmt.Errorf("error getting admin access in transaction: %w", txErr)
+		if user.Role == domain.Admin || user.Role == domain.SuperAdmin {
+			localAdminAccess, txErr := vc.userRepo.GetAdminAccess(ctx, txSession, user.ID)
+			if txErr != nil {
+				// If an admin user does not have an access record, it's a critical error.
+				return fmt.Errorf("failed to get access record for admin user ID %d: %w", user.ID, txErr)
+			}
+			adminAccess = localAdminAccess
 		}
-		adminAccess = localAdminAccess
 
 		return nil
 	})
