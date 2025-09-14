@@ -22,7 +22,7 @@ selectCityPlaceholder: "شهر را انتخاب کنید",
   userDeletedSuccess: "کاربر با موفقیت حذف شد.",
   userActivatedSuccess: "کاربر با موفقیت فعال شد.",
   userDeactivatedSuccess: "کاربر با موفقیت غیرفعال شد.",
-  
+  notUserFound:"کاربری با این مشخصات یافت نشد.",
   // Modal Titles
   addUserModalTitle: "افزودن کاربر جدید",
   approveUserModalTitle: "تایید کاربر",

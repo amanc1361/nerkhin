@@ -604,6 +604,31 @@ type updateAdminRequest struct {
 	ChangeAccountState bool `json:"changeAccountState"`
 }
 
+// این struct و تابع جدید را به فایل handler/user.go اضافه کنید
+
+// ... بالای فایل در کنار بقیه struct ها
+type updateDeviceLimitRequest struct {
+	UserID int64 `json:"userId" binding:"required,min=1"`
+	Limit  int   `json:"limit" binding:"required,min=1"`
+}
+
+// ... در انتهای فایل به عنوان یک متد جدید برای UserHandler
+func (uh *UserHandler) UpdateUserDeviceLimit(c *gin.Context) {
+	var req updateDeviceLimitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		validationError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	ctx := c.Request.Context()
+	err := uh.service.UpdateUserDeviceLimit(ctx, req.UserID, req.Limit)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, gin.H{"message": "User device limit updated successfully"})
+}
 func (uh *UserHandler) UpdateAdminAccess(c *gin.Context) {
 	var uriReq updateAdminUriRequest
 	if err := c.ShouldBindUri(&uriReq); err != nil {

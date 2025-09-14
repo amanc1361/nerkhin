@@ -23,3 +23,13 @@ CREATE TABLE IF NOT EXISTS user_t (
   created_at      TIMESTAMP     NOT NULL,
   updated_at      TIMESTAMP     NOT NULL
 );
+CREATE TABLE active_devices (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES user_t(id) ON DELETE CASCADE,
+    device_id VARCHAR(255) NOT NULL,
+    user_agent TEXT,
+    ip_address VARCHAR(45),
+    last_login_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, device_id)
+);

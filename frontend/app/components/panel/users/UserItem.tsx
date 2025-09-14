@@ -2,7 +2,7 @@
 import React from "react";
 import { User } from "@/app/types/types";
 import { userManagementMessages as messages } from "@/app/constants/userManagementMessages";
-import { Check, X, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Check, X, Trash2, ToggleLeft, ToggleRight, Users } from "lucide-react"; // <--- ADDED Users icon
 
 interface UserItemProps {
   user: User;
@@ -10,6 +10,7 @@ interface UserItemProps {
   onReject: (user: User) => void;
   onDelete: (user: User) => void;
   onToggleActive: (user: User) => void;
+  onEditLimit: (user: User) => void; // <--- ADDED
 }
 
 const UserItem: React.FC<UserItemProps> = ({
@@ -18,8 +19,8 @@ const UserItem: React.FC<UserItemProps> = ({
   onReject,
   onDelete,
   onToggleActive,
+  onEditLimit, // <--- ADDED
 }) => {
-  // اگر در تایپ User فیلدی مانند isActive داری از همان استفاده کن
   const isActive = (user as any)?.isActive === true;
 
   return (
@@ -29,7 +30,7 @@ const UserItem: React.FC<UserItemProps> = ({
       </span>
 
       <span
-        className="col-span-3 truncate text-gray-500 dark:text-gray-400"
+        className="col-span-2 truncate text-gray-500 dark:text-gray-400"
         title={user.cityName}
       >
         {user.cityName}
@@ -39,9 +40,24 @@ const UserItem: React.FC<UserItemProps> = ({
         {user.phone}
       </span>
 
-      {/* اکشن‌ها */}
+      {/* ADDED: Device limit display */}
+      <div className="col-span-1 flex items-center gap-1 text-gray-500 dark:text-gray-400">
+          <Users size={14} />
+          <span>{user.deviceLimit ?? 2}</span>
+      </div>
+
+
+      {/* Actions */}
       <div className="col-span-3 flex justify-end gap-2">
-        {/* دکمه فعال/غیرفعال */}
+        {/* ADDED: Edit limit button */}
+        <button
+          onClick={() => onEditLimit(user)}
+          title="ویرایش محدودیت دستگاه"
+          className="rounded-md p-2 transition bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700/60 dark:text-gray-300"
+        >
+          <Users size={16} />
+        </button>
+
         <button
           onClick={() => onToggleActive(user)}
           title={isActive ? (messages.deactivateAction ?? "غیرفعال کردن") : (messages.activateAction ?? "فعال کردن")}
@@ -54,7 +70,6 @@ const UserItem: React.FC<UserItemProps> = ({
           {isActive ? <ToggleLeft size={16} /> : <ToggleRight size={16} />}
         </button>
 
-        {/* حذف کاربر */}
         <button
           onClick={() => onDelete(user)}
           title={messages.deleteAction ?? "حذف کاربر"}
@@ -63,7 +78,6 @@ const UserItem: React.FC<UserItemProps> = ({
           <Trash2 size={16} />
         </button>
 
-        {/* فقط برای کاربران جدید (state=1) دکمه‌های تایید/رد نمایش داده می‌شود */}
         {user.state === 1 && (
           <>
             <button

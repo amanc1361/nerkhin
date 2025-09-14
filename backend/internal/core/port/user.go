@@ -18,7 +18,7 @@ type UserRepository interface {
 		offset int) (
 		users []*domain.UserViewModel, totalCount int64, err error)
 	UpdateShop(ctx context.Context, dbSession interface{}, shop *domain.User) (err error)
-	UpdateDollarPrice(ctx context.Context, dbSession interface{}, shop *domain.User) (err error)
+	UpdateDollarPrice(ctx context.Context, dbSession interface{}, shop *domain.User) (err error) // Note: This seems to be a duplicate of the one in UserService, ensure it's correct.
 	CreateAdminAccess(ctx context.Context, dbSession interface{}, userID int64) (err error)
 	GetAdminAccess(ctx context.Context, dbSession interface{}, adminID int64) (
 		adminAccess *domain.AdminAccess, err error)
@@ -30,6 +30,12 @@ type UserRepository interface {
 		dbSession interface{},
 		userID int64,
 	) (subs []domain.UserSubscriptionWithCity, err error)
+
+	// --- ADDED for Device Management ---
+	GetUserActiveDevices(ctx context.Context, dbSession interface{}, userID int64) ([]*domain.ActiveDevice, error)
+	RegisterNewDevice(ctx context.Context, dbSession interface{}, device *domain.ActiveDevice) error
+	UpdateDeviceLastLogin(ctx context.Context, dbSession interface{}, device *domain.ActiveDevice) error
+	UpdateUserDeviceLimit(ctx context.Context, dbSession interface{}, userID int64, limit int) error
 }
 
 type UserService interface {
@@ -52,4 +58,8 @@ type UserService interface {
 	UpdateAdminAccess(ctx context.Context, adminAccess *domain.AdminAccess) (err error)
 	GetDollarPrice(ctx context.Context, id int64) (dollarPrice string, err error)
 	GetUserSubscriptionsWithCity(ctx context.Context, userID int64) ([]domain.UserSubscriptionWithCity, error)
+
+	// --- ADDED for Admin Device Limit Management ---
+	UpdateUserDeviceLimit(ctx context.Context, userID int64, limit int) error
 }
+

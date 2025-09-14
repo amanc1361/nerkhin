@@ -601,3 +601,21 @@ func validatePhoneNumber(phone string) error {
 
 	return nil
 }
+func (us *UserService) UpdateUserDeviceLimit(ctx context.Context, userID int64, limit int) (err error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return
+	}
+
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		// اعتبار سنجی ورودی‌ها
+		if userID < 1 || limit < 1 {
+			return errors.New(msg.ErrDataIsNotValid)
+		}
+
+		// فراخوانی متد ریپازیتوری برای آپدیت در دیتابیس
+		return us.repo.UpdateUserDeviceLimit(ctx, txSession, userID, limit)
+	})
+
+	return err
+}

@@ -59,8 +59,8 @@ export function userSignUpAPI(data: SignUpFormData) {
   return postJson<SignUpResponse>("/auth/register", data);
 }
 
-export function verifyCodeAPI(phone: string, code: string) {
-  return postJson<VerifyCodeApiResponse>("/auth/verify-code", { phone, code });
+export function verifyCodeAPI(phone: string, code: string, deviceId: string) {
+  return postJson<VerifyCodeApiResponse>("/auth/verify-code", { phone, code, deviceId });
 }
 
 export function refreshAccessTokenAPI(refreshToken: string) {

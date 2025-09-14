@@ -42,10 +42,24 @@ type User struct {
 	ProductsCount int32               `json:"productsCount"`
 	Latitude      decimal.NullDecimal `json:"latitude"`
 	Longitude     decimal.NullDecimal `json:"longitude"`
+	DeviceLimit   int                 `gorm:"default:1" json:"deviceLimit"`
 	IsLiked       bool                `gorm:"-" json:"isLiked"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+type ActiveDevice struct {
+	ID          int64     `gorm:"primaryKey" json:"id"`
+	UserID      int64     `json:"userId"`
+	DeviceID    string    `json:"deviceId"`
+	UserAgent   string    `json:"userAgent"`
+	IPAddress   string    `json:"ipAddress"`
+	LastLoginAt time.Time `json:"lastLoginAt"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+func (ActiveDevice) TableName() string {
+	return "active_devices"
 }
 
 type AdminAccess struct {

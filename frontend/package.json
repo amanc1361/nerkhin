@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^4.6.2",
     "lucide-react": "^0.511.0",
     "mapbox-gl": "^2.15.0",
     "moment-jalaali": "^0.10.4",

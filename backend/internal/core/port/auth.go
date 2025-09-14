@@ -27,7 +27,7 @@ type VerificationCodeRepository interface {
 type VerificationCodeService interface {
 	SendVerificationCode(ctx context.Context, phone string) (code string, err error)
 
-	VerifyCode(ctx context.Context, phone, code string) (user *domain.User, adminAccess *domain.AdminAccess, err error)
+	VerifyCode(ctx context.Context, phone, code string, deviceID string, userAgent string, ipAddress string) (user *domain.User, adminAccess *domain.AdminAccess, err error)
 }
 
 // AuthService - بدون تغییر باقی می‌ماند اگر Login فقط OTP ارسال می‌کند

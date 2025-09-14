@@ -227,6 +227,7 @@ export interface User {
   roles: UserRole;
   createdAt: string; // تاریخ ایجاد به فرمت ISO (e.g., "2023-10-26T10:00:00Z")
   lastLoginAt?: string; // آخرین تاریخ ورود به فرمت ISO
+  deviceLimit?: number;
   // ... سایر مشخصات یک کاربر
 }
 

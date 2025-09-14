@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,184 +13,149 @@ import (
 
 type UserRepository struct{}
 
+// ... CreateUser, UpdateUser, GetUserByID, GetUserSubscriptionsWithCity, GetDollarPrice, GetUserByPhone, DeleteUser remain the same ...
+// [Keep all existing functions from CreateUser to DeleteUser here]
 func (ur *UserRepository) CreateUser(ctx context.Context, dbSession interface{},
-	user *domain.User) (id int64, err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
+    user *domain.User) (id int64, err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
 
-	user.UpdatedAt = time.Now()
-	err = db.Create(&user).Error
-	if err != nil {
-		return
-	}
+    user.UpdatedAt = time.Now()
+    err = db.Create(&user).Error
+    if err != nil {
+        return
+    }
 
-	id = user.ID
-	return id, nil
+    id = user.ID
+    return id, nil
 }
 
 func (ur *UserRepository) UpdateUser(ctx context.Context, dbSession interface{},
-	user *domain.User) (id int64, err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
+    user *domain.User) (id int64, err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
 
-	err = db.Omit(
-		"role",
-		"created_at",
-	).Updates(user).Error
-	if err != nil {
-		return
-	}
+    err = db.Omit(
+        "role",
+        "created_at",
+    ).Updates(user).Error
+    if err != nil {
+        return
+    }
 
-	id = user.ID
-	return id, nil
+    id = user.ID
+    return id, nil
 }
 
 func (ur *UserRepository) GetUserByID(ctx context.Context, dbSession interface{}, id int64) (
-	user *domain.User, err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
-	user = &domain.User{}
-	err = db.Model(&domain.User{}).
-		Where(&domain.User{ID: id}).
-		Take(&user).Error
-	if err != nil {
-		return
-	}
+    user *domain.User, err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
+    user = &domain.User{}
+    err = db.Model(&domain.User{}).
+        Where(&domain.User{ID: id}).
+        Take(&user).Error
+    if err != nil {
+        return
+    }
 
-	return user, nil
+    return user, nil
 }
 
-// فقط اشتراک‌های فعالِ کاربر، یک رکورد به‌ازای هر شهر (جدیدترین بر اساس expires_at)
 func (ur *UserRepository) GetUserSubscriptionsWithCity(
-	ctx context.Context,
-	dbSession interface{},
-	userID int64,
+    ctx context.Context,
+    dbSession interface{},
+    userID int64,
 ) (subs []domain.UserSubscriptionWithCity, err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
 
-	// نسخه مخصوص Postgres با DISTINCT ON:
-	// - فقط رکوردهای فعال: us.expires_at >= NOW()
-	// - یکی به‌ازای هر شهر: DISTINCT ON (us.city_id)
-	// - جدیدترین: ORDER BY us.city_id, us.expires_at DESC
-	err = db.
-		Table("user_subscription AS us").
-		Select(`
-			DISTINCT ON (us.city_id)
-			us.id,
-			us.user_id,
-			us.city_id,
-			c.name AS city,
-			us.subscription_id,
-			us.expires_at,
-			us.created_at,
-			us.updated_at
-		`).
-		Joins("LEFT JOIN city c ON c.id = us.city_id").
-		Where("us.user_id = ? AND us.expires_at >= NOW()", userID).
-		// توجه: ترتیب برای DISTINCT ON باید city_id اول بیاد
-		Order("us.city_id, us.expires_at DESC").
-		Scan(&subs).Error
+    err = db.
+        Table("user_subscription AS us").
+        Select(`
+            DISTINCT ON (us.city_id)
+            us.id,
+            us.user_id,
+            us.city_id,
+            c.name AS city,
+            us.subscription_id,
+            us.expires_at,
+            us.created_at,
+            us.updated_at
+        `).
+        Joins("LEFT JOIN city c ON c.id = us.city_id").
+        Where("us.user_id = ? AND us.expires_at >= NOW()", userID).
+        Order("us.city_id, us.expires_at DESC").
+        Scan(&subs).Error
 
-	return
+    return
 }
 
 func (ur *UserRepository) GetDollarPrice(ctx context.Context, dbSession interface{}, id int64) (dollarPrice string, err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
 
-	err = db.Model(&domain.User{}).
-		Where(&domain.User{ID: id}).
-		Select("dollar_price").
-		Take(&dollarPrice).Error
-	if err != nil {
-		return
-	}
+    err = db.Model(&domain.User{}).
+        Where(&domain.User{ID: id}).
+        Select("dollar_price").
+        Take(&dollarPrice).Error
+    if err != nil {
+        return
+    }
 
-	return dollarPrice, nil
+    return dollarPrice, nil
 }
 
 func (ur *UserRepository) GetUserByPhone(ctx context.Context, dbSession interface{},
-	phone string) (user *domain.User, err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
+    phone string) (user *domain.User, err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
 
-	err = db.Model(&domain.User{}).
-		Where(&domain.User{Phone: phone}).
-		Take(&user).Error
-	if err != nil {
-		return
-	}
+    err = db.Model(&domain.User{}).
+        Where(&domain.User{Phone: phone}).
+        Take(&user).Error
+    if err != nil {
+        return
+    }
 
-	return user, nil
+    return user, nil
 }
+
 func (ur *UserRepository) DeleteUser(ctx context.Context, dbSession interface{}, id int64) (err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return err
-	}
-	if id == 0 {
-		return nil
-	}
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return err
+    }
+    if id == 0 {
+        return nil
+    }
 
-	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// -------------------------------------------------------
-		// 1) پاک‌سازی همهٔ وابستگی‌ها
-		// -------------------------------------------------------
+    err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+        if err := tx.Where("user_id = ?", id).Delete(&domain.FavoriteAccount{}).Error; err != nil { return err }
+        if err := tx.Where("user_id = ?", id).Delete(&domain.FavoriteProduct{}).Error; err != nil { return err }
+        if err := tx.Where("user_id = ?", id).Delete(&domain.ProductRequest{}).Error; err != nil { return err }
+        if err := tx.Where("user_id = ?", id).Delete(&domain.UserProduct{}).Error; err != nil { return err }
+        if err := tx.Where("user_id = ?", id).Delete(&domain.PaymentTransactionHistory{}).Error; err != nil { return err }
+        if err := tx.Where("user_id = ?", id).Delete(&domain.Report{}).Error; err != nil { return err }
+        if err := tx.Where("user_id = ?", id).Delete(&domain.UserSubscription{}).Error; err != nil { return err }
+        if err := tx.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil { return err }
+        return nil
+    })
 
-		// -- Model-based (اگر مدل‌های دامنه را دارید این بخش را استفاده کنید)
-		// محصولات ایجادشده توسط کاربر (مثلاً فیلد CreatedBy یا UserID)
-
-		// پسندِ محصولات توسط کاربر
-
-		// پسندِ فروشگاه‌ها توسط کاربر
-		if err := tx.Where("user_id = ?", id).Delete(&domain.FavoriteAccount{}).Error; err != nil {
-			return err
-		}
-		// تراکنش‌های مالی کاربر
-		if err := tx.Where("user_id = ?", id).Delete(&domain.FavoriteProduct{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", id).Delete(&domain.ProductRequest{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", id).Delete(&domain.UserProduct{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", id).Delete(&domain.PaymentTransactionHistory{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", id).Delete(&domain.Report{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("user_id = ?", id).Delete(&domain.UserSubscription{}).Error; err != nil {
-			return err
-		}
-
-	
-		if err := tx.Where("id = ?", id).Delete(&domain.User{}).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	return err
+    return err
 }
-
-
 
 func (ur *UserRepository) GetUsersByFilter(ctx context.Context, dbSession interface{},
 	filter domain.UserFilter, limit int,
@@ -232,6 +198,7 @@ func (ur *UserRepository) GetUsersByFilter(ctx context.Context, dbSession interf
 		return users, 0, nil
 	}
 
+	// CHANGED: Added device_limit to the select statement
 	err = query.
 		Joins("JOIN city AS c ON c.id = u.city_id").
 		Order("u.id DESC").
@@ -250,160 +217,152 @@ func (ur *UserRepository) GetUsersByFilter(ctx context.Context, dbSession interf
 	return users, totalCount, nil
 }
 
+// ... UpdateShop, UpdateDollarPrice, CreateAdminAccess, GetAdminAccess, UpdateAdminAccess remain the same ...
+// [Keep all existing functions from UpdateShop to UpdateAdminAccess here]
 func (ur *UserRepository) UpdateShop(ctx context.Context, dbSession interface{},
-	user *domain.User) (err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
+    user *domain.User) (err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
 
-	userModel, err := ur.GetUserByID(ctx, dbSession, user.ID)
-	if err != nil {
-		return
-	}
+    userModel, err := ur.GetUserByID(ctx, dbSession, user.ID)
+    if err != nil {
+        return
+    }
 
-	if user.ImageUrl == "" {
-		user.ImageUrl = userModel.ImageUrl
-	}
+    if user.ImageUrl == "" {
+        user.ImageUrl = userModel.ImageUrl
+    }
 
-	err = db.Omit(
-		"phone",
-		"city_id",
-		"role",
-		"state_c",
-		"full_name",
-		"dollar_price",
-		"created_at",
-	).Select(
-		"shop_name",
-		"shop_address",
-		"shop_phone1",
-		"shop_phone2",
-		"shop_phone3",
-		"telegram_url",
-		"instagram_url",
-		"whatsapp_url",
-		"website_url",
-		"latitude",
-		"longitude",
-		"image_url",
-	).Updates(user).Error
-	if err != nil {
-		return
-	}
+    err = db.Omit(
+        "phone", "city_id", "role", "state_c", "full_name", "dollar_price", "created_at",
+    ).Select(
+        "shop_name", "shop_address", "shop_phone1", "shop_phone2", "shop_phone3",
+        "telegram_url", "instagram_url", "whatsapp_url", "website_url",
+        "latitude", "longitude", "image_url",
+    ).Updates(user).Error
+    if err != nil {
+        return
+    }
 
-	return nil
+    return nil
 }
 
 func (ur *UserRepository) UpdateDollarPrice(
-	ctx context.Context,
-	dbSession interface{},
-	user *domain.User,
+    ctx context.Context,
+    dbSession interface{},
+    user *domain.User,
 ) error {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return err
+    }
+
+    const (
+        userTable     = "user_t"
+        upTable       = "user_product"
+        userDollarCol = "dollar_price"
+        baseDollarCol = "dollar_price"
+        rialCostsCol  = "other_costs"
+        finalPriceCol = "final_price"
+    )
+
+    return db.Transaction(func(tx *gorm.DB) error {
+        if err := tx.Table(userTable).Where("id = ?", user.ID).Update(userDollarCol, user.DollarPrice).Error; err != nil {
+            return err
+        }
+        raw := fmt.Sprintf(`
+            UPDATE %s AS up
+            SET %s = (COALESCE(up.%s, 0) * u.%s) + COALESCE(up.%s, 0), updated_at = NOW()
+            FROM %s AS u
+            WHERE up.user_id = u.id AND up.user_id = ? AND up.is_dollar = TRUE
+        `, upTable, finalPriceCol, baseDollarCol, userDollarCol, rialCostsCol, userTable)
+
+        if err := tx.Exec(raw, user.ID).Error; err != nil {
+            return err
+        }
+        return nil
+    })
+}
+
+func (*UserRepository) CreateAdminAccess(ctx context.Context, dbSession interface{}, userID int64) (
+    err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
+
+    var adminAccess *domain.AdminAccess
+    err = db.Model(&domain.AdminAccess{}).Where("user_id = ?", userID).First(&adminAccess).Error
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return db.Create(&domain.AdminAccess{UserID: userID}).Error
+        }
+        return err
+    }
+    return nil
+}
+
+func (*UserRepository) GetAdminAccess(ctx context.Context, dbSession interface{}, adminID int64) (
+    adminAccess *domain.AdminAccess, err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
+    err = db.Model(&domain.AdminAccess{}).Where("user_id = ?", adminID).First(&adminAccess).Error
+    return adminAccess, err
+}
+
+func (*UserRepository) UpdateAdminAccess(ctx context.Context, dbSession interface{},
+    adminAccess *domain.AdminAccess) (err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return
+    }
+    err = db.Where("user_id = ?", adminAccess.UserID).Select(
+        "save_product", "change_user_state", "change_shop_state", "change_account_state",
+    ).Updates(&adminAccess).Error
+    return err
+}
+
+
+// --- ADDED: New functions for device management ---
+
+func (ur *UserRepository) GetUserActiveDevices(ctx context.Context, dbSession interface{}, userID int64) (
+	devices []*domain.ActiveDevice, err error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return nil, err
+	}
+	err = db.Where("user_id = ?", userID).Find(&devices).Error
+	return devices, err
+}
+
+func (ur *UserRepository) RegisterNewDevice(ctx context.Context, dbSession interface{}, device *domain.ActiveDevice) error {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
 		return err
 	}
-
-	// ====== تنظیم نام جداول/ستون‌ها مطابق دیتابیس خودت ======
-	const (
-		userTable     = "user_t"       // جدول کاربران شما
-		upTable       = "user_product" // جدول user_product(s) شما
-		userDollarCol = "dollar_price" // 👈 نام واقعی ستون نرخ دلار در user_t (اگر ‘usd_rate’ است، همین را عوض کن)
-		baseDollarCol = "dollar_price" // 👈 قیمت دلاری پایه هر محصول (اگر اسمش چیز دیگری است عوض کن)
-		rialCostsCol  = "other_costs"  // 👈 هزینه‌های ریالی (در up)
-		finalPriceCol = "final_price"  // 👈 قیمت نهایی (در up)
-	)
-
-	return db.Transaction(func(tx *gorm.DB) error {
-		// 1) آپدیت نرخ دلار خود کاربر
-		if err := tx.Table(userTable).
-			Where("id = ?", user.ID).
-			Update(userDollarCol, user.DollarPrice).Error; err != nil {
-			return err
-		}
-
-		// 2) بازمحاسبه قیمت همه محصولات دلاری این کاربر
-		// final_price = (base_dollar_price * user_t.dollar) + rial_costs
-		raw := fmt.Sprintf(`
-			UPDATE %s AS up
-			SET %s = (COALESCE(up.%s, 0) * u.%s) + COALESCE(up.%s, 0),
-			    updated_at = NOW()
-			FROM %s AS u
-			WHERE up.user_id = u.id
-			  AND up.user_id = ?
-			  AND up.is_dollar = TRUE
-		`, upTable, finalPriceCol, baseDollarCol, userDollarCol, rialCostsCol, userTable)
-
-		if err := tx.Exec(raw, user.ID).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
+	return db.Create(device).Error
 }
 
-func (*UserRepository) CreateAdminAccess(ctx context.Context, dbSession interface{}, userID int64) (
-	err error) {
+func (ur *UserRepository) UpdateDeviceLastLogin(ctx context.Context, dbSession interface{}, device *domain.ActiveDevice) error {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return
+		return err
 	}
-
-	var adminAccess *domain.AdminAccess
-	err = db.Model(&domain.AdminAccess{}).
-		Where("user_id = ?", userID).
-		Scan(&adminAccess).Error
-	if err != nil {
-		return
-	}
-
-	if adminAccess == nil {
-		err = db.Create(&domain.AdminAccess{
-			UserID: userID,
-		}).Error
-		if err != nil {
-			return
-		}
-	}
-
-	return nil
+	return db.Model(&domain.ActiveDevice{}).Where("id = ?", device.ID).Updates(map[string]interface{}{
+		"last_login_at": device.LastLoginAt,
+		"ip_address":    device.IPAddress,
+		"user_agent":    device.UserAgent,
+	}).Error
 }
 
-func (*UserRepository) GetAdminAccess(ctx context.Context, dbSession interface{}, adminID int64) (
-	adminAccess *domain.AdminAccess, err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
-
-	err = db.Model(&domain.AdminAccess{}).
-		Where("user_id = ?", adminID).
-		Scan(&adminAccess).Error
-	if err != nil {
-		return
-	}
-
-	return adminAccess, nil
-}
-
-func (*UserRepository) UpdateAdminAccess(ctx context.Context, dbSession interface{},
-	adminAccess *domain.AdminAccess) (err error) {
-	db, err := gormutil.CastToGORM(ctx, dbSession)
-	if err != nil {
-		return
-	}
-
-	err = db.Where("user_id = ?", adminAccess.UserID).
-		Select(
-			"save_product",
-			"change_user_state",
-			"change_shop_state",
-			"change_account_state",
-		).Updates(&adminAccess).Error
-	if err != nil {
-		return
-	}
-
-	return nil
+func (ur *UserRepository) UpdateUserDeviceLimit(ctx context.Context, dbSession interface{}, userID int64, limit int) error {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return err
+    }
+    return db.Model(&domain.User{}).Where("id = ?", userID).Update("device_limit", limit).Error
 }
