@@ -46,12 +46,13 @@ export default function ShopHeader({ t, info }: Props) {
 
   // شناسه صاحب فروشگاه
   const targetUserId = useMemo(() => {
-    return Number((info as any)?.shopInfo?.ownerUserId || (info as any)?.shopInfo?.userId || 0);
+    return info.shopInfo?.id;
   }, [info]);
 
   const { addToFavorites, removeFavoritesByIds } = useFavoriteAccountActions(() => {});
-
+  console.log("info:",info);
   const handleInternalToggleLike = useCallback(async () => {
+   console.log("TargetUserID:",targetUserId)
     if (!targetUserId) return;
     try {
       if (!liked) {
@@ -61,7 +62,8 @@ export default function ShopHeader({ t, info }: Props) {
         setLikesCount((n) => n + 1);
       } else {
         if (favoriteId) {
-          await removeFavoritesByIds([favoriteId]);
+          console.log("FavoriteID:",favoriteId)
+          await removeFavoritesByIds([targetUserId]);
           setLiked(false);
           setLikesCount((n) => (n > 0 ? n - 1 : 0));
           setFavoriteId(null);
@@ -220,7 +222,7 @@ export default function ShopHeader({ t, info }: Props) {
       <ReportModal
         open={showReport}
         onClose={() => setShowReport(false)}
-        targetUserId={targetUserId}
+        targetUserId={targetUserId??0}
         t={{
           title: t?.report?.title,
           subtitle: t?.report?.subtitle,

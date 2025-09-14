@@ -37,19 +37,19 @@ func (far *FavoriteAccountRepository) DeleteFavoriteAccount(ctx context.Context,
 	dbSession interface{}, currentUserID int64, targetUserIDs []int64) (err error) {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return
+		return err
 	}
 
 	err = db.Model(&domain.FavoriteAccount{}).
 		Where("user_id = ? AND target_user_id IN ?", currentUserID, targetUserIDs).
 		Delete(&domain.FavoriteAccount{}).Error
 	if err != nil {
-		return
+		return err
 	}
 
 	err = db.Exec("UPDATE user_t SET likes_count = likes_count - 1 WHERE id IN ?", targetUserIDs).Error
 	if err != nil {
-		return
+		return err
 	}
 
 	return nil

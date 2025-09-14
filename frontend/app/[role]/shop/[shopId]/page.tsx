@@ -57,7 +57,6 @@ export default async function Page({
       favoriteId: fav?.id ?? null,
     },
   } as ShopViewModel;
-  // --- پایان تزریق
 
   return (
     <div dir="rtl" className="max-w-md mx-auto">

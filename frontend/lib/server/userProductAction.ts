@@ -139,7 +139,7 @@ export async function fetchMyShopProductsRawSSR(q?: ShopProductsQuery): Promise<
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
   const res = await fetch(url, { headers, cache: "no-store" });
-  console.log(url)
+
   const payload = await readJson<ShopViewModel | { products: UserProductView[] }>(res);
 
   // نرمال‌سازی به ShopViewModel
@@ -192,7 +192,6 @@ function buildMarketSearchQS(q?: MarketSearchQuery) {
   if (typeof q.offset === "number") p.set("offset", String(q.offset));
   if (q.sortBy) p.set("sortBy", q.sortBy);
   if (q.sortUpdated) p.set("sortDir", q.sortUpdated);
-
   if (q.categoryId) p.set("categoryId", String(q.categoryId));
   if (q.subCategoryId) p.set("subCategoryId", String(q.subCategoryId));
   setMulti(p, "brandId", q.brandId);
@@ -200,10 +199,8 @@ function buildMarketSearchQS(q?: MarketSearchQuery) {
   setMulti(p, "filterId", q.filterId);
   setMulti(p, "tag", q.tag);
   if (q.search) p.set("search", q.search);
-
   if (q.isDollar === true) p.set("isDollar", "1");
   else if (q.isDollar === false) p.set("isDollar", "0");
-
   if (q.cityId) p.set("cityId", String(q.cityId));
   if (q.enforceSubscription) p.set("enforceSubscription", "1");
   if (q.onlyVisible === false) p.set("onlyVisible", "0");
@@ -231,15 +228,13 @@ function mapMarketItemToVM(p: UserProductMarketView): MarketItemVM {
     brandTitle: p.brandTitle,
     categoryId: p.categoryId,
     categoryTitle: p.categoryTitle,
-
     imageUrl: absolutizeUploads(p.defaultImageUrl),
     imagesCount: p.imagesCount,
     description: p.description,
-
     shopName: p.shopName,
     cityId: p.cityId,
     cityName: p.cityName,
-   isLiked:p.isFavorite,
+    isLiked:p.isFavorite,
     updatedAt: p.updatedAt,
   };
 }
@@ -251,12 +246,8 @@ export async function fetchMyShopProductsSSR(q?: ShopProductsQuery): Promise<Sho
   const headers = await authHeader();
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user-product/fetch-shop") + buildFetchShopQueryString(q);
-
   const res = await fetch(url, { headers, cache: "no-store" });
-
-
   const payload = await readJson<ShopViewModel>(res);
-  
   return payload; // الان شامل products و total
 }
 
@@ -266,18 +257,10 @@ export async function searchMarketSSR(q: MarketSearchQuery, locale: "fa" | "en" 
   const t = getUserProductMessages(locale);
   const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL || "");
   const url = joinUrl(base, "/user-product/search") + buildMarketSearchQS(q);
-
   const res = await fetch(url, { headers, cache: "no-store" });
-  console.log("RAW RESPONSE:", await res.clone().text());
   const payload = await readJson<MarketSearchResult>(res);
-  console.log("PAYLOAD:", payload);
-
   const items = Array.isArray(payload?.items) ? payload.items : [];
   const total = Number(payload?.total ?? 0);
-
   const mapped: MarketItemVM[] = items.map(mapMarketItemToVM);
-
- 
-
   return { items: mapped, total };
 }
