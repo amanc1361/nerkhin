@@ -204,7 +204,7 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
       }
 
 
-      await router.refresh();
+      router.refresh();
             const session = await getSession();
       
             const role =
@@ -220,10 +220,9 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
               } else if (role === "retailer" || role === 4) {
                 router.replace("/retailer");
               } else {
-                // نقش نامشخص → نریز به bazaar؛ بگذار برود خانه تا middleware/SSR نقش را مشخص کند
                 router.replace("/");
               }
-      router.replace('/'); 
+  
 
     } catch (error: any) {
       // The error message from `signIn` (forwarded from the backend) is now here
