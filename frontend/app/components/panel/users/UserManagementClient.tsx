@@ -13,7 +13,7 @@ import { userApi } from "@/app/services/userApi";
 import { useUserActions } from "@/app/hooks/useUserActions";
 import { useAuthenticatedApi } from "@/app/hooks/useAuthenticatedApi";
 
-// UI Components
+// UI Components from your project
 import { UserTabs } from "./UserTabs";
 import { UserFilters } from "./UserFilters";
 import UserItem from "./UserItem";
@@ -24,8 +24,8 @@ import ConfirmationDialog from "@/app/components/shared/ConfirmationDialog";
 import AddNewUserForm from "./AddNewUserForm";
 import LoadingSpinner from "../../Loading/Loading";
 
-// Icons
-import { Trash2, MonitorSmartphone, Calendar, Globe, Fingerprint, Copy, Check, Settings } from "lucide-react";
+// Icons from your project
+import { Trash2, Settings, ShieldAlert, MonitorSmartphone } from "lucide-react";
 
 // Interfaces
 interface ActiveDevice {
@@ -33,11 +33,11 @@ interface ActiveDevice {
   userId: number;
   deviceId: string;
   userAgent: string;
-  ipAddress: string; // <-- اطمینان از وجود این فیلد
+  ipAddress: string;
   lastLoginAt: string;
 }
 
-type ModalType = "approve" | "reject" | "add" | "delete" | "toggleActive" | "editLimit" | "updateAllLimits" | "manageDevices" | "deleteDevice";
+type ModalType = "approve" | "reject" | "add" | "delete" | "toggleActive" | "editLimit" | "manageDevices" | "deleteAllDevicesConfirm";
 
 interface UserManagementClientProps {
   initialData: {
@@ -59,26 +59,25 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
   const router = useRouter();
   const { api } = useAuthenticatedApi();
 
-  // State Management
+  // States
   const [modalState, setModalState] = useState<{ type: ModalType | null; user?: User }>({ type: null });
-  const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
-  const [isLoadingDevices, setIsLoadingDevices] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  
   const [newUserFormData, setNewUserFormData] = useState<NewUserFormData>({
     fullName: "", phone: "", role: userType === "wholesalers" ? 3 : userType === "retailers" ? 4 : (null as any), cityId: null,
   });
+  
+  // ADDED: States for new features
   const [newDeviceLimit, setNewDeviceLimit] = useState(2);
+  const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
+  const [isLoadingDevices, setIsLoadingDevices] = useState(false);
   const [isUpdateAllModalOpen, setUpdateAllModalOpen] = useState(false);
   const [globalLimit, setGlobalLimit] = useState(2);
 
-
   const { isSubmitting, performAction } = useUserActions(() => {
-    // بستن مودال‌ها پس از موفقیت و رفرش داده‌ها
     setModalState({ type: null });
     setUpdateAllModalOpen(false);
-    // برای مودال دستگاه‌ها، فقط لیست را رفرش می‌کنیم نه کل صفحه
-    if (modalState.type !== 'deleteDevice') {
+    if (modalState.type === 'deleteAllDevicesConfirm' && modalState.user) {
+        handleManageDevices(modalState.user);
+    } else if (modalState.type !== 'deleteAllDevicesConfirm') {
         router.refresh();
     }
   });
@@ -110,19 +109,19 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
   
   const handleConfirmAction = () => {
     const { type, user } = modalState;
-    if (!type) return;
+    if (!type || !user) return;
 
     if (type === "approve" || type === "reject") {
-        if(user) performAction(type, user);
+        performAction(type, user);
     } else if (type === "delete") {
-        if(user) performAction("delete", { userId: user.id });
+        performAction("delete", { userId: user.id });
     } else if (type === "toggleActive") {
-        if(user) {
-            const nextActive = !(user as any).isActive;
-            performAction("toggleActive", { userId: user.id, nextActive });
-        }
+        const nextActive = !(user as any).isActive;
+        performAction("toggleActive", { userId: user.id, nextActive });
     } else if (type === "editLimit") {
-        if(user) performAction("updateLimit", { userId: user.id, limit: newDeviceLimit });
+        performAction("updateLimit", { userId: user.id, limit: newDeviceLimit });
+    } else if (type === "deleteAllDevicesConfirm") {
+        performAction("deleteAllDevices", { userId: user.id });
     }
   };
   
@@ -160,27 +159,21 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
     }
   };
 
-  const handleCopy = (id: string) => {
-    navigator.clipboard.writeText(id);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-  
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b p-4 dark:border-gray-700">
-        <UserFilters cities={allCities} />
-        <div className="flex items-center gap-2">
-            <button
-              onClick={() => setUpdateAllModalOpen(true)}
-              className="flex items-center gap-2 rounded-md bg-gray-100 p-2 text-sm hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
-              title="تنظیم محدودیت برای همه"
-            >
-              <Settings size={16} />
-              <span>تنظیم کلی</span>
-            </button>
-            <UserTabs onAddUser={() => openModal("add")} />
-        </div>
+      {/* Original Layout Structure */}
+      <UserTabs onAddUser={() => openModal("add")} />
+      <UserFilters cities={allCities} />
+
+      {/* ADDED: Global actions toolbar, placed above the user list */}
+      <div className="border-t border-b p-4 dark:border-gray-700 flex justify-end">
+        <button
+            onClick={() => setUpdateAllModalOpen(true)}
+            className="flex items-center gap-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+        >
+            <Settings size={16} />
+            <span>تنظیم کلی محدودیت</span>
+        </button>
       </div>
 
       <div className="flex-grow overflow-y-auto">
@@ -194,7 +187,7 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
               onDelete={(u) => openModal("delete", u)}
               onToggleActive={(u) => openModal("toggleActive", u)}
               onEditLimit={(u) => openModal("editLimit", u)}
-              onManageDevices={handleManageDevices}
+              onManageDevices={handleManageDevices} // Prop for new feature
             />
           ))
         ) : (
@@ -206,18 +199,22 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
 
       <Pagination currentPage={initialData.page} totalPages={totalPages} />
 
-      {/* --- Modals --- */}
+      {/* ===== ALL MODALS (RESTORED & FUNCTIONAL) ===== */}
+
+      {/* 1. Add New User Modal */}
       <ReusableModal isOpen={modalState.type === "add"} onClose={() => setModalState({ type: null })} title={t.addUserModalTitle}>
         <AddNewUserForm formData={newUserFormData} onFormChange={handleFormInputChange} onSubmit={handleAddUserSubmit} onCancel={() => setModalState({ type: null })} isSubmitting={isSubmitting} cities={allCities} />
       </ReusableModal>
 
-      <ReusableModal isOpen={["approve", "reject", "delete", "toggleActive"].includes(modalState.type ?? "")} onClose={() => setModalState({ type: null })} title={t.approveUserModalTitle}>
+      {/* 2. Generic Confirmation Modal */}
+      <ReusableModal isOpen={["approve", "reject", "delete", "toggleActive"].includes(modalState.type ?? "")} onClose={() => setModalState({ type: null })} title="تایید عملیات">
         <ConfirmationDialog message="آیا از انجام این عملیات مطمئن هستید؟" onConfirm={handleConfirmAction} onCancel={() => setModalState({ type: null })} isConfirming={isSubmitting} confirmText={t.confirm}/>
       </ReusableModal>
 
+      {/* 3. Edit Single User Device Limit Modal */}
       <ReusableModal isOpen={modalState.type === "editLimit"} onClose={() => setModalState({ type: null })} title={t.editDeviceLimitTitle}>
         <div className="flex flex-col gap-4 p-4">
-            <p>محدودیت تعداد دستگاه برای کاربر <span className="font-bold">{modalState.user?.fullName}</span></p>
+            <p>محدودیت دستگاه برای: <span className="font-bold">{modalState.user?.fullName}</span></p>
             <input type="number" value={newDeviceLimit} onChange={(e) => setNewDeviceLimit(Math.max(1, parseInt(e.target.value, 10) || 1))} className="w-full rounded-lg border border-gray-300 p-2 text-center text-lg dark:border-gray-600 dark:bg-gray-700" min="1" />
             <div className="mt-4 flex justify-end gap-3">
                 <button onClick={() => setModalState({ type: null })} className="rounded-lg bg-gray-200 px-4 py-2 dark:bg-gray-600">{t.cancel}</button>
@@ -226,9 +223,10 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
         </div>
       </ReusableModal>
       
+      {/* 4. Set Global Device Limit Modal */}
       <ReusableModal isOpen={isUpdateAllModalOpen} onClose={() => setUpdateAllModalOpen(false)} title="تنظیم محدودیت دستگاه برای همه کاربران">
           <div className="flex flex-col gap-4 p-4">
-              <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"><p>توجه: این تغییر بر روی همه کاربران (به جز ادمین‌ها) اعمال خواهد شد.</p></div>
+              <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"><p>توجه: این تغییر بر همه کاربران (جز ادمین‌ها) اعمال خواهد شد.</p></div>
               <label htmlFor="globalLimitInput">محدودیت تعداد دستگاه</label>
               <input id="globalLimitInput" type="number" value={globalLimit} onChange={(e) => setGlobalLimit(Math.max(1, parseInt(e.target.value, 10) || 1))} className="w-full rounded-lg border border-gray-300 p-2 text-center text-lg dark:border-gray-600 dark:bg-gray-700" min="1" />
               <div className="mt-4 flex justify-end gap-3">
@@ -238,43 +236,53 @@ export const UserManagementClient: React.FC<UserManagementClientProps> = ({
           </div>
       </ReusableModal>
 
-      {/* === ENHANCED DEVICE MANAGEMENT MODAL === */}
-      <ReusableModal 
-    isOpen={isUpdateAllModalOpen} 
-    onClose={() => setUpdateAllModalOpen(false)} 
-    title="تنظیم محدودیت دستگاه برای همه کاربران"
->
-    <div className="flex flex-col gap-4 p-4">
-        <div className="rounded-lg bg-yellow-50 p-3 text-sm text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
-            <p>توجه: این تغییر بر روی همه کاربران (به جز ادمین‌ها) اعمال خواهد شد.</p>
-        </div>
-        <label htmlFor="globalLimitInput">محدودیت تعداد دستگاه</label>
-        <input 
-            id="globalLimitInput" 
-            type="number" 
-            value={globalLimit} 
-            onChange={(e) => setGlobalLimit(Math.max(1, parseInt(e.target.value, 10) || 1))} 
-            className="w-full rounded-lg border border-gray-300 p-2 text-center text-lg dark:border-gray-600 dark:bg-gray-700" 
-            min="1" 
+      {/* 5. Manage User Devices Modal (Simple & Clean) */}
+      <ReusableModal isOpen={modalState.type === "manageDevices"} onClose={() => setModalState({ type: null })} title={`دستگاه‌های فعال ${modalState.user?.fullName}`}>
+          <div className="min-h-[20rem] max-h-[70vh] min-w-[300px] overflow-y-auto p-4 sm:min-w-[550px]">
+              {isLoadingDevices ? (
+                  <div className="flex h-full items-center justify-center"><LoadingSpinner /></div>
+              ) : activeDevices.length > 0 ? (
+                  <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-end border-b pb-3 dark:border-gray-700">
+                          <button onClick={() => openModal('deleteAllDevicesConfirm', modalState.user)} className="flex items-center gap-2 rounded-md bg-red-100 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60">
+                              <ShieldAlert size={14} />
+                              حذف همه دستگاه‌ها
+                          </button>
+                      </div>
+                      <ul className="flex flex-col gap-3 pt-2">
+                          {activeDevices.map(device => (
+                              <li key={device.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
+                                  <div className="flex flex-col gap-1 text-xs">
+                                      <p className="max-w-xs truncate font-semibold text-gray-700 dark:text-gray-200" title={device.userAgent}>{device.userAgent}</p>
+                                      <p className="font-mono text-gray-500 dark:text-gray-400">IP: {device.ipAddress || 'N/A'}</p>
+                                      <p className="text-gray-400">آخرین ورود: {new Date(device.lastLoginAt).toLocaleString('fa-IR')}</p>
+                                  </div>
+                                  <button onClick={() => handleDeleteDevice(device.deviceId)} disabled={isSubmitting} className="rounded-full p-2 text-red-500 hover:bg-red-100 disabled:opacity-50 dark:hover:bg-red-900/50">
+                                      <Trash2 size={16} />
+                                  </button>
+                              </li>
+                          ))}
+                      </ul>
+                  </div>
+              ) : (
+                  <div className="flex h-full min-h-[15rem] flex-col items-center justify-center gap-4 text-center">
+                      <MonitorSmartphone className="h-12 w-12 text-gray-300 dark:text-gray-600" />
+                      <p className="text-gray-500 dark:text-gray-400">هیچ دستگاه فعالی برای این کاربر ثبت نشده است.</p>
+                  </div>
+              )}
+          </div>
+      </ReusableModal>
+
+      {/* 6. Delete All Devices Confirmation Modal */}
+      <ReusableModal isOpen={modalState.type === "deleteAllDevicesConfirm"} onClose={() => setModalState({ type: null })} title="تایید حذف همه دستگاه‌ها">
+        <ConfirmationDialog 
+            message={`آیا مطمئن هستید که می‌خواهید تمام دستگاه‌های کاربر «${modalState.user?.fullName}» را حذف کنید؟`} 
+            onConfirm={handleConfirmAction} 
+            onCancel={() => setModalState({ type: null })} 
+            isConfirming={isSubmitting} 
+            confirmText="بله، همه را حذف کن"
         />
-        <div className="mt-4 flex justify-end gap-3">
-            <button 
-                onClick={() => setUpdateAllModalOpen(false)} 
-                className="rounded-lg bg-gray-200 px-4 py-2 dark:bg-gray-600"
-            >
-                {t.cancel}
-            </button>
-            <button 
-                // --- THIS LINE IS THE FIX ---
-                onClick={() => performAction('updateAllLimits', { limit: globalLimit })} 
-                disabled={isSubmitting} 
-                className="rounded-lg bg-blue-dark px-4 py-2 text-white disabled:opacity-50"
-            >
-                {isSubmitting ? 'در حال ذخیره...' : 'اعمال تغییرات'}
-            </button>
-        </div>
-    </div>
-</ReusableModal>
+      </ReusableModal>
     </div>
   );
 };
