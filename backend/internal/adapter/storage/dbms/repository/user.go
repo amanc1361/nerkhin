@@ -380,3 +380,23 @@ func (ur *UserRepository) DeleteUserDevice(ctx context.Context, dbSession interf
     }
     return nil
 }
+// DeleteAllUserDevices deletes all active device sessions for a specific user.
+func (ur *UserRepository) DeleteAllUserDevices(ctx context.Context, dbSession interface{}, userID int64) error {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return err
+	}
+	// This will delete all records from active_devices that match the user_id
+	return db.Where("user_id = ?", userID).Delete(&domain.ActiveDevice{}).Error
+}
+// UpdateAllUsersDeviceLimit updates the device_limit for all non-admin users.
+func (ur *UserRepository) UpdateAllUsersDeviceLimit(ctx context.Context, dbSession interface{}, limit int) error {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return err
+	}
+	// We exclude SuperAdmins (role=1) and Admins (role=2) from this bulk update.
+	return db.Model(&domain.User{}).
+		Where("role NOT IN (?)", []domain.UserRole{domain.SuperAdmin, domain.Admin}).
+		Update("device_limit", limit).Error
+}

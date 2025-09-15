@@ -688,3 +688,40 @@ func (uh *UserHandler) DeleteUserDevice(c *gin.Context) {
     }
     handleSuccess(c, gin.H{"message": "Device deleted successfully"})
 }
+// DeleteAllUserDevices handles the HTTP request to delete all devices for a user.
+func (uh *UserHandler) DeleteAllUserDevices(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		validationError(c, errors.New("invalid user ID"), uh.AppConfig.Lang)
+		return
+	}
+
+	err = uh.service.DeleteAllUserDevices(c.Request.Context(), userID)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, gin.H{"message": "All devices for the user deleted successfully"})
+}
+// struct برای درخواست
+type updateAllUsersDeviceLimitRequest struct {
+	Limit int `json:"limit" binding:"required,min=1"`
+}
+
+// تابع هندلر
+func (uh *UserHandler) UpdateAllUsersDeviceLimit(c *gin.Context) {
+	var req updateAllUsersDeviceLimitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		validationError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	err := uh.service.UpdateAllUsersDeviceLimit(c.Request.Context(), req.Limit)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, gin.H{"message": "All users device limit updated successfully"})
+}

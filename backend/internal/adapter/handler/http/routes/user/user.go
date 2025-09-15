@@ -33,4 +33,7 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.UserHandler) {
 	// ... داخل گروه ادمین
 	adminUserGroup.GET("/users/:userId/devices", handler.ListUserDevices)
 	adminUserGroup.DELETE("/users/:userId/devices/:deviceId", handler.DeleteUserDevice)
+	adminUserGroup.DELETE("/users/:userId/devices", handler.DeleteAllUserDevices)
+	adminUserGroup.PUT("/users/all/device-limit", handler.UpdateAllUsersDeviceLimit)
+
 }

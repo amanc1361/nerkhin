@@ -642,3 +642,31 @@ func (us *UserService) GetUserActiveDevices(ctx context.Context, userID int64) (
 	// این یک عملیات فقط خواندنی است، نیازی به تراکنش ندارد
 	return us.repo.GetUserActiveDevices(ctx, db, userID)
 }
+// DeleteAllUserDevices handles the business logic for deleting all of a user's devices.
+func (us *UserService) DeleteAllUserDevices(ctx context.Context, userID int64) (err error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return
+	}
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		if userID < 1 {
+			return errors.New(msg.ErrDataIsNotValid)
+		}
+		return us.repo.DeleteAllUserDevices(ctx, txSession, userID)
+	})
+	return
+}
+// UpdateAllUsersDeviceLimit handles the business logic for updating the device limit for all users.
+func (us *UserService) UpdateAllUsersDeviceLimit(ctx context.Context, limit int) (err error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return
+	}
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		if limit < 1 {
+			return errors.New(msg.ErrDataIsNotValid)
+		}
+		return us.repo.UpdateAllUsersDeviceLimit(ctx, txSession, limit)
+	})
+	return
+}
