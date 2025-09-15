@@ -73,10 +73,7 @@ func (ph *ProductHandler) Create(c *gin.Context) {
 		return
 	}
 	files := formFiles.File["images"]
-	if len(files) > PRODUCT_IMAGES_LIMIT {
-		HandleError(c, fmt.Errorf("حداکثر %d تصویر مجاز است", PRODUCT_IMAGES_LIMIT), ph.AppConfig.Lang)
-		return
-	}
+	
 
 	// ساخت محصول اولیه و قرار دادن تعداد عکس‌ها
 	product := &domain.Product{
