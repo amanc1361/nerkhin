@@ -5,9 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import LoginForm from '@/app/components/bazar/login-form';
 
-/**
- * پیام‌های ثابت صفحه لاگین
- */
+
 const authPageMessages = {
   accessDenied: 'دسترسی ندارید لطفا دوباره وارد شوید',
   roleError: 'خطایی در دریافت نقش کاربر رخ داده است. لطفاً دوباره وارد شوید',
@@ -32,7 +30,6 @@ function LoginQueryHandler() {
 export default function AuthLoginPage() {
   return (
     <div className="w-full flex flex-col gap-4 items-center pt-10 sm:pt-12 VazirFont">
-      {/* مرز Suspense برای ارضای محدودیت useSearchParams */}
       <Suspense fallback={null}>
         <LoginQueryHandler />
       </Suspense>
