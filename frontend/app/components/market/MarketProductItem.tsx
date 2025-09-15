@@ -39,7 +39,7 @@ export default function MarketProductItem({
           <div className="flex flex-col   w-full">
             <div className="text-gray-700 truncate leading-6 break-words">
               {item.categoryTitle} {item.brandTitle}
-              <span className="[direction:ltr] text-sm [unicode-bidi:isolate] break-all px-1 align-baseline">
+              <span className=" text-sm break-all px-1 align-baseline">
                 {item.modelName}
               </span>
             </div>
