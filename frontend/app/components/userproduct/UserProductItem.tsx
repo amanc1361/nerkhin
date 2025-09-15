@@ -116,27 +116,7 @@ export default function UserProductItem({
       
       {showAction && <div className="mt-2 flex items-center">
         {/* چپ: Up/Down (فقط ترایگر؛ جابه‌جایی در والد) */}
-        <div className="flex items-center gap-4">
-     
-          <button
-            onClick={() => onMoveUp(item.id)}
-            className="disabled:opacity-50"
-            disabled={disabled}
-            aria-label={messages?.item?.moveUp}
-            title={messages?.item?.moveUp}
-          >
-            <Up />
-          </button>
-          <button
-            onClick={() => onMoveDown(item.id)}
-            className="disabled:opacity-50"
-            disabled={disabled}
-            aria-label={messages?.item?.moveDown}
-            title={messages?.item?.moveDown}
-          >
-            <Down />
-          </button>
-        </div>
+      
 
         <div className="ms-auto" />
 
