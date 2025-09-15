@@ -73,10 +73,7 @@ export const BrandItem: React.FC<BrandItemProps> = ({ brand, onEdit, onDelete })
         >
           <Trash2 size={15} />
         </button>
-        {/* The arrow icon can remain as part of the link itself */}
-        <div className="hover:text-green-600" title="Manage Models & Products">
-          <ArrowLeft size={16}/>
-        </div>
+      
       </div>
     </Link>
   );
