@@ -106,41 +106,65 @@ export default function AddUserProductForm({ subCategoryId }: { subCategoryId: n
     return isDollar ? !!dollarPrice : !!finalPrice;
   }, [brandId, productId, isDollar, dollarPrice, finalPrice]);
 
-  async function onSubmit() {
-    if (!brandId) return toast.error(t.form.validations.brand);
-    if (!productId) return toast.error(t.form.validations.product);
-    if (isDollar && !dollarPrice) return toast.error(t.form.validations.dollarPrice);
-    if (!isDollar && !finalPrice) return toast.error(t.form.validations.finalPrice);
+// مسیر: app/components/wholesaler/AddUserProductForm.tsx
 
-    const usdRate = parseInt(usdRateDigits || "0", 10);
-    const dUsd = parseMoney(dollarPrice);
-    const other = Math.trunc(parseMoney(otherCosts));
-    const computedFinal = isDollar
-      ? Math.trunc(dUsd * (isNaN(usdRate) ? 0 : usdRate)) + other
-      : Math.trunc(parseMoney(finalPrice));
-
-    setSubmitting(true);
-    try {
-      await api.post({
-        url: "/user-product/create",
-        body: {
-          productId: Number(productId),
-          brandId: Number(brandId),
-          categoryId: subCategoryId,
-          isDollar,
-          dollarPrice: String(dUsd),
-          otherCosts: String(other),
-          finalPrice: String(computedFinal),
-        },
-      });
-      toast.success(t.toasts.updated);
-      router.push("/wholesaler/products");
-    } catch {
-      toast.error(t.toasts.error);
-    } finally {
-      setSubmitting(false);
-    }
+async function onSubmit() {
+  if (!brandId) {
+    toast.error(t.form.validations.brand);
+    return;
   }
+  if (!productId) {
+    toast.error(t.form.validations.product);
+    return;
+  }
+  if (isDollar && !dollarPrice) {
+    toast.error(t.form.validations.dollarPrice);
+    return;
+  }
+  if (!isDollar && !finalPrice) {
+    toast.error(t.form.validations.finalPrice);
+    return;
+  }
+
+  const usdRate = parseInt(usdRateDigits || "0", 10);
+  const dUsd = parseMoney(dollarPrice);
+  const other = Math.trunc(parseMoney(otherCosts));
+  const computedFinal = isDollar
+    ? Math.trunc(dUsd * (isNaN(usdRate) ? 0 : usdRate)) + other
+    : Math.trunc(parseMoney(finalPrice));
+
+  // --- شروع تغییر اصلی ---
+  // بررسی می‌کنیم که قیمت نهایی محاسبه شده صفر نباشد
+  if (computedFinal <= 0) {
+    toast.error("قیمت نهایی نمی‌تواند صفر یا کمتر باشد. لطفاً مقادیر را بررسی کنید.");
+    return; // از ادامه اجرای تابع جلوگیری می‌کنیم
+  }
+  // --- پایان تغییر اصلی ---
+
+  setSubmitting(true);
+  try {
+    await api.post({
+      url: "/user-product/create",
+      body: {
+        productId: Number(productId),
+        brandId: Number(brandId),
+        categoryId: subCategoryId,
+        isDollar,
+        dollarPrice: String(dUsd),
+        otherCosts: String(other),
+        finalPrice: String(computedFinal),
+      },
+    });
+    toast.success(t.toasts.updated);
+    router.push("/wholesaler/products");
+  } catch (e) {
+    // برای اینکه پیام خطای سرور را بهتر نمایش دهیم، می‌توانید از این روش استفاده کنید
+    const errorMessage = e instanceof Error ? e.message : t.toasts.error;
+    toast.error(errorMessage);
+  } finally {
+    setSubmitting(false);
+  }
+}
 
   /** نکته‌ها */
   const tipsDollar: string[] = [
