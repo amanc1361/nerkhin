@@ -9,7 +9,7 @@ const t: PaymentHistoryMessages = {
     createdAt: "تاریخ پرداخت",
     city: "شهر",
     fullName: "نام کاربر",
-    cost: "مبلغ (ریال)",
+    cost: "مبلغ (تومان)",
     days: "مدت (روز)",
     refId: "کد پیگیری",
     authority: "Authority",

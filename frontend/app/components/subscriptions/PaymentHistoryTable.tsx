@@ -112,7 +112,7 @@ export default function PaymentHistoryTable({ t, items, loading }: Props) {
               <div className="mt-3">
                 <div className="text-sm text-gray-500 dark:text-gray-400">{t.cost}</div>
                 <div className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-                  {moneyFormat(r.cost)} <span className="text-sm font-medium text-gray-500">ریال</span>
+                  {moneyFormat(r.cost)} <span className="text-sm font-medium text-gray-500">تومان</span>
                 </div>
               </div>
 
