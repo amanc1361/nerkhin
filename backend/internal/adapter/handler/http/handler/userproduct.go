@@ -110,8 +110,6 @@ func (h *UserProductHandler) Search(c *gin.Context) {
 	priceMin := decimalPtrIfPositive(c.Query("priceMin"))
 	priceMax := decimalPtrIfPositive(c.Query("priceMax"))
 
-
-
 	enforceSubscription := c.Query("enforceSubscription") == "1"
 
 	onlyVisible := true
@@ -203,6 +201,8 @@ func currentUserIDOrZero(c *gin.Context) int64 {
 	return 0
 }
 
+var MINIMUM_FINAL_PRICE = decimal.NewFromInt(1000000)
+
 func (uph *UserProductHandler) Create(c *gin.Context) {
 	var req createUserProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -236,6 +236,11 @@ func (uph *UserProductHandler) Create(c *gin.Context) {
 	finalPrice, err := decimal.NewFromString(req.FinalPrice)
 	if err != nil {
 		validationError(c, err, uph.AppConfig.Lang)
+		return
+	}
+
+	if finalPrice.LessThan(MINIMUM_FINAL_PRICE) {
+		validationError(c, fmt.Errorf("قیمت نهایی باید بیشتر از %s باشد", MINIMUM_FINAL_PRICE.String()), uph.AppConfig.Lang)
 		return
 	}
 
