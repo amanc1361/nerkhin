@@ -14,6 +14,8 @@ import FiltersModal, { FiltersValue } from "./FilterModal";
 
 type Role = "wholesaler" | "retailer";
 
+const PAGE_LIMIT = 40; // Define limit as a constant for consistency
+
 export default function SearchResultsClient({
   role,
   initialQuery,
@@ -71,6 +73,9 @@ export default function SearchResultsClient({
     const priceMax = sp.get("max") ? Number(sp.get("max")) : undefined;
     const cityId = sp.get("cityId") ? Number(sp.get("cityId")) : undefined;
 
+    const pageFromUrl = Number(sp.get("page") || "1");
+    const initialPage = Number.isFinite(pageFromUrl) && pageFromUrl > 0 ? pageFromUrl : 1;
+
     return {
       search: q || initialQuery || "",
       categoryId: catId,
@@ -81,16 +86,27 @@ export default function SearchResultsClient({
       priceMin,
       priceMax,
       cityId,
-      limit: 40, // پیش‌فرض
+      limit: PAGE_LIMIT,
+      offset: (initialPage - 1) * PAGE_LIMIT,
       sortBy: "updated" as const,
       sortUpdated: "desc" as const,
       onlyVisible: true,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sp, catId, initialQuery]);
+  }, []);
 
   // هوک جستجو (CSR)
   const { data, loading, setPage, page, setQuery, query } = useMarketSearch(initialFromUrl, "fa");
+
+  // Set initial page state from URL once, on mount.
+  useEffect(() => {
+    const pageFromUrl = Number(sp.get("page") || "1");
+    const initialPage = Number.isFinite(pageFromUrl) && pageFromUrl > 0 ? pageFromUrl : 1;
+    if (page !== initialPage) {
+      setPage(initialPage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Sync با URL در هر تغییر
   useEffect(() => {
@@ -117,6 +133,12 @@ export default function SearchResultsClient({
     const priceMax = sp.get("max") ? Number(sp.get("max")) : undefined;
     const cityId = sp.get("cityId") ? Number(sp.get("cityId")) : undefined;
 
+    const pageFromUrl = Number(sp.get("page") || "1");
+    const currentPage = Number.isFinite(pageFromUrl) && pageFromUrl > 0 ? pageFromUrl : 1;
+    const currentOffset = (currentPage - 1) * PAGE_LIMIT;
+
+    setPage(currentPage);
+
     setQuery((prev) => ({
       ...prev,
       search: q,
@@ -128,203 +150,150 @@ export default function SearchResultsClient({
       priceMin,
       priceMax,
       cityId,
-      offset: 0, // شروع از اول
+      offset: currentOffset,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp]);
 
-  // ارسال فرم جستجو: q را در URL ست/حذف می‌کند و بقیه پارامترها حفظ می‌شوند
+  // ارسال فرم جستجو
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(sp.toString());
-
     if (text) params.set("q", text);
     else params.delete("q");
-
     if (catId) params.set("categoryId", String(catId));
     else params.delete("categoryId");
-
-    // ریست به صفحه 1
     params.delete("page");
     router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
-    setPage(1);
   };
 
   // اعمال فیلترها از مودال
   const applyFilters = (f: FiltersValue) => {
-    // state داخلی
-    setQuery((prev) => ({
-      ...prev,
-      offset: 0,
-      categoryId: f.categoryId ?? prev.categoryId,
-      isDollar: typeof f.isDollar === "boolean" ? f.isDollar : undefined,
-      priceMin: f.priceMin,
-      priceMax: f.priceMax,
-      cityId: f.cityId,
-      brandIds: f.brandIds?.length ? f.brandIds : undefined,
-      optionIds: f.optionIds?.length ? f.optionIds : undefined,
-      filterIds: f.filterIds?.length ? f.filterIds : undefined,
-    }));
-
-    // URL
     const params = new URLSearchParams(sp.toString());
-
     const qUrl = (params.get("q") || "").trim();
     if (qUrl) params.set("q", qUrl);
     else params.delete("q");
-
     const finalCatId =
       f.categoryId ??
       (params.get("categoryId") ? Number(params.get("categoryId")) : undefined) ??
       undefined;
     if (finalCatId) params.set("categoryId", String(finalCatId));
     else params.delete("categoryId");
-
     if (typeof f.isDollar === "boolean") params.set("isDollar", f.isDollar ? "1" : "0");
     else params.delete("isDollar");
-
     if (f.priceMin != null) params.set("min", String(f.priceMin));
     else params.delete("min");
     if (f.priceMax != null) params.set("max", String(f.priceMax));
     else params.delete("max");
-
     if (f.cityId != null) params.set("cityId", String(f.cityId));
     else params.delete("cityId");
-
     if (f.brandIds?.length) params.set("brandIds", f.brandIds.join(","));
     else params.delete("brandIds");
     if (f.optionIds?.length) params.set("optionIds", f.optionIds.join(","));
     else params.delete("optionIds");
     if (f.filterIds?.length) params.set("filterIds", f.filterIds.join(","));
     else params.delete("filterIds");
-
     params.set("sortBy", "updated");
     params.set("sortDir", "desc");
-
-    // ریست صفحه به 1
     params.delete("page");
     router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
-    setPage(1);
     setFiltersOpen(false);
   };
 
   // -------------------------
-  // موبایل: مرج/append + Observer (الگوی صفحه محصولات شما)
+  // موبایل: مرج/append + Observer
   // -------------------------
-  const limit = query.limit || 20;
+  const limit = query.limit || PAGE_LIMIT;
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((data.total || 0) / limit)),
     [data.total, limit]
   );
 
   const [mergedItems, setMergedItems] = useState<MarketItemVM[]>([]);
-  const ioRef = useRef<IntersectionObserver | null>(null);
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const isFetchingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const mobilePageRef = useRef<number>(1);
-  const loadedCountRef = useRef<number>(0);
-  const totalRef = useRef<number>(data.total || 0);
 
-  // sync refs با state
+  // Reset/Replace logic for mobile
   useEffect(() => {
-    totalRef.current = data.total || 0;
-  }, [data.total]);
-
-  // Reset/Replace وقتی صفحه = 1 یا offset=0
-  useEffect(() => {
-    const isFirst = (query.offset ?? 0) === 0 || page === 1;
-    if (isFirst) {
+    // If it's the first page, reset the list.
+    if (page === 1) {
       setMergedItems(data.items);
-      loadedCountRef.current = data.items.length;
-      totalRef.current = data.total || 0;
       mobilePageRef.current = 1;
-      hasMoreRef.current = loadedCountRef.current < totalRef.current;
     } else if (isMobile) {
-      // Append با dedupe
-      if (data.items.length) {
+      // For subsequent pages, append new items if any have been fetched.
+      if (data.items.length > 0) {
         setMergedItems((prev) => {
-          const map = new Map(prev.map((x) => [x.id, x]));
-          data.items.forEach((it) => map.set(it.id, it));
-          return Array.from(map.values());
+          const existingIds = new Set(prev.map((item) => item.id));
+          const newItems = data.items.filter((item) => !existingIds.has(item.id));
+          return [...prev, ...newItems];
         });
-        loadedCountRef.current = loadedCountRef.current + data.items.length;
-        hasMoreRef.current = loadedCountRef.current < (data.total || 0);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.items, data.total, page, query.offset, isMobile]);
 
-  // hasMore برای موبایل بر اساس refs
+    // *** FIX ***: Correctly determine if there are more items to load.
+    // Calculate the prospective total by adding the length of items we just received
+    // to the items we already had (from the previous render).
+    const prospectiveTotalCount = mergedItems.length + data.items.length;
+    hasMoreRef.current = prospectiveTotalCount < (data.total || 0);
+  }, [data.items, data.total, page, isMobile, mergedItems.length]);
+
+  // hasMore for mobile is now derived correctly from the ref
   const hasMore = isMobile ? hasMoreRef.current : page < totalPages;
 
   // نصب Observer فقط در موبایل
   useEffect(() => {
-    if (!isMobile) return;
-    if (!loaderRef.current) return;
+    if (!isMobile || loading) return;
 
-    ioRef.current = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        if (isFetchingRef.current || !hasMoreRef.current) return;
-
-        // قطع موقت Observe تا لوپ ایجاد نشود
-        if (ioRef.current && loaderRef.current) {
-          ioRef.current.unobserve(loaderRef.current);
+        if (entries[0].isIntersecting && hasMoreRef.current && !isFetchingRef.current) {
+          isFetchingRef.current = true;
+          const nextPage = mobilePageRef.current + 1;
+          mobilePageRef.current = nextPage;
+          setPage(nextPage);
         }
-
-        // تریگر صفحه بعد
-        isFetchingRef.current = true;
-        const next = mobilePageRef.current + 1;
-        mobilePageRef.current = next;
-        setPage(next); // useMarketSearch خودش data را می‌آورد
       },
-      { root: null, rootMargin: "300px 0px", threshold: 0.01 }
+      { rootMargin: "300px" }
     );
 
-    ioRef.current.observe(loaderRef.current);
+    const loaderEl = loaderRef.current;
+    if (loaderEl) {
+      observer.observe(loaderEl);
+    }
 
     return () => {
-      ioRef.current?.disconnect();
-      ioRef.current = null;
+      if (loaderEl) {
+        observer.unobserve(loaderEl);
+      }
     };
-  }, [isMobile, setPage]);
+  }, [isMobile, loading, setPage]);
 
-  // وقتی لودینگ تمام شد، دوباره Observe کنیم
   useEffect(() => {
-    if (!isMobile) return;
-    if (!loaderRef.current || !ioRef.current) return;
     if (!loading) {
       isFetchingRef.current = false;
-      if (hasMoreRef.current) {
-        ioRef.current.observe(loaderRef.current);
-      }
     }
-  }, [loading, isMobile]);
+  }, [loading]);
 
   // -------------------------
   // دسکتاپ: صفحه‌بندی
   // -------------------------
   const onDesktopPageChange = useCallback(
     (p: number) => {
-      // ریست موبایل‌رف‌ها برای اطمینان
-      isFetchingRef.current = false;
-      hasMoreRef.current = true;
-      mobilePageRef.current = 1;
-
-      // اگر خواستی با URL هم sync کنی:
       const params = new URLSearchParams(sp.toString());
-      if (p > 1) params.set("page", String(p));
-      else params.delete("page");
+      if (p > 1) {
+        params.set("page", String(p));
+      } else {
+        params.delete("page");
+      }
       router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
-
-      setPage(p);
-      // تصمیم شما: اسکرول نکنیم تا صفحه نپره (طبق بازخورد قبلی شما)
-      // window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [router, role, setPage, sp]
+    [router, role, sp]
   );
+
+  const itemsToDisplay = isMobile ? mergedItems : data.items;
 
   return (
     <main className="max-w-screen-lg mx-auto px-3 pb-20" dir="rtl">
@@ -358,41 +327,38 @@ export default function SearchResultsClient({
           </form>
         </div>
       </header>
-
-      {/* موبایل: اسکرول بی‌نهایت + مرج */}
-      <section className="md:hidden pt-3">
-        {mergedItems.length === 0 && !loading && (
-          <div className="text-center text-gray-500 py-8">{t.list.empty}</div>
+      
+      {/* Combined Section for Mobile and Desktop */}
+      <section className="pt-3">
+        {loading && itemsToDisplay.length === 0 && (
+          <div className="py-4 text-center text-gray-500">{t.common.loading}</div>
         )}
-        <ul className="flex flex-col divide-y">
-          {mergedItems.map((item) => (
-            <MarketProductItem key={item.id} item={item} t={t} role={role} />
-          ))}
-        </ul>
-        {loading && <div className="py-4 text-center text-gray-500">{t.common.loading}</div>}
-        {hasMore && <div ref={loaderRef} className="h-10" />}
-      </section>
-
-      {/* دسکتاپ: صفحه‌بندی واقعی */}
-      <section className="hidden md:block pt-4">
-        {loading && <div className="py-4 text-center text-gray-500">{t.common.loading}</div>}
-        {!loading && data.items.length === 0 && (
+        {!loading && itemsToDisplay.length === 0 && (
           <div className="text-center text-gray-500 py-8">{t.list.empty}</div>
         )}
 
         <ul className="flex flex-col divide-y">
-          {data.items.map((item) => (
+          {itemsToDisplay.map((item) => (
             <MarketProductItem key={item.id} item={item} t={t} role={role} />
           ))}
         </ul>
 
-        <div className="mt-4 flex justify-center">
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={onDesktopPageChange}
-          />
-        </div>
+        {/* Mobile Loader */}
+        {isMobile && loading && itemsToDisplay.length > 0 && (
+            <div className="py-4 text-center text-gray-500">{t.common.loading}</div>
+        )}
+        {isMobile && hasMore && <div ref={loaderRef} className="h-10" />}
+
+        {/* Desktop Pagination */}
+        {!isMobile && totalPages > 1 && (
+           <div className="mt-4 flex justify-center">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={onDesktopPageChange}
+            />
+          </div>
+        )}
       </section>
 
       {/* مودال فیلتر */}
