@@ -168,7 +168,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		%s,
 		ROW_NUMBER() OVER (
 			PARTITION BY up.product_id
-			ORDER BY up.updated_at DESC NULLS LAST, up.final_price ASC NULLS LAST, up.id ASC
+			ORDER BY DATE(up.updated_at) DESC NULLS LAST, up.final_price ASC NULLS LAST, up.id ASC
 		) AS rn
 	`, isFavExpr))
 
