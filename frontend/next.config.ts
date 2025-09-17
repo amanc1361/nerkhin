@@ -11,9 +11,13 @@ const nextConfig = {
   images: {
     remotePatterns: [
       // پروDUCTION
-      { protocol: 'https', hostname: 'nerrkhin.com', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'nerrkhin.com', pathname: '/uploads/**'},
       // DEV (اگر تصاویر را از بک‌اند لوکال می‌گیرید)
       { protocol: 'http', hostname: 'localhost', port: '8080', pathname: '/uploads/**' },
+      { protocol: "http", hostname: "localhost", port: "8080", pathname: "/uploads/**" },
+
+      // مسیر جدید: لوگوی ساماندهی (برای <Image/>)
+      { protocol: "https", hostname: "logo.samandehi.ir", pathname: "/**" },
     ],
   },
 };

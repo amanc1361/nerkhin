@@ -2,6 +2,7 @@ import Link from "next/link";
 import Logo2 from "@/app/components/Logo/logo3"; 
 import { ANCHOR_IDS, siteTexts } from "./constants/string";
 import React from "react";
+import SamandehiLogo from "./components/shared/shamadlogo";
 export default function Landingpage() {
   return (
     <>
@@ -207,6 +208,10 @@ export default function Landingpage() {
             className="mx-auto"
           />
         </a>
+        <div>
+        <SamandehiLogo/>
+
+        </div>
         <span>{siteTexts.footer.copyright}</span>
       </footer>
    
