@@ -18,7 +18,7 @@ export const userApi = {
 
   // تغییر وضعیت کاربر
   changeState: (payload: { userId: number; targetState: number }) => ({
-    url: "/user/users/change-state", // اصلاح مسیر
+    url: "/user/change-state", // اصلاح مسیر
     method: "POST" as const,
     body: payload,
   }),
