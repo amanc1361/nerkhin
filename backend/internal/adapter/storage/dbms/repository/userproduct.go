@@ -85,7 +85,7 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 		base = base.Where(`
 			EXISTS (
 				SELECT 1 FROM product_tag pt
-				WHERE pt.product_id = up.product_id AND pt.tag IN (?)
+				WHERE pt.product_id = up.product_id AND pt.tag IN ?
 			)
 		`, q.TagList)
 	}
@@ -220,7 +220,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		base = base.Where("pb.category_id = ?", q.CategoryID)
 	}
 	if len(q.BrandIDs) > 0 {
-		base = base.Where("pb.id IN (?)", q.BrandIDs)
+		base = base.Where("pb.id IN ?", q.BrandIDs)
 	}
 	if q.IsDollar != nil {
 		base = base.Where("up.is_dollar = ?", *q.IsDollar)
@@ -240,7 +240,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 		base = base.Where(`
 			EXISTS (
 				SELECT 1 FROM product_tag pt
-				WHERE pt.product_id = up.product_id AND pt.tag IN (?)
+				WHERE pt.product_id = up.product_id AND pt.tag IN ?
 			)
 		`, q.TagList)
 	}
@@ -249,7 +249,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 			up.product_id IN (
 				SELECT pfr.product_id
 				FROM product_filter_relation pfr
-				WHERE pfr.filter_id IN (?)
+				WHERE pfr.filter_id IN ?
 				GROUP BY pfr.product_id
 				HAVING COUNT(DISTINCT pfr.filter_id) = ?
 			)
@@ -260,7 +260,7 @@ func (upr *UserProductRepository) CountMarketProductsFiltered(
 			up.product_id IN (
 				SELECT pfr2.product_id
 				FROM product_filter_relation pfr2
-				WHERE pfr2.filter_option_id IN (?)
+				WHERE pfr2.filter_option_id IN ?
 				GROUP BY pfr2.product_id
 				HAVING COUNT(DISTINCT pfr2.filter_option_id) = ?
 			)
