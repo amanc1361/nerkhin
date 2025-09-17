@@ -25,7 +25,7 @@ export const userApi = {
 
   // حذف یک کاربر
   deleteUser: (userId: number) => ({
-    url: `/user/users/${userId}`, // اصلاح مسیر
+    url: `/user/delete/${userId}`, // اصلاح مسیر
     method: "DELETE" as const,
   }),
 
