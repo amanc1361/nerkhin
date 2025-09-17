@@ -17,7 +17,7 @@ export default function Landingpage() {
             </li>
             <li>
               <Link
-                className="text-gray-medium text-base md:text-xl VazirFontMedium hover:text-purple-medium transition-all"
+                className="text-gray-medium  text-sm md:text-xl VazirFontMedium hover:text-purple-medium transition-all"
                 href={`#${ANCHOR_IDS.ABOUT_US}`}
               >
                 {siteTexts.header.navLinks.aboutUs}
@@ -25,7 +25,7 @@ export default function Landingpage() {
             </li>
             <li>
               <Link
-                className="text-gray-medium text-base md:text-xl VazirFontMedium hover:text-purple-medium transition-all"
+                className="text-gray-medium text-sm md:text-xl VazirFontMedium hover:text-purple-medium transition-all"
                 href={`#${ANCHOR_IDS.SERVICES}`}
               >
                 {siteTexts.header.navLinks.services}
@@ -33,7 +33,7 @@ export default function Landingpage() {
             </li>
             <li>
               <Link
-                className="text-gray-medium text-base md:text-xl VazirFontMedium hover:text-purple-medium transition-all"
+                className="text-gray-medium text-sm md:text-xl VazirFontMedium hover:text-purple-medium transition-all"
                 href={`#${ANCHOR_IDS.CONTACT_US}`}
               >
                 {siteTexts.header.navLinks.contactUs}
@@ -41,7 +41,7 @@ export default function Landingpage() {
             </li>
           </ul>
           <Link
-            className="text-purple-dark text-base md:text-xl VazirFontMedium"
+            className="text-purple-dark text-sm md:text-xl VazirFontMedium"
             href="/auth/login" // مسیر ورود/ثبت نام
           >
             {siteTexts.header.authButton}
@@ -208,10 +208,7 @@ export default function Landingpage() {
             className="mx-auto"
           />
         </a>
-        <div>
         <SamandehiLogo/>
-
-        </div>
         <span>{siteTexts.footer.copyright}</span>
       </footer>
    
