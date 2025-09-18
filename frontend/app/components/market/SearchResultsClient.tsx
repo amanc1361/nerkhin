@@ -14,7 +14,7 @@ import FiltersModal, { FiltersValue } from "./FilterModal";
 
 type Role = "wholesaler" | "retailer";
 
-const PAGE_LIMIT = 40; // Define limit as a constant for consistency
+const PAGE_LIMIT = 40;
 
 export default function SearchResultsClient({
   role,
@@ -135,10 +135,8 @@ export default function SearchResultsClient({
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(sp.toString());
-    if (text) params.set("q", text);
-    else params.delete("q");
-    if (catId) params.set("categoryId", String(catId));
-    else params.delete("categoryId");
+    if (text) params.set("q", text); else params.delete("q");
+    if (catId) params.set("categoryId", String(catId)); else params.delete("categoryId");
     params.delete("page");
     router.replace(`/${role}/search${params.toString() ? `?${params.toString()}` : ""}`);
   };
@@ -168,13 +166,16 @@ export default function SearchResultsClient({
   const [mergedItems, setMergedItems] = useState<MarketItemVM[]>([]);
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const isFetchingRef = useRef(false);
-  const hasMoreRef = useRef(true);
+  
+  // **FIX**: Re-added mobilePageRef to safely track the page for infinite scroll
   const mobilePageRef = useRef<number>(1);
-  const hasMore = isMobile ? hasMoreRef.current : page < totalPages;
+  
+  const hasMore = page < totalPages;
 
   useEffect(() => {
     if (page === 1) {
       setMergedItems(data.items);
+      // **FIX**: Reset the ref when on the first page
       mobilePageRef.current = 1;
     } else if (isMobile && data.items.length > 0) {
       setMergedItems((prev) => {
@@ -183,21 +184,16 @@ export default function SearchResultsClient({
         combined.forEach((item) => uniqueMap.set(item.id, item));
         const uniqueArray = Array.from(uniqueMap.values());
         
-        // *** FIX for Mobile Sorting ***
-        // Re-sort the entire list by date to guarantee the correct order.
-        // This assumes `item.updatedAt` exists and is a sortable date string.
         uniqueArray.sort((a, b) => {
           const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
           const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-          return dateB - dateA; // Descending order
+          return dateB - dateA;
         });
         
         return uniqueArray;
       });
     }
-    const prospectiveTotalCount = mergedItems.length + data.items.length;
-    hasMoreRef.current = prospectiveTotalCount < (data.total || 0);
-  }, [data.items, data.total, page, isMobile, mergedItems.length]);
+  }, [data.items, page, isMobile]);
 
   useEffect(() => {
     if (!isMobile || loading || !hasMore) return;
@@ -205,6 +201,7 @@ export default function SearchResultsClient({
       (entries) => {
         if (entries[0].isIntersecting && !isFetchingRef.current) {
           isFetchingRef.current = true;
+          // **FIX**: Calculate the next page number using the ref and pass it directly
           const nextPage = mobilePageRef.current + 1;
           mobilePageRef.current = nextPage;
           setPage(nextPage);
@@ -236,60 +233,28 @@ export default function SearchResultsClient({
         <div className="flex items-center gap-2 py-3">
           <form onSubmit={submit} className="flex w-full gap-2">
             <div className="flex w-full items-center gap-2 rounded-2xl border px-3 py-2 bg-white shadow-sm">
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                className="w-full outline-none bg-transparent text-sm"
-                placeholder={t.search.placeholder}
-                dir="rtl"
-              />
-              <button aria-label={t.action.search} className="p-1 rounded-md hover:bg-gray-100">
-                <Search className="w-5 h-5" />
-              </button>
+              <input value={text} onChange={(e) => setText(e.target.value)} className="w-full outline-none bg-transparent text-sm" placeholder={t.search.placeholder} dir="rtl" />
+              <button aria-label={t.action.search} className="p-1 rounded-md hover:bg-gray-100"><Search className="w-5 h-5" /></button>
             </div>
-            {catId !== undefined && catId > 0 && (
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(true)}
-                className="border rounded-md justify-center flex items-center gap-2 py-2 px-3 w-40 hover:bg-gray-50"
-              >
-                <Filter className="w-5 h-5" />
-                <span>فیلتر نتایج</span>
-              </button>
-            )}
+            {catId !== undefined && catId > 0 && (<button type="button" onClick={() => setFiltersOpen(true)} className="border rounded-md justify-center flex items-center gap-2 py-2 px-3 w-40 hover:bg-gray-50"><Filter className="w-5 h-5" /><span>فیلتر نتایج</span></button>)}
           </form>
         </div>
       </header>
       
       <section className="pt-3">
-        {/* *** FIX for Desktop Loader ***: Show loader when loading and list is empty OR on desktop during pagination */}
-        {loading && (itemsToDisplay.length === 0 || !isMobile) && (
-          <div className="py-4 text-center text-gray-500">{t.common.loading}</div>
-        )}
-
-        {!loading && itemsToDisplay.length === 0 && (
-          <div className="text-center text-gray-500 py-8">{t.list.empty}</div>
-        )}
+        {loading && (itemsToDisplay.length === 0 || !isMobile) && (<div className="py-4 text-center text-gray-500">{t.common.loading}</div>)}
+        {!loading && itemsToDisplay.length === 0 && (<div className="text-center text-gray-500 py-8">{t.list.empty}</div>)}
         
-        {/* *** FIX for Desktop Loader ***: Fade out old items during load */}
         <ul className={`flex flex-col divide-y transition-opacity duration-300 ${!isMobile && loading ? 'opacity-50' : 'opacity-100'}`}>
-          {itemsToDisplay.map((item) => (
-            <MarketProductItem key={item.id} item={item} t={t} role={role} />
-          ))}
+          {itemsToDisplay.map((item) => (<MarketProductItem key={item.id} item={item} t={t} role={role} />))}
         </ul>
 
-        {isMobile && loading && itemsToDisplay.length > 0 && (
-            <div className="py-4 text-center text-gray-500">{t.common.loading}</div>
-        )}
+        {isMobile && loading && itemsToDisplay.length > 0 && (<div className="py-4 text-center text-gray-500">{t.common.loading}</div>)}
         {isMobile && hasMore && <div ref={loaderRef} className="h-10" />}
 
         {!isMobile && totalPages > 1 && (
            <div className="mt-4 flex justify-center">
-            <Pagination
-              currentPage={page}
-              totalPages={totalPages}
-              onPageChange={onDesktopPageChange}
-            />
+            <Pagination currentPage={page} totalPages={totalPages} onPageChange={onDesktopPageChange} />
           </div>
         )}
       </section>

@@ -26,7 +26,7 @@ export default function DollarPriceModal({
   open: boolean;
   initialValue?: string | number;
   onClose: () => void;
-  onSubmit: (digits: string) => void; // فقط رقم انگلیسی بدون ویرگول
+  onSubmit: (digits: string) => void; 
   loading?: boolean;
   messages?: Messages;
 }) {
@@ -47,7 +47,7 @@ export default function DollarPriceModal({
 
   useEffect(() => {
     const raw = (initialValue ?? "").toString();
-    setVal(formatMoneyInput(raw, false)); // تومان → بدون اعشار
+    setVal(formatMoneyInput(raw, false));
   }, [initialValue, open]);
 
   const handleSubmit = (e: React.FormEvent) => {

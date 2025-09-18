@@ -119,33 +119,24 @@ export default function UserProductList({
   const handleMove = useCallback(
     async (id: number, direction: "up" | "down") => {
       setBusy(true);
-
-      // 1) از state فعلی محاسبه کن
       const idx = list.findIndex((x: any) => x.id === id);
       const neighborIdx = direction === "up" ? idx - 1 : idx + 1;
-
-      // اگر مرزی بود، کاری نکن
       if (idx < 0 || neighborIdx < 0 || neighborIdx >= list.length) {
         setBusy(false);
         return;
       }
-
       const neighborId = (list[neighborIdx] as any).id;
-
-      // 2) payload برای بک‌اند
       const payload: ChangeOrderPayload =
         direction === "up"
           ? { topProductId: id,         bottomProductId: neighborId }
           : { topProductId: neighborId, bottomProductId: id };
 
-      // 3) سواپ خوش‌بینانهٔ UI
       setList((prev) => {
         const copy = [...prev];
         [copy[idx], copy[neighborIdx]] = [copy[neighborIdx], copy[idx]];
         return copy;
       });
 
-      // 4) درخواست به سرور
       try {
         await changeOrder(payload);
       } finally {
@@ -170,8 +161,6 @@ export default function UserProductList({
           disabled={busy || isSubmitting}
         />
       ))}
-
-      {/* مودال حذف فقط وقتی کال‌بک بیرونی نداده‌ای */}
       {!onDelete && (
         <UserProductDeleteModal
           open={deleteId != null}
@@ -180,8 +169,6 @@ export default function UserProductList({
           messages={t}
         />
       )}
-
-      {/* مودال ویرایش فقط وقتی کال‌بک بیرونی نداده‌ای */}
       {!onEdit && editItem && (
         <UserProductEditModal
           open={true}
