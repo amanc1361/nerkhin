@@ -1,7 +1,7 @@
 # ------------------------------------
 # Stage 1: Build the Go binary
 # ------------------------------------
-FROM golang:1.23-alpine AS builder
+FROM golang:1.23-alpine3.22 AS builder
 
 WORKDIR /app
 ENV GOTOOLCHAIN=auto
@@ -25,7 +25,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -o /nerkhin-app ./cmd/nerkhin/main.go
 # ------------------------------------
 # Stage 2: Minimal runtime container
 # ------------------------------------
-FROM alpine:3.19
+FROM alpine:3.22
 
 WORKDIR /
 
