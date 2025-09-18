@@ -2,7 +2,6 @@
 
 import React, { useMemo } from "react";
 
-/** ---------- انواع داده‌ی منعطف برای مشخصات ---------- */
 export type FilterRelationVM = {
   filterTitle?: string | null;
   optionTitle?: string | null;
@@ -13,11 +12,9 @@ export type FilterRelationVM = {
 
   value?: string | number | null;
 
-  // حروف کوچک
   filter?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
   option?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
 
-  // حروف بزرگ (مطابق خروجی بک‌اند شما)
   Filter?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
   Option?: { title?: string | null; name?: string | null; displayName?: string | null } | null;
 };
