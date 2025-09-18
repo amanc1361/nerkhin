@@ -31,6 +31,7 @@ const SUBSCRIPTION_REQUIRED: Array<string | RegExp> = [
   // نمونه‌های فعلی شما:
   /^\/(wholesaler|retailer)\/products(\/|$)/, // عمده‌فروش/خرده‌فروش: لیست محصولات
   // بعداً هرچی خواستید اضافه کنید: "/panel/analytics", /^\/market\/offers/
+  /^\/(wholesaler|retailer)\/search(\/|$)/,
 ];
 
 function pathMatches(pathname: string, rule: string | RegExp) {
