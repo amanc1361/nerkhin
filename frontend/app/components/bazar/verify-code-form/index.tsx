@@ -65,7 +65,7 @@ const VerifyCodeForm: React.FC<VerifyCodeFormProps> = ({ phone }) => {
       }
 
 
-      router.refresh();
+      // router.refresh();
             const session = await getSession();
       
             const role =

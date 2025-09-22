@@ -60,6 +60,8 @@ export type ShopViewModel = {
     whatsappUrl?: string;
     websiteUrl?: string;
     updatedAt?: string;
+    dollarUpdate?:boolean;
+    rounded?:boolean;
   } | null;
   products: UserProductView[];
   total: number; // ⬅️ اضافه شد

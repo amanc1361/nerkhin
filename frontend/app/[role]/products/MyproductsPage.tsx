@@ -24,6 +24,8 @@ type Props = {
   role: Role;
   initialData: ShopViewModel;
   usdPrice: string | number;
+  dollarUpdate:boolean;
+  rounded:boolean;
   locale: string;
 };
 
@@ -31,6 +33,8 @@ export default function MyproductsPage({
   role,
   initialData,
   usdPrice,
+  dollarUpdate,
+  rounded,
   locale,
 }: Props) {
   const messages: UserProductMessages = useMemo(
@@ -44,7 +48,11 @@ export default function MyproductsPage({
 
   // --- دلار ---
   const [localUsd, setLocalUsd] = useState<string>(String(usdPrice ?? ""));
+  const [localDollarUpdate, setLocalDollarUpdate] = useState<boolean>(dollarUpdate);
+  const [localRounded, setLocalRounded] = useState<boolean>(rounded);
   const [openUsdModal, setOpenUsdModal] = useState(false);
+  useEffect(() => { setLocalDollarUpdate(dollarUpdate); }, [dollarUpdate]);
+  useEffect(() => { setLocalRounded(rounded); }, [rounded]);
   useEffect(() => { setLocalUsd(String(usdPrice ?? "")); }, [usdPrice]);
   const displayUsd = useMemo(() => formatMoneyInput(String(localUsd ?? ""), false), [localUsd]);
   const addHref = `/${role}/products/create`;
@@ -185,9 +193,13 @@ export default function MyproductsPage({
   );
 
   // دلار
-  const { update, isSubmitting } = useDollarPriceAction(async (digits) => {
+  const { update, isSubmitting } = useDollarPriceAction(async (digits, options) => {
     setLocalUsd(digits);
     setOpenUsdModal(false);
+    if (options) {
+      setLocalDollarUpdate(options.dollarUpdate ?? false);
+      setLocalRounded(options.rounded ?? false);
+    }
     isFetchingRef.current = false;
     hasMoreRef.current = true;
     mobilePageRef.current = 1;
@@ -320,9 +332,13 @@ export default function MyproductsPage({
       <DollarPriceModal
         open={openUsdModal}
         initialValue={localUsd}
+        initialDollarUpdate={localDollarUpdate}
+        initialRounded={localRounded}
+        
         onClose={() => setOpenUsdModal(false)}
-        onSubmit={async (digits) => {
-          await update(digits);
+        onSubmit={async (digits, dollarUpdate, rounded) => {
+          await update(digits, { dollarUpdate, rounded });
+   
           await fetchPage(1, lastFiltersRef.current, { append: false });
         }}
         loading={isSubmitting}

@@ -19,14 +19,18 @@ export default async function Page({
     
     fetchPriceListSSR(),
   ]);
-  
+  console.log(shopData)
   const usdPrice = priceList?.usdPrice ?? "";
+  const dollarUpdate=shopData.shopInfo?.dollarUpdate ?? false;
+  const rounded=shopData.shopInfo?.rounded ?? false;
 
   return (
     <MyProductsPage
       role={role}
       initialData={shopData}
       usdPrice={usdPrice}
+      dollarUpdate={dollarUpdate}
+      rounded={rounded}
       locale="fa"
     />
   );
