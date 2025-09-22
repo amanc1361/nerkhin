@@ -44,6 +44,8 @@ type User struct {
 	Longitude     decimal.NullDecimal `json:"longitude"`
 	DeviceLimit   int                 `gorm:"default:1" json:"deviceLimit"`
 	IsLiked       bool                `gorm:"-" json:"isLiked"`
+	DollarUpdate  bool                `json:"dollarUpdate"`
+	Rounded       bool                `json:"rounded"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
