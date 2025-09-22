@@ -426,38 +426,49 @@ func (us *UserService) FetchUserInfo(ctx context.Context, id int64) (
 	return user, adminAccessInfo, nil
 }
 
-func (us *UserService) UpdateDollarPrice(ctx context.Context, currentUserID int64,
-	dollarPrice decimal.NullDecimal) (err error) {
-	db, err := us.dbms.NewDB(ctx)
-	if err != nil {
-		return
-	}
+func (us *UserService) UpdateDollarPrice(
+    ctx context.Context,
+    currentUserID int64,
+    dollarPrice decimal.NullDecimal,
+    dollarUpdate *bool, // nil => تغییر نده
+    rounded *bool,      // nil => تغییر نده
+) (err error) {
+    db, err := us.dbms.NewDB(ctx)
+    if err != nil {
+        return
+    }
 
-	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-		if currentUserID < 1 {
-			return errors.New(msg.ErrDataIsNotValid)
-		}
+    err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+        if currentUserID < 1 {
+            return errors.New(msg.ErrDataIsNotValid)
+        }
 
-		originalShop, err := us.GetUserByID(ctx, currentUserID)
-		if err != nil {
-			return err
-		}
+        originalShop, err := us.GetUserByID(ctx, currentUserID)
+        if err != nil {
+            return err
+        }
 
-		originalShop.DollarPrice = dollarPrice
-		err = us.repo.UpdateDollarPrice(ctx, txSession, originalShop)
-		if err != nil {
-			return err
-		}
+        // دلار همیشه مثل قبل ست می‌شود
+        originalShop.DollarPrice = dollarPrice
 
-		return nil
-	})
+        // فلگ‌ها فقط اگر ارسال شده باشند تغییر می‌کنند
+        if dollarUpdate != nil {
+            originalShop.DollarUpdate = *dollarUpdate
+        }
+        if rounded != nil {
+            originalShop.Rounded = *rounded
+        }
 
-	if err != nil {
-		return
-	}
+        // امضای Repository همان قبلی است
+        if err := us.repo.UpdateDollarPrice(ctx, txSession, originalShop); err != nil {
+            return err
+        }
+        return nil
+    })
 
-	return nil
+    return
 }
+
 
 func (us *UserService) GetAdminAccess(ctx context.Context, adminID int64) (
 	adminAccess *domain.AdminAccess, err error) {
@@ -642,6 +653,7 @@ func (us *UserService) GetUserActiveDevices(ctx context.Context, userID int64) (
 	// این یک عملیات فقط خواندنی است، نیازی به تراکنش ندارد
 	return us.repo.GetUserActiveDevices(ctx, db, userID)
 }
+
 // DeleteAllUserDevices handles the business logic for deleting all of a user's devices.
 func (us *UserService) DeleteAllUserDevices(ctx context.Context, userID int64) (err error) {
 	db, err := us.dbms.NewDB(ctx)
@@ -656,6 +668,7 @@ func (us *UserService) DeleteAllUserDevices(ctx context.Context, userID int64) (
 	})
 	return
 }
+
 // UpdateAllUsersDeviceLimit handles the business logic for updating the device limit for all users.
 func (us *UserService) UpdateAllUsersDeviceLimit(ctx context.Context, limit int) (err error) {
 	db, err := us.dbms.NewDB(ctx)

@@ -523,8 +523,11 @@ func (uh *UserHandler) FetchUserInfo(c *gin.Context) {
 	handleSuccess(c, response)
 }
 
+
 type updateDollarPriceRequest struct {
-	DollarPrice string `json:"dollarPrice"`
+    DollarPrice  string `json:"dollarPrice"  binding:"required"`
+    DollarUpdate *bool  `json:"dollarUpdate,omitempty"` // اختیاری
+    Rounded      *bool  `json:"rounded,omitempty"`      // اختیاری
 }
 
 func (uh *UserHandler) GetDollarPrice(c *gin.Context) {
@@ -543,34 +546,39 @@ func (uh *UserHandler) GetDollarPrice(c *gin.Context) {
 
 	handleSuccess(c, dollarPrice)
 }
-
 func (uh *UserHandler) UpdateDollarPrice(c *gin.Context) {
-	authPayload := httputil.GetAuthPayload(c)
-	currentUserId := authPayload.UserID
+    authPayload := httputil.GetAuthPayload(c)
+    currentUserId := authPayload.UserID
 
-	var req updateDollarPriceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		validationError(c, err, uh.AppConfig.Lang)
-		return
-	}
+    var req updateDollarPriceRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        validationError(c, err, uh.AppConfig.Lang)
+        return
+    }
 
-	dollarPriceDecimal, err := decimal.NewFromString(req.DollarPrice)
-	if err != nil {
-		validationError(c, err, uh.AppConfig.Lang)
-		return
-	}
+    dollarPriceDecimal, err := decimal.NewFromString(req.DollarPrice)
+    if err != nil {
+        validationError(c, err, uh.AppConfig.Lang)
+        return
+    }
 
-	err = uh.service.UpdateDollarPrice(c, currentUserId, decimal.NullDecimal{
-		Decimal: dollarPriceDecimal,
-		Valid:   !dollarPriceDecimal.IsZero(),
-	})
-	if err != nil {
-		HandleError(c, err, uh.AppConfig.Lang)
-		return
-	}
+    // فقط پاس دادن همون‌ها؛ Service خودش تشخیص می‌ده اگر nil بود، دست نزنه
+    err = uh.service.UpdateDollarPrice(
+        c,
+        currentUserId,
+        decimal.NullDecimal{ Decimal: dollarPriceDecimal, Valid: !dollarPriceDecimal.IsZero() },
+        req.DollarUpdate,
+        req.Rounded,
+    )
+    if err != nil {
+        HandleError(c, err, uh.AppConfig.Lang)
+        return
+    }
 
-	handleSuccess(c, nil)
+    handleSuccess(c, nil)
 }
+
+
 
 type getAdminRequest struct {
 	AdminID int64 `uri:"adminId"`

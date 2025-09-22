@@ -18,7 +18,12 @@ type UserRepository interface {
 		offset int) (
 		users []*domain.UserViewModel, totalCount int64, err error)
 	UpdateShop(ctx context.Context, dbSession interface{}, shop *domain.User) (err error)
-	UpdateDollarPrice(ctx context.Context, dbSession interface{}, shop *domain.User) (err error) // Note: This seems to be a duplicate of the one in UserService, ensure it's correct.
+
+	UpdateDollarPrice(
+		ctx context.Context,
+		dbSession interface{},
+		user *domain.User,
+	) error
 	CreateAdminAccess(ctx context.Context, dbSession interface{}, userID int64) (err error)
 	GetAdminAccess(ctx context.Context, dbSession interface{}, adminID int64) (
 		adminAccess *domain.AdminAccess, err error)
@@ -37,19 +42,11 @@ type UserRepository interface {
 	UpdateDeviceLastLogin(ctx context.Context, dbSession interface{}, device *domain.ActiveDevice) error
 	UpdateUserDeviceLimit(ctx context.Context, dbSession interface{}, userID int64, limit int) error
 	DeleteUserDevice(ctx context.Context, dbSession interface{}, userID int64, deviceID string) error // <-- ADDED
-	
 
-    // ... متدهای قبلی
-    DeleteAllUserDevices(ctx context.Context, dbSession interface{}, userID int64) error // <-- ADDED
-	
-		UpdateAllUsersDeviceLimit(ctx context.Context, dbSession interface{}, limit int) error
-	
-	
-		
-	
+	// ... متدهای قبلی
+	DeleteAllUserDevices(ctx context.Context, dbSession interface{}, userID int64) error // <-- ADDED
 
- 
-
+	UpdateAllUsersDeviceLimit(ctx context.Context, dbSession interface{}, limit int) error
 }
 
 type UserService interface {
@@ -66,8 +63,14 @@ type UserService interface {
 	DeleteAdmin(ctx context.Context, adminID int64) (err error)
 	FetchUserInfo(ctx context.Context, id int64) (user *domain.User,
 		adminAccessInfo *domain.AdminAccess, err error)
-	UpdateDollarPrice(ctx context.Context, currentUserID int64,
-		dollarPrice decimal.NullDecimal) (err error)
+
+	UpdateDollarPrice(
+		ctx context.Context,
+		currentUserID int64,
+		dollarPrice decimal.NullDecimal,
+		dollarUpdate *bool,
+		rounded *bool,
+	) error
 	GetAdminAccess(ctx context.Context, adminId int64) (adminAccess *domain.AdminAccess, err error)
 	UpdateAdminAccess(ctx context.Context, adminAccess *domain.AdminAccess) (err error)
 	GetDollarPrice(ctx context.Context, id int64) (dollarPrice string, err error)
@@ -78,7 +81,6 @@ type UserService interface {
 	DeleteUserDevice(ctx context.Context, userID int64, deviceID string) error // <-- ADDED
 	// متد GetUserActiveDevices هم در سرویس لازم است
 	GetUserActiveDevices(ctx context.Context, userID int64) ([]*domain.ActiveDevice, error) // <-- ADDED
-	DeleteAllUserDevices(ctx context.Context, userID int64) error // <-- ADDED
+	DeleteAllUserDevices(ctx context.Context, userID int64) error                           // <-- ADDED
 	UpdateAllUsersDeviceLimit(ctx context.Context, limit int) error
 }
-
