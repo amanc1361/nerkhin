@@ -52,7 +52,7 @@ type UserProductRepository interface {
 		dbSession interface{},
 		q *domain.UserProductSearchQuery,
 	) (int64, error)
-	AdjustUserFinalPricesByPercent(ctx context.Context, dbSession interface{}, userID int64, factor decimal.Decimal) error
+	AdjustUserFinalPricesByRate(ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal) error
 
 }
 

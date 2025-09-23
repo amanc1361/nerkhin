@@ -878,21 +878,22 @@ func validateUserProductPrices(_ context.Context, userProduct *domain.UserProduc
 }
 // internal/core/service/user_product_service.go
 
-func (ups *UserProductService) AdjustUserFinalPricesByPercent(ctx context.Context, userID int64, percent decimal.Decimal) error {
-	db, err := ups.dbms.NewDB(ctx)
-	if err != nil {
-		return err
-	}
+func (ups *UserProductService) AdjustUserFinalPricesByPercent(
+    ctx context.Context, userID int64, percent decimal.Decimal,
+) error {
+    db, err := ups.dbms.NewDB(ctx)
+    if err != nil { return err }
 
-	// factor = 1 + percent/100  (مثلاً 10% → 1.10 ،  -5% → 0.95)
-	factor := decimal.NewFromInt(1).Add(percent.Div(decimal.NewFromInt(100)))
+    // 10 → 0.10 ،  -5 → -0.05
+    rate := percent.Div(decimal.NewFromInt(100))
 
-	if factor.LessThanOrEqual(decimal.Zero) {
-		return errors.New("invalid percent: results in non-positive factor")
-	}
+    // جلوگیری از فاکتور ≤ 0 (یعنی درصد ≤ -100)
+    if rate.LessThanOrEqual(decimal.NewFromInt(-1)) {
+        return errors.New("invalid percent: must be greater than -100")
+    }
 
-	return ups.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-		return ups.repo.AdjustUserFinalPricesByPercent(ctx, txSession, userID, factor)
-	})
+    return ups.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+        return ups.repo.AdjustUserFinalPricesByRate(ctx, txSession, userID, rate)
+    })
 }
 

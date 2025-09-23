@@ -981,10 +981,12 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	if err != nil {
 		return err
 	}
-	r := rate.String() // "0.01" یا "-0.05"
+
+	r := rate.String() // "0.10" یا "-0.05"
 
 	return db.Model(&domain.UserProduct{}).
 		Where("user_id = ? AND is_dollar = FALSE", userID).
+		// new = final_price * (1 + rate)  سپس گرد کردن و کف صفر
 		Update("final_price",
 			gorm.Expr("GREATEST(ROUND(final_price * (1 + (?::numeric)), 0), 0)", r),
 		).Error
