@@ -15,7 +15,7 @@ type Props = {
   onSharePdf?: () => void;
   onShare?: () => void;
   messages: UserProductMessages;
-
+  onRefreshList?: () => void | Promise<void>;
   usdEditable?: boolean;
   onUsdChange?: (val: string) => void;
   onUsdSave?: () => void;
@@ -26,6 +26,7 @@ type Props = {
 
 export default function ProductsToolbar({
   usdPrice,
+  onRefreshList,
   addHref,
   onShareJpg,
   onSharePdf,
@@ -79,7 +80,11 @@ export default function ProductsToolbar({
             </div>
           </button>
           <div className="">
-          <AdjustRialPrices fullWidth step={0.5} />
+          <AdjustRialPrices fullWidth step={0.5} 
+           onAfterClose={async (updated) => {
+            if (updated) await onRefreshList?.();
+          }}
+          />
         </div>
 
           {/* کاشی PDF */}
@@ -166,7 +171,11 @@ export default function ProductsToolbar({
           </div>
 
           {/* ⬇️ NEW: دکمهٔ تغییر قیمت ریالی (قبل از افزودن کالا) */}
-          <AdjustRialPrices fullWidth step={0.5} />
+          <AdjustRialPrices fullWidth step={0.5} 
+            onAfterClose={async (updated) => {
+              if (updated) await onRefreshList?.();
+            }}
+          />
 
           <Link
             href={addHref}

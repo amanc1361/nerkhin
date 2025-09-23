@@ -2,10 +2,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Minus, Percent, PercentSquareIcon, PercentCircle } from "lucide-react";
+import { Plus, Minus, PercentCircle } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useAdjustRialPrices } from "@/app/hooks/useAdjustRialPrices";
-// مسیر خودت:
 import ReusableModal from "../shared/generalModal";
 
 type Labels = {
@@ -18,15 +17,16 @@ type Labels = {
   footer?: string;
   invalidPercent?: string;
   genericError?: string;
-  /** (اختیاری) برچسب‌های موبایل دو خطی */
-  mobileLine1?: string; // پیش‌فرض: "تنظیم قیمت"
-  mobileLine2?: string; // پیش‌فرض: "تومانی"
 };
 
 type Props = {
   className?: string;
   adjustUrl?: string;
+  /** بعد از بسته‌شدن مودال صدا زده می‌شود. updated=true یعنی اعمال موفق انجام شده. */
+  onAfterClose?: (updated: boolean) => void | Promise<void>;
+  /** برای سازگاری قبلی؛ اگر دادی فقط هنگام موفقیت صدا می‌زنیم (deprecated) */
   onDone?: () => void | Promise<void>;
+
   labels?: Labels;
   fullWidth?: boolean;
   step?: number;      // default 0.5
@@ -48,7 +48,8 @@ function roundToStep(val: number, step: number) {
 export default function AdjustRialPrices({
   className,
   adjustUrl,
-  onDone,
+  onAfterClose,
+  onDone, // optional (back-compat)
   labels,
   fullWidth = true,
   step = 0.5,
@@ -65,8 +66,6 @@ export default function AdjustRialPrices({
     footer = "فقط روی محصولات غیر دلاری اعمال می‌شود .",
     invalidPercent = "درصد معتبر نیست.",
     genericError = "خطا در اعمال تغییر قیمت. دوباره تلاش کنید.",
-    mobileLine1 = "تنظیم قیمت",
-    mobileLine2 = "تومانی",
   } = labels || {};
 
   const decs = useMemo(() => stepDecimals(step), [step]);
@@ -83,6 +82,19 @@ export default function AdjustRialPrices({
     setError(null);
     setPercentStr("");
     setOpen(true);
+  };
+
+  const closeModal = async (updated: boolean) => {
+    setOpen(false);
+    try {
+      if (updated) {
+        // سازگاری با نسخه‌های قبلی
+        await onDone?.();
+      }
+      await onAfterClose?.(updated);
+    } catch {
+      /* noop */
+    }
   };
 
   const parseVal = (s: string) => {
@@ -119,10 +131,9 @@ export default function AdjustRialPrices({
     }
     const snapped = clamp(roundToStep(raw, step));
     try {
-      await doSubmit(snapped);
-      setOpen(false);
+      await doSubmit(snapped);   // API
       setPercentStr("");
-      await onDone?.();
+      await closeModal(true);   // ← موفقیت: updated=true
     } catch {
       if (!error) setError(genericError);
     }
@@ -130,8 +141,7 @@ export default function AdjustRialPrices({
 
   return (
     <>
-      {/* موبایل: tile هم‌استایل با اسکرین‌شات */}
-      <div className="lg:hidden">
+        <div className="lg:hidden">
         <button
           type="button"
           onClick={openModal}
@@ -143,9 +153,9 @@ export default function AdjustRialPrices({
             <PercentCircle className="w-5 h-5" />
           </div>
           <div className="mt-1.5 text-[11px] leading-4 text-neutral-800 font-medium">
-            <span>{mobileLine1}</span>
+            <span>{"تغییر قیمت"}</span>
             <br />
-            <span>{mobileLine2}</span>
+            <span>{"تومانی"}</span>
           </div>
         </button>
       </div>
@@ -165,11 +175,11 @@ export default function AdjustRialPrices({
         </button>
       </div>
 
-      {/* پورتال: مودال داخل body رندر می‌شود */}
+      {/* پورتال: مودال داخل body رندر می‌شود تا هیچ لایه‌ای زیرش فعال نباشد */}
       {mounted && open && createPortal(
         <ReusableModal
           isOpen={open}
-          onClose={() => !isSubmitting && setOpen(false)}
+          onClose={() => !isSubmitting && closeModal(false)} // ← بستن بدون اعمال
           title={title}
           size="md"
         >
@@ -220,7 +230,7 @@ export default function AdjustRialPrices({
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => setOpen(false)}
+                onClick={() => closeModal(false)}  // ← انصراف: updated=false
                 className="rounded-xl border px-3 py-2 text-sm"
               >
                 {cancel}

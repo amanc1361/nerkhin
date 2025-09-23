@@ -247,6 +247,12 @@ export default function MyproductsPage({
               onShare={() => {}}
               messages={messages}
               onOpenUsdModal={() => setOpenUsdModal(true)}
+              onRefreshList={async () => {
+                isFetchingRef.current = false;
+                hasMoreRef.current = true;
+                mobilePageRef.current = 1;
+                await fetchPage(1, lastFiltersRef.current, { append: false });
+              }}
             />
           </div>
           
@@ -264,6 +270,12 @@ export default function MyproductsPage({
               onShare={() => {}}
               messages={messages}
               onOpenUsdModal={() => setOpenUsdModal(true)}
+              onRefreshList={async () => {
+                isFetchingRef.current = false;
+                hasMoreRef.current = true;
+                mobilePageRef.current = 1;
+                await fetchPage(1, lastFiltersRef.current, { append: false });
+              }}
             />
           </div>
 
