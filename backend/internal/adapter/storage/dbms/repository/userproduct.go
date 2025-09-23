@@ -999,7 +999,7 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 		return err
 	}
 
-	// 1) خواندن rounded کاربر
+	// خواندن تنظیم گرد کردن کاربر
 	var u struct {
 		Rounded *bool `gorm:"column:rounded"`
 	}
@@ -1011,28 +1011,25 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	}
 	rounded := u.Rounded != nil && *u.Rounded
 
-	// 2) factor = 1 + rate  (rate از سرویس = درصد/100)
+	// factor = 1 + rate   (rate در سرویس = percent/100)
 	factor := decimal.NewFromInt(1).Add(rate)
-	f := factor.String() // پارامتر متنی؛ در SQL به NUMERIC کَست می‌شود
+	f := factor.String()
 
 	var expr string
 	var args []any
 
 	if rounded {
-		// زیر 65000 → FLOOR ؛ از 65000 به بالا → CEIL
-		// سه بار استفاده از پارامتر ⇒ باید 3 آرگومان بدهیم
+		// رند طبق آستانه ۶۵هزار روی مضارب ۱۰۰هزار:
+		// remainder < 65000  → پایین
+		// remainder ≥ 65000  → بالا
 		expr = `
 			GREATEST(
-				CASE 
-					WHEN final_price * CAST(? AS NUMERIC) < 65000
-						THEN FLOOR(final_price * CAST(? AS NUMERIC))
-					ELSE CEIL(final_price * CAST(? AS NUMERIC))
-				END,
+				FLOOR( (final_price * CAST(? AS NUMERIC) + 35000) / 100000 ) * 100000,
 				0
 			)`
-		args = []any{f, f, f}
+		args = []any{f}
 	} else {
-		// بدون گرد کردن
+		// بدون رند کردن
 		expr = `GREATEST(final_price * CAST(? AS NUMERIC), 0)`
 		args = []any{f}
 	}
