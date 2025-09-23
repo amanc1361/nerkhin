@@ -984,14 +984,13 @@ func (ur *UserProductRepository) GetAggregatedFilterDataForSearch(ctx context.Co
 
 // 	r := rate.String() // "0.10" یا "-0.05"
 
-// 	return db.Model(&domain.UserProduct{}).
-// 		Where("user_id = ? AND is_dollar = FALSE", userID).
-// 		// new = final_price * (1 + rate)  سپس گرد کردن و کف صفر
-// 		Update("final_price",
-// 			gorm.Expr("GREATEST(ROUND(final_price * (1 + (?::numeric)), 0), 0)", r),
-// 		).Error
-// }
-
+//		return db.Model(&domain.UserProduct{}).
+//			Where("user_id = ? AND is_dollar = FALSE", userID).
+//			// new = final_price * (1 + rate)  سپس گرد کردن و کف صفر
+//			Update("final_price",
+//				gorm.Expr("GREATEST(ROUND(final_price * (1 + (?::numeric)), 0), 0)", r),
+//			).Error
+//	}
 func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal,
 ) error {
@@ -1000,7 +999,7 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 		return err
 	}
 
-	// 1) خواندن تنظیم گرد کردن کاربر
+	// خواندن تنظیم گرد کردن
 	var u struct {
 		Rounded *bool `gorm:"column:rounded"`
 	}
@@ -1012,34 +1011,33 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	}
 	rounded := u.Rounded != nil && *u.Rounded
 
-	// 2) rate همان‌طور که خودت استفاده کردی، داخل (1 + rate) می‌رود
-	r := rate.String()
+	// rate از فرانت «درصد» است (مثل 1 یا -5 یا 0.4) → باید /100 شود
+	p := rate.String() // همون درصد خام
 
-	// 3) ساخت عبارت و آرگومان‌ها با توجه به rounded
 	var expr string
-	var args []interface{}
+	var args []any
 
 	if rounded {
-		// اگر گرد کردن فعاله: زیر 65000 → FLOOR ، از 65000 به بالا → CEIL
-		// توجه: اینجا (1 + ?::numeric) سه بار استفاده می‌شود → باید 3 آرگومان پاس بدهیم
+		// زیر 65000 → FLOOR ؛ از 65000 به بالا → CEIL
+		// دقت: (1 + (?::numeric)/100) سه بار تکرار می‌شود → 3 آرگومان
 		expr = `
 			GREATEST(
 				CASE 
-					WHEN final_price * (1 + (?::numeric)) < 65000
-						THEN FLOOR(final_price * (1 + (?::numeric)))
-					ELSE CEIL(final_price * (1 + (?::numeric)))
+					WHEN final_price * (1 + (?::numeric)/100) < 65000
+						THEN FLOOR(final_price * (1 + (?::numeric)/100))
+					ELSE CEIL(final_price * (1 + (?::numeric)/100))
 				END,
 				0
 			)`
-		args = []interface{}{r, r, r}
+		args = []any{p, p, p}
 	} else {
-		// بدون گرد کردن: ساختار اصلی خودت
-		// اینجا فقط 1 جای‌گذار داریم → باید 1 آرگومان پاس بدهیم
-		expr = "GREATEST(final_price * (1 + (?::numeric)), 0)"
-		args = []interface{}{r}
+		// بدون گرد کردن؛ فقط اعمال درصد
+		// اگر ستون final_price از نوع عدد صحیح است و نمی‌خواهی خطای کست بخوری،
+		// می‌توانی CAST(... AS BIGINT) بگذاری. اگر نوعش numeric است، همین خوب است.
+		expr = "GREATEST(final_price * (1 + (?::numeric)/100), 0)"
+		args = []any{p}
 	}
 
-	// 4) اعمال آپدیت
 	return db.Model(&domain.UserProduct{}).
 		Where("user_id = ? AND is_dollar = FALSE", userID).
 		Update("final_price", gorm.Expr(expr, args...)).
