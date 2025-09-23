@@ -973,18 +973,19 @@ func (ur *UserProductRepository) GetAggregatedFilterDataForSearch(ctx context.Co
 
 // internal/adapter/repository/user_product_repository.go
 
-func (upr *UserProductRepository) AdjustUserFinalPricesByPercent(ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal) error {
+// repository - نسخه‌ای که ورودی‌اش rate است (نه درصد)
+func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
+	ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal,
+) error {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
 		return err
 	}
-
-	// rate به‌صورت numeric به پستگرس پاس داده می‌شود تا دقت حفظ شود
-	rateStr := rate.String() // مثلا "0.10" یا "-0.05"
+	r := rate.String() // "0.01" یا "-0.05"
 
 	return db.Model(&domain.UserProduct{}).
 		Where("user_id = ? AND is_dollar = FALSE", userID).
-		// new_price = final_price + (final_price * rate)  و سپس حداقل 0
 		Update("final_price",
-			gorm.Expr("GREATEST(ROUND(final_price + (final_price * (?::numeric))), 0)", rateStr)).Error
+			gorm.Expr("GREATEST(ROUND(final_price * (1 + (?::numeric)), 0), 0)", r),
+		).Error
 }
