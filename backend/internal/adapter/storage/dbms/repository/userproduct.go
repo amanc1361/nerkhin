@@ -999,7 +999,7 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 		return err
 	}
 
-	// خواندن تنظیم گرد کردن
+	// خواندن فیلد rounded
 	var u struct {
 		Rounded *bool `gorm:"column:rounded"`
 	}
@@ -1011,31 +1011,27 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	}
 	rounded := u.Rounded != nil && *u.Rounded
 
-	// rate از فرانت «درصد» است (مثل 1 یا -5 یا 0.4) → باید /100 شود
-	p := rate.String() // همون درصد خام
+	// factor = 1 + rate
+	factor := decimal.NewFromInt(1).Add(rate)
+	f := factor.String()
 
 	var expr string
 	var args []any
 
 	if rounded {
-		// زیر 65000 → FLOOR ؛ از 65000 به بالا → CEIL
-		// دقت: (1 + (?::numeric)/100) سه بار تکرار می‌شود → 3 آرگومان
 		expr = `
-			GREATEST(
-				CASE 
-					WHEN final_price * (1 + (?::numeric)/100) < 65000
-						THEN FLOOR(final_price * (1 + (?::numeric)/100))
-					ELSE CEIL(final_price * (1 + (?::numeric)/100))
-				END,
-				0
-			)`
-		args = []any{p, p, p}
+            GREATEST(
+                CASE 
+                    WHEN final_price * (?::numeric) < 65000
+                        THEN FLOOR(final_price * (?::numeric))
+                    ELSE CEIL(final_price * (?::numeric))
+                END,
+                0
+            )`
+		args = []any{f, f}
 	} else {
-		// بدون گرد کردن؛ فقط اعمال درصد
-		// اگر ستون final_price از نوع عدد صحیح است و نمی‌خواهی خطای کست بخوری،
-		// می‌توانی CAST(... AS BIGINT) بگذاری. اگر نوعش numeric است، همین خوب است.
-		expr = "GREATEST(final_price * (1 + (?::numeric)/100), 0)"
-		args = []any{p}
+		expr = "GREATEST(final_price * (?::numeric), 0)"
+		args = []any{f}
 	}
 
 	return db.Model(&domain.UserProduct{}).
