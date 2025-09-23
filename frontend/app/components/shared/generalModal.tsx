@@ -2,17 +2,7 @@
 import React, { useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 
-/**
- * یک مودال واکنش‌گرا، بدون وابستگی خارجی (بدون framer‑motion) و بدون نمایش اسکرول‌بار.
- * برای تغییر عرض از prop `size` استفاده کنید.
- *
- * ⚠️ برای پنهان کردن کامل اسکرول‌بار، لازم است کلاس `no-scrollbar` را در فایل global.css یا tailwind.css تعریف کنید:
- * ```css
- * .no-scrollbar::-webkit-scrollbar { display: none; }
- * .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
- * ```
- * سپس کلاس را همراه با `overflow-y-auto` روی عنصر اسکرول‌شونده بگذارید.
- */
+
 interface ReusableModalProps {
   isOpen: boolean;
   onClose: () => void;

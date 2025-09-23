@@ -1246,3 +1246,27 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Data(200, "application/pdf", pdfBuf)
 }
+
+type adjustUserPricesRequest struct {
+	Percent decimal.Decimal     `json:"percent" binding:"required"` // مثال: +10 یا -5
+}
+// internal/adapter/http/handler/user_product_handler.go
+
+func (uph *UserProductHandler) AdjustUserFinalPricesByPercent(c *gin.Context) {
+	authPayload := httputil.GetAuthPayload(c)
+	currentUserID := authPayload.UserID
+	var req adjustUserPricesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		validationError(c, err, uph.AppConfig.Lang)
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	if err := uph.service.AdjustUserFinalPricesByPercent(ctx, currentUserID, req.Percent); err != nil {
+		HandleError(c, err, uph.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, nil)
+}

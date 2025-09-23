@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { UserProductMessages } from "@/lib/server/texts/userProdutMessages";
-import { ShareIcon, DollarSign, FileDown, PlusCircle } from "lucide-react";
+import { ShareIcon, DollarSign, FileDown, PlusCircle, PercentSquareIcon } from "lucide-react";
+
+// ⬇️ NEW
+import AdjustRialPrices from "@/app/components/userproduct/AdjustRialPrices";
 
 type Props = {
   usdPrice?: number | string | null;
@@ -55,10 +58,8 @@ export default function ProductsToolbar({
     <div dir="rtl" className="space-y-3">
       {/* ===== موبایل: هدر کوچک + ردیف سه‌تایی اکشن‌ها ===== */}
       <div className="lg:hidden space-y-2">
-   
-
         {/* ردیف سه‌تایی جمع‌وجور (هر سه در یک ردیف) */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {/* کاشی دلار */}
           <button
             type="button"
@@ -77,6 +78,9 @@ export default function ProductsToolbar({
               </span>
             </div>
           </button>
+          <div className="">
+          <AdjustRialPrices fullWidth step={0.5} />
+        </div>
 
           {/* کاشی PDF */}
           <Link
@@ -108,6 +112,9 @@ export default function ProductsToolbar({
             </div>
           </Link>
         </div>
+
+        {/* ⬇️ NEW: دکمهٔ تغییر قیمت ریالی (زیر ردیف سه‌تایی تا Grid به‌هم نخوره) */}
+        
       </div>
 
       {/* ===== دسکتاپ: همان نسخه ستونی قبلی ===== */}
@@ -157,6 +164,9 @@ export default function ProductsToolbar({
               )}
             </div>
           </div>
+
+          {/* ⬇️ NEW: دکمهٔ تغییر قیمت ریالی (قبل از افزودن کالا) */}
+          <AdjustRialPrices fullWidth step={0.5} />
 
           <Link
             href={addHref}

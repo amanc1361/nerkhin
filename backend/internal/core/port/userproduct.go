@@ -52,6 +52,8 @@ type UserProductRepository interface {
 		dbSession interface{},
 		q *domain.UserProductSearchQuery,
 	) (int64, error)
+	AdjustUserFinalPricesByPercent(ctx context.Context, dbSession interface{}, userID int64, factor decimal.Decimal) error
+
 }
 
 type UserProductService interface {
@@ -82,4 +84,6 @@ type UserProductService interface {
 
 		q *domain.UserProductSearchQuery,
 	) (*domain.MarketSearchResult, error)
+	AdjustUserFinalPricesByPercent(ctx context.Context, userID int64, percent decimal.Decimal) error
+
 }
