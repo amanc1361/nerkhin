@@ -1000,7 +1000,7 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 		return err
 	}
 
-	// گرفتن مقدار rounded از جدول کاربر
+	// 1) خواندن تنظیم گرد کردن کاربر
 	var u struct {
 		Rounded *bool `gorm:"column:rounded"`
 	}
@@ -1012,28 +1012,36 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	}
 	rounded := u.Rounded != nil && *u.Rounded
 
+	// 2) rate همان‌طور که خودت استفاده کردی، داخل (1 + rate) می‌رود
 	r := rate.String()
 
-	// ساخت عبارت آپدیت
-	expr := ""
+	// 3) ساخت عبارت و آرگومان‌ها با توجه به rounded
+	var expr string
+	var args []interface{}
+
 	if rounded {
-		// اگر گرد کردن فعال بود → شرط 65000
+		// اگر گرد کردن فعاله: زیر 65000 → FLOOR ، از 65000 به بالا → CEIL
+		// توجه: اینجا (1 + ?::numeric) سه بار استفاده می‌شود → باید 3 آرگومان پاس بدهیم
 		expr = `
 			GREATEST(
 				CASE 
-					WHEN final_price * (?::numeric) < 65000 
-						THEN FLOOR(final_price * (?::numeric)) 
-					ELSE CEIL(final_price * (?::numeric)) 
+					WHEN final_price * (1 + (?::numeric)) < 65000
+						THEN FLOOR(final_price * (1 + (?::numeric)))
+					ELSE CEIL(final_price * (1 + (?::numeric)))
 				END,
 				0
 			)`
+		args = []interface{}{r, r, r}
 	} else {
-		// همون منطق اولیه بدون گرد کردن
-		expr = "GREATEST(final_price * (?::numeric), 0)"
+		// بدون گرد کردن: ساختار اصلی خودت
+		// اینجا فقط 1 جای‌گذار داریم → باید 1 آرگومان پاس بدهیم
+		expr = "GREATEST(final_price * (1 + (?::numeric)), 0)"
+		args = []interface{}{r}
 	}
 
+	// 4) اعمال آپدیت
 	return db.Model(&domain.UserProduct{}).
 		Where("user_id = ? AND is_dollar = FALSE", userID).
-		Update("final_price", gorm.Expr(expr, r, r)).
+		Update("final_price", gorm.Expr(expr, args...)).
 		Error
 }
