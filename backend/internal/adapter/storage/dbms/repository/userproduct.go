@@ -974,6 +974,24 @@ func (ur *UserProductRepository) GetAggregatedFilterDataForSearch(ctx context.Co
 // internal/adapter/repository/user_product_repository.go
 
 // repository - نسخه‌ای که ورودی‌اش rate است (نه درصد)
+// func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
+// 	ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal,
+// ) error {
+// 	db, err := gormutil.CastToGORM(ctx, dbSession)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	r := rate.String() // "0.10" یا "-0.05"
+
+// 	return db.Model(&domain.UserProduct{}).
+// 		Where("user_id = ? AND is_dollar = FALSE", userID).
+// 		// new = final_price * (1 + rate)  سپس گرد کردن و کف صفر
+// 		Update("final_price",
+// 			gorm.Expr("GREATEST(ROUND(final_price * (1 + (?::numeric)), 0), 0)", r),
+// 		).Error
+// }
+
 func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal,
 ) error {
@@ -982,12 +1000,40 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 		return err
 	}
 
-	r := rate.String() // "0.10" یا "-0.05"
+	// گرفتن مقدار rounded از جدول کاربر
+	var u struct {
+		Rounded *bool `gorm:"column:rounded"`
+	}
+	if err := db.Model(&domain.User{}).
+		Select("rounded").
+		Where("id = ?", userID).
+		Take(&u).Error; err != nil {
+		return err
+	}
+	rounded := u.Rounded != nil && *u.Rounded
+
+	r := rate.String()
+
+	// ساخت عبارت آپدیت
+	expr := ""
+	if rounded {
+		// اگر گرد کردن فعال بود → شرط 65000
+		expr = `
+			GREATEST(
+				CASE 
+					WHEN final_price * (?::numeric) < 65000 
+						THEN FLOOR(final_price * (?::numeric)) 
+					ELSE CEIL(final_price * (?::numeric)) 
+				END,
+				0
+			)`
+	} else {
+		// همون منطق اولیه بدون گرد کردن
+		expr = "GREATEST(final_price * (?::numeric), 0)"
+	}
 
 	return db.Model(&domain.UserProduct{}).
 		Where("user_id = ? AND is_dollar = FALSE", userID).
-		// new = final_price * (1 + rate)  سپس گرد کردن و کف صفر
-		Update("final_price",
-			gorm.Expr("GREATEST(ROUND(final_price * (1 + (?::numeric)), 0), 0)", r),
-		).Error
+		Update("final_price", gorm.Expr(expr, r, r)).
+		Error
 }
