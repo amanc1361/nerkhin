@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 
 	"github.com/nerkhin/internal/core/domain"
@@ -63,9 +62,7 @@ func (as *AuthService) Login(ctx context.Context, phone string) (
 		if err != nil {
 			return err
 		}
-		fmt.Println("******************************")
-		fmt.Println(user.Role)
-		fmt.Println("*******************************")
+		
 		if user.Role == domain.Admin {
 			err := as.userRepo.CreateAdminAccess(ctx, txSession, user.ID)
 			if err != nil {

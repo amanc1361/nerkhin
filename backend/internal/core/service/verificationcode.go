@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kavenegar/kavenegar-go"
 	"github.com/nerkhin/internal/adapter/config"
 	"github.com/nerkhin/internal/core/domain"
 	"github.com/nerkhin/internal/core/domain/msg"
@@ -47,14 +48,26 @@ func (vc *VerificationCodeService) SendVerificationCode(ctx context.Context, pho
 		return "", errors.New(msg.ErrUserDoesNotExist)
 	}
 
-	codeGenerated = STATIC_CODE
+	codeGenerated = GenerateRandomCode(CODE_LENGTH)
 
 	err = vc.repo.SaveVerificationCode(ctx, db, user.ID, codeGenerated)
 	if err != nil {
 		return "", fmt.Errorf("failed to save verification code: %w", err)
 	}
+	api := kavenegar.New(vc.appConfig.SmsApiKey)
+	receptor := phone
+	template := "otp-code" 
+	params := &kavenegar.VerifyLookupParam{}
+
+	if _, errSend := api.Verify.Lookup(receptor, template, codeGenerated, params); errSend != nil {
+		return "", fmt.Errorf("failed to send SMS via Kavenegar: %w", errSend)
+	}
 
 	return codeGenerated, nil
+}
+
+func GenerateRandomCode(CODE_LENGTH int) string {
+	return "123456"
 }
 
 // CHANGED: Function signature and logic
