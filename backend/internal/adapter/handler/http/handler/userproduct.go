@@ -1267,46 +1267,50 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	now := ptime.Now()
 	htmlStr := buildPriceListHTML(*raw, now)
 
-	// ─────────────────────────────────────────────
-	// 1) آماده‌سازی مسیرهای قابل‌نوشتن برای Chrome
-	// ─────────────────────────────────────────────
-	profileDir := "/tmp/chromedp-profile"
-	_ = os.MkdirAll(profileDir, 0o777) // برای تست سریع؛ در عمل مالکیتِ درست بده
+	// --- تضمین محیط‌های نوشتن‌پذیر برای Chrome/Crashpad ---
+	ensureDir := func(p string) { _ = os.MkdirAll(p, 0o777) }
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = "/home/appuser" // مطابق Dockerfile
+	}
+	os.Setenv("HOME", home)
+	os.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	os.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	os.Setenv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
 
-	execPath := os.Getenv("CHROMEDP_EXEC_PATH") // مثلا /usr/bin/chromium-browser
+	ensureDir(os.Getenv("XDG_CONFIG_HOME"))
+	ensureDir(os.Getenv("XDG_CACHE_HOME"))
+	ensureDir(os.Getenv("XDG_DATA_HOME"))
+
+	profileDir := "/tmp/chromedp-profile"
+	crashDir := "/tmp/chrome-crashpad"
+	ensureDir(profileDir)
+	ensureDir(crashDir)
+
+	execPath := os.Getenv("CHROMEDP_EXEC_PATH")
 	if execPath == "" {
-		// اگر ست نیست، کروم‌دی‌پی خودش سعی می‌کند پیدا کند، ولی بهتر است صریح باشیم
 		execPath = "/usr/bin/chromium-browser"
 	}
 
-	// ─────────────────────────────────────────────
-	// 2) ExecAllocator با فلگ‌های ضد Crashpad
-	// ─────────────────────────────────────────────
-	allocOpts := append(
-		chromedp.DefaultExecAllocatorOptions[:],
+	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(execPath),
-
-		// حالت هدلس
-		// توجه: بسته به نسخه، "new" پایدارتر است؛ اگر خطا داد، true بگذار
+		// Headless: اگر لازم شد، "new" را به true تغییر بده
 		chromedp.Flag("headless", "new"),
-
-		// در کانتینرها لازم
+		// برای کانتینر
 		chromedp.Flag("no-sandbox", true),
 		chromedp.Flag("disable-setuid-sandbox", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("disable-dev-shm-usage", true),
-
-		// ⬅️ مهم: Crashpad/Breakpad را خاموش کن تا ارور دیتابیس نیاید
+		// مسیر crash dumps (برخی بیلدها نیاز دارند)
+		chromedp.Flag("crash-dumps-dir", crashDir),
+		// خاموشی گزارشگر کرش (برای برخی نسخه‌ها کمک می‌کند)
 		chromedp.Flag("disable-crash-reporter", true),
-		// برخی بیلدها به جای بالا به این حساس‌اند:
 		chromedp.Flag("disable-breakpad", true),
-
 		// پروفایل قابل‌نوشتن
 		chromedp.UserDataDir(profileDir),
-
-		// اختیاری اما مفید در برخی محیط‌ها:
-		// chromedp.Flag("single-process", true),
-		// chromedp.Flag("no-zygote", true),
+		// اولین اجرا بی‌سروصدا
+		chromedp.Flag("no-first-run", true),
+		chromedp.Flag("no-default-browser-check", true),
 	)
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocOpts...)
@@ -1315,13 +1319,12 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	chromeCtx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
 
-	// یک بار کافی است (دومی را حذف کردیم)
+	// فقط یک بار
 	if err := chromedp.Run(chromeCtx); err != nil {
 		HandleError(c, fmt.Errorf("chrome boot error: %w", err), uph.AppConfig.Lang)
 		return
 	}
 
-	// تایم‌اوت سخاوتمندانه‌تر برای رندر PDF
 	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 120*time.Second)
 	defer timeoutCancel()
 
@@ -1329,8 +1332,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	err = chromedp.Run(
 		timeoutCtx,
 		chromedp.Navigate("about:blank"),
-
-		// تزریق HTML
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			ft, err := page.GetFrameTree().Do(ctx)
 			if err != nil {
@@ -1338,15 +1339,10 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 			}
 			return page.SetDocumentContent(ft.Frame.ID, htmlStr).Do(ctx)
 		}),
-
 		chromedp.WaitReady("body", chromedp.ByQuery),
-
-		// media=screen
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return emulation.SetEmulatedMedia().WithMedia("screen").Do(ctx)
 		}),
-
-		// پرینت به PDF
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			data, _, err := page.PrintToPDF().
 				WithPrintBackground(true).
