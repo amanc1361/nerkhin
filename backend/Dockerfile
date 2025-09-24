@@ -102,7 +102,8 @@
     ENV CHROME_PATH=/usr/bin/chromium-browser
     
     # یوزر امن
-    RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+    # RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+    RUN addgroup -S -g 1000 appgroup && adduser -S -u 1000 -G appgroup appuser
     
     # XDG/HOME را برای appuser ست کن (کروم جدید به این‌ها متکی است)
     ENV HOME=/home/appuser \
