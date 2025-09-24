@@ -13,7 +13,6 @@ import (
 	"github.com/nerkhin/internal/core/port"
 )
 
-var STATIC_CODE = "123456"
 var CODE_LENGTH = 6
 
 type VerificationCodeService struct {
@@ -56,7 +55,7 @@ func (vc *VerificationCodeService) SendVerificationCode(ctx context.Context, pho
 	}
 	api := kavenegar.New(vc.appConfig.SmsApiKey)
 	receptor := phone
-	template := "otp-code" 
+	template := "otp-code"
 	params := &kavenegar.VerifyLookupParam{}
 
 	if _, errSend := api.Verify.Lookup(receptor, template, codeGenerated, params); errSend != nil {
@@ -64,10 +63,6 @@ func (vc *VerificationCodeService) SendVerificationCode(ctx context.Context, pho
 	}
 
 	return codeGenerated, nil
-}
-
-func GenerateRandomCode(CODE_LENGTH int) string {
-	return "123456"
 }
 
 // CHANGED: Function signature and logic
