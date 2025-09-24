@@ -1137,6 +1137,122 @@ td.c { text-align: center; }
 
 // ===================== هندلر اصلی: HTML → PDF با chromedp =====================
 
+// func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
+// 	authPayload := httputil.GetAuthPayload(c)
+// 	currentUserID := authPayload.UserID
+
+// 	ctx := c.Request.Context()
+// 	raw, err := uph.service.GetPriceList(ctx, currentUserID)
+// 	if err != nil {
+// 		HandleError(c, err, uph.AppConfig.Lang)
+// 		return
+// 	}
+
+// 	now := ptime.Now()
+// 	htmlStr := buildPriceListHTML(*raw, now)
+
+// 	// اجرای Headless Chrome داخل کانتینر
+// 	// توجه: در Dockerfile متغیرهای CHROMEDP_EXEC_PATH/CHROME_PATH ست شده‌اند.
+// 	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
+// 		chromedp.ExecPath(os.Getenv("CHROMEDP_EXEC_PATH")), // همون /usr/bin/chromium-browser طبق compose/Dockerfile
+// 		chromedp.Flag("headless", true),                    // هدلس
+// 		chromedp.Flag("no-sandbox", true),                  // حل خطای namespace
+// 		chromedp.Flag("disable-setuid-sandbox", true),
+// 		chromedp.Flag("disable-gpu", true),
+// 		chromedp.Flag("disable-dev-shm-usage", true), // برای /dev/shm
+// 		// در بعضی محیط‌ها لازم می‌شود
+// 		chromedp.UserDataDir("/tmp/chromedp-profile"), // پروفایل قابل‌نوشتن
+// 	)
+
+// 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocOpts...)
+// 	defer allocCancel()
+
+// 	chromeCtx, cancel := chromedp.NewContext(allocCtx)
+// 	defer cancel()
+
+// 	if err := chromedp.Run(chromeCtx); err != nil {
+// 		HandleError(c, fmt.Errorf("chrome boot error: %w", err), uph.AppConfig.Lang)
+// 		return
+// 	}
+
+// 	if err := chromedp.Run(chromeCtx); err != nil {
+// 		HandleError(c, fmt.Errorf("chrome boot error: %w", err), uph.AppConfig.Lang)
+// 		return
+// 	}
+
+// 	// ⬅️ تایم‌اوت رو کمی بالا ببر (مثلاً 120s)
+// 	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 120*time.Second)
+// 	defer timeoutCancel()
+
+// 	var pdfBuf []byte
+// 	err = chromedp.Run(
+// 		timeoutCtx,
+// 		// 1) صفحه خالی
+// 		chromedp.Navigate("about:blank"),
+
+// 		// 2) تزریق مستقیم HTML داخل فریم فعلی
+// 		chromedp.ActionFunc(func(ctx context.Context) error {
+// 			ft, err := page.GetFrameTree().Do(ctx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			return page.SetDocumentContent(ft.Frame.ID, htmlStr).Do(ctx)
+// 		}),
+
+// 		// 3) اطمینان از حاضر بودن DOM
+// 		chromedp.WaitReady("body", chromedp.ByQuery),
+
+// 		// 4) تنظیم media=screen (نسخه‌های جدید)
+// 		chromedp.ActionFunc(func(ctx context.Context) error {
+// 			return emulation.SetEmulatedMedia().WithMedia("screen").Do(ctx)
+// 			// اگر ماژولت قدیمی‌تر بود:
+// 			// return emulation.SetEmulatedMedia("screen").Do(ctx)
+// 		}),
+
+// 		// 5) پرینت PDF (سه خروجی: data, stream, err → دومی رو نادیده بگیر)
+// 		chromedp.ActionFunc(func(ctx context.Context) error {
+// 			data, _, err := page.PrintToPDF().
+// 				WithPrintBackground(true).
+// 				WithPaperWidth(8.27).   // A4
+// 				WithPaperHeight(11.69). // A4
+// 				WithMarginTop(0.39).
+// 				WithMarginBottom(0.39).
+// 				WithMarginLeft(0.39).
+// 				WithMarginRight(0.39).
+// 				Do(ctx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			pdfBuf = data
+// 			return nil
+// 		}),
+// 	)
+// 	if err != nil {
+// 		HandleError(c, fmt.Errorf("pdf render error: %w", err), uph.AppConfig.Lang)
+// 		return
+// 	}
+
+// 	shopName := strings.TrimSpace(raw.ShopInfo.ShopPhone1)
+// 	if shopName == "" {
+// 		shopName = "shop"
+// 	}
+// 	fileName := fmt.Sprintf(
+// 		"price-list-%s-%04d%02d%02d.pdf",
+// 		strings.ReplaceAll(shopName, " ", "-"),
+// 		now.Year(), int(now.Month()), now.Day(),
+// 	)
+
+// 	c.Header("Content-Type", "application/pdf")
+// 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
+// 	c.Data(200, "application/pdf", pdfBuf)
+// }
+
+type adjustUserPricesRequest struct {
+	Percent decimal.Decimal `json:"percent" binding:"required"` // مثال: +10 یا -5
+}
+
+// internal/adapter/http/handler/user_product_handler.go
+
 func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
 	currentUserID := authPayload.UserID
@@ -1151,17 +1267,46 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	now := ptime.Now()
 	htmlStr := buildPriceListHTML(*raw, now)
 
-	// اجرای Headless Chrome داخل کانتینر
-	// توجه: در Dockerfile متغیرهای CHROMEDP_EXEC_PATH/CHROME_PATH ست شده‌اند.
-	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.ExecPath(os.Getenv("CHROMEDP_EXEC_PATH")), // همون /usr/bin/chromium-browser طبق compose/Dockerfile
-		chromedp.Flag("headless", true),                    // هدلس
-		chromedp.Flag("no-sandbox", true),                  // حل خطای namespace
+	// ─────────────────────────────────────────────
+	// 1) آماده‌سازی مسیرهای قابل‌نوشتن برای Chrome
+	// ─────────────────────────────────────────────
+	profileDir := "/tmp/chromedp-profile"
+	_ = os.MkdirAll(profileDir, 0o777) // برای تست سریع؛ در عمل مالکیتِ درست بده
+
+	execPath := os.Getenv("CHROMEDP_EXEC_PATH") // مثلا /usr/bin/chromium-browser
+	if execPath == "" {
+		// اگر ست نیست، کروم‌دی‌پی خودش سعی می‌کند پیدا کند، ولی بهتر است صریح باشیم
+		execPath = "/usr/bin/chromium-browser"
+	}
+
+	// ─────────────────────────────────────────────
+	// 2) ExecAllocator با فلگ‌های ضد Crashpad
+	// ─────────────────────────────────────────────
+	allocOpts := append(
+		chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.ExecPath(execPath),
+
+		// حالت هدلس
+		// توجه: بسته به نسخه، "new" پایدارتر است؛ اگر خطا داد، true بگذار
+		chromedp.Flag("headless", "new"),
+
+		// در کانتینرها لازم
+		chromedp.Flag("no-sandbox", true),
 		chromedp.Flag("disable-setuid-sandbox", true),
 		chromedp.Flag("disable-gpu", true),
-		chromedp.Flag("disable-dev-shm-usage", true), // برای /dev/shm
-		// در بعضی محیط‌ها لازم می‌شود
-		chromedp.UserDataDir("/tmp/chromedp-profile"), // پروفایل قابل‌نوشتن
+		chromedp.Flag("disable-dev-shm-usage", true),
+
+		// ⬅️ مهم: Crashpad/Breakpad را خاموش کن تا ارور دیتابیس نیاید
+		chromedp.Flag("disable-crash-reporter", true),
+		// برخی بیلدها به جای بالا به این حساس‌اند:
+		chromedp.Flag("disable-breakpad", true),
+
+		// پروفایل قابل‌نوشتن
+		chromedp.UserDataDir(profileDir),
+
+		// اختیاری اما مفید در برخی محیط‌ها:
+		// chromedp.Flag("single-process", true),
+		// chromedp.Flag("no-zygote", true),
 	)
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocOpts...)
@@ -1170,27 +1315,22 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	chromeCtx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
 
+	// یک بار کافی است (دومی را حذف کردیم)
 	if err := chromedp.Run(chromeCtx); err != nil {
 		HandleError(c, fmt.Errorf("chrome boot error: %w", err), uph.AppConfig.Lang)
 		return
 	}
 
-	if err := chromedp.Run(chromeCtx); err != nil {
-		HandleError(c, fmt.Errorf("chrome boot error: %w", err), uph.AppConfig.Lang)
-		return
-	}
-
-	// ⬅️ تایم‌اوت رو کمی بالا ببر (مثلاً 120s)
+	// تایم‌اوت سخاوتمندانه‌تر برای رندر PDF
 	timeoutCtx, timeoutCancel := context.WithTimeout(chromeCtx, 120*time.Second)
 	defer timeoutCancel()
 
 	var pdfBuf []byte
 	err = chromedp.Run(
 		timeoutCtx,
-		// 1) صفحه خالی
 		chromedp.Navigate("about:blank"),
 
-		// 2) تزریق مستقیم HTML داخل فریم فعلی
+		// تزریق HTML
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			ft, err := page.GetFrameTree().Do(ctx)
 			if err != nil {
@@ -1199,17 +1339,14 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 			return page.SetDocumentContent(ft.Frame.ID, htmlStr).Do(ctx)
 		}),
 
-		// 3) اطمینان از حاضر بودن DOM
 		chromedp.WaitReady("body", chromedp.ByQuery),
 
-		// 4) تنظیم media=screen (نسخه‌های جدید)
+		// media=screen
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return emulation.SetEmulatedMedia().WithMedia("screen").Do(ctx)
-			// اگر ماژولت قدیمی‌تر بود:
-			// return emulation.SetEmulatedMedia("screen").Do(ctx)
 		}),
 
-		// 5) پرینت PDF (سه خروجی: data, stream, err → دومی رو نادیده بگیر)
+		// پرینت به PDF
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			data, _, err := page.PrintToPDF().
 				WithPrintBackground(true).
@@ -1232,7 +1369,7 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 		return
 	}
 
-	shopName := strings.TrimSpace(raw.ShopInfo.ShopName)
+	shopName := strings.TrimSpace(raw.ShopInfo.ShopPhone1)
 	if shopName == "" {
 		shopName = "shop"
 	}
@@ -1246,11 +1383,6 @@ func (uph *UserProductHandler) FetchPriceListPDF(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Data(200, "application/pdf", pdfBuf)
 }
-
-type adjustUserPricesRequest struct {
-	Percent decimal.Decimal     `json:"percent" binding:"required"` // مثال: +10 یا -5
-}
-// internal/adapter/http/handler/user_product_handler.go
 
 func (uph *UserProductHandler) AdjustUserFinalPricesByPercent(c *gin.Context) {
 	authPayload := httputil.GetAuthPayload(c)
