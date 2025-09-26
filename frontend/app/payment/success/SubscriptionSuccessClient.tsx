@@ -13,7 +13,7 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
       try {
         await updateSession();
 
-        const destination = `/${role}/shop`;
+        const destination = `/${role}/account`;
 
         setTimeout(() => {
           router.replace(destination);
