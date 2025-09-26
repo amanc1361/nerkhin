@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -8,17 +8,32 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
   const router = useRouter();
   const { update: updateSession } = useSession();
 
+  // جلوگیری از اجرای دوباره در StrictMode (Dev)
+  const didRunRef = useRef(false);
+
   useEffect(() => {
+    if (didRunRef.current) return;
+    didRunRef.current = true;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
     const updateUserAndRedirect = async () => {
       try {
-        await updateSession();
+        // نکته: update() در authOptions → jwt(trigger="update") را اجرا می‌کند
+        const updated = await updateSession();
 
-        const destination = `/${role}/account`;
+        // نقش را از سشن تازه بگیر؛ اگر نبود از prop استفاده کن
+        const freshRole =
+          (updated as any)?.user?.role ??
+          (updated as any)?.role ?? // اگر ساختار سفارشی باشد
+          role;
 
-        setTimeout(() => {
+        const destination = `/${freshRole}/shop`;
+
+        // کمی مکث برای تجربه‌ی کاربری بهتر + اطمینان از ست شدن کوکی‌ها
+        timer = setTimeout(() => {
           router.replace(destination);
-        }, 1500); // 1.5 ثانیه تأخیر
-
+        }, 1200); // کمی کمتر از 1.5s
       } catch (error) {
         console.error("خطا در به‌روزرسانی نشست یا هدایت کاربر:", error);
         router.replace("/");
@@ -27,16 +42,18 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
 
     updateUserAndRedirect();
 
-  }, []); 
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [router, updateSession, role]);
 
   return (
-
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <div className="flex flex-col items-center justify-center space-y-6 rounded-2xl bg-white dark:bg-gray-800 p-8 shadow-2xl shadow-gray-200/50 dark:shadow-black/20 max-w-md w-full text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-10 w-10 text-green-500 dark:text-green-400"
+            className="h-10 w-10"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
