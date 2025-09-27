@@ -1,22 +1,28 @@
+// app/payment/success/page.tsx (یا هر مسیر فعلی شما)
 import { authOptions } from "@/lib/server/authOptions";
 import { getServerSession } from "next-auth";
-
 import { redirect } from "next/navigation";
 import SubscriptionSuccessClient from "./SubscriptionSuccessClient";
+import { unstable_noStore as noStore } from "next/cache";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-// این کامپوننت در سمت سرور اجرا می‌شود
 export default async function SubscriptionSuccessPage() {
-  // اطلاعات کاربر را با استفاده از getServerSession دریافت می‌کنیم
-  const session = await getServerSession(authOptions);
-  const userRole = (session?.user as any)?.role;
+  noStore();
 
-  // اگر نقش کاربر وجود نداشت، او را هدایت می‌کنیم
-  if (!userRole) {
-    redirect("/login"); // یا هر مسیر مناسب دیگر
+  const session = await getServerSession(authOptions);
+
+  // اگر کلاً لاگین نیست، بفرست لاگین
+  if (!session?.user?.id) {
+    redirect("/login");
   }
 
-  // کامپوننت کلاینت را با پاس دادن نقش کاربر رندر می‌کنیم
-  return <SubscriptionSuccessClient role={userRole} />;
-}
+  // نقش می‌تواند number یا string باشد؛ از null/undefined چک کن نه Falsy
+  const rawRole = (session.user as any)?.role;
+  const safeRole =
+    rawRole !== null && rawRole !== undefined ? String(rawRole) : "retailer";
 
+  // حالا کلاینت، update() را می‌زند و فورس‌رفرش انجام می‌شود
+  return <SubscriptionSuccessClient role={safeRole} />;
+}

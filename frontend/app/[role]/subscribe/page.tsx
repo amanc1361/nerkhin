@@ -123,9 +123,7 @@ export default async function SubscribePage({
                 <InfoIcon />
                 <span>در صورت بروز مشکل در پرداخت، با پشتیبانی تماس بگیرید.</span>
               </div>
-              <div className="opacity-80">
-                مسیر خرید: <code className="rounded bg-slate-100 px-2 py-0.5 dark:bg-slate-800">{`/${role || "retailer"}/account/subscriptions`}</code>
-              </div>
+             
             </div>
           </div>
         </section>
