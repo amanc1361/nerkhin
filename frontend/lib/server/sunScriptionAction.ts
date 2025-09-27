@@ -20,31 +20,49 @@ function resolveRootBase(publicBase: string, internalBase: string) {
   return ib.endsWith(tail) ? ib : ib + tail;
 }
 
-async function sFetch<T>(path: string, method: HttpMethod = "GET", body?: any, init?: RequestInit): Promise<T> {
+async function sFetch<T>(
+  path: string,
+  method: HttpMethod = "GET",
+  body?: any,
+  init?: RequestInit
+): Promise<T> {
   const session = await getServerSession(authOptions);
-  const token = (session as any)?.user?.accessToken || (session as any)?.accessToken;
+  const token =
+    (session as any)?.user?.accessToken || (session as any)?.accessToken;
 
   const base = resolveRootBase(API_BASE_URL || "/api/go", INTERNAL_GO_API_URL || "");
   const url = `${base}${withSlash(path)}`;
 
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
+    ...(body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(init?.headers ?? {}),
   };
 
   const res = await fetch(url, {
     method,
     headers,
     cache: "no-store",
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
     ...init,
   });
 
   if (!res.ok) {
+    // متن خطا را برای تشخیص دقیق‌تر بخوانیم
     const text = await res.text().catch(() => "");
     throw new Error(`HTTP ${res.status} on ${path}: ${text}`);
   }
-  return res.json();
+
+  // ✅ بدنهٔ خالی/204 را بدون خطا برگردان
+  const raw = await res.text().catch(() => "");
+  if (!raw) return null as unknown as T;
+
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    // اگر JSON نبود، همان متن را برگردان (در اکثر GETها JSON است)
+    return raw as unknown as T;
+  }
 }
 
 /* ---------- Types بر اساس بک‌اند ---------- */
@@ -82,7 +100,11 @@ export async function fetchUserSubscriptionsByCitySSR(cityId: number): Promise<U
   return sFetch<UserSubscriptionVM[]>(`/user-subscription/${cityId}`, "GET");
 }
 
-export async function fetchPaymentGatewayInfoSSR(input: { cityId: number; subscriptionId: number; callBackUrl: string; }): Promise<PaymentGatewayInfo> {
+export async function fetchPaymentGatewayInfoSSR(input: {
+  cityId: number;
+  subscriptionId: number;
+  callBackUrl: string;
+}): Promise<PaymentGatewayInfo> {
   return sFetch<PaymentGatewayInfo>("/user-subscription/payment-gateway-info", "POST", {
     cityId: input.cityId,
     subscriptionId: input.subscriptionId,
@@ -90,8 +112,62 @@ export async function fetchPaymentGatewayInfoSSR(input: { cityId: number; subscr
   });
 }
 
-export async function createUserSubscriptionSSR(authority: string): Promise<{ id: number }> {
-  return sFetch<{ id: number }>("/user-subscription/create", "POST", { authority });
+/**
+ * ✅ ثبت/تأیید اشتراک بعد از پرداخت
+ * - 200–299 → موفق
+ * - 409/208   → قبلاً تأیید شده (idempotent success)
+ * - 204/بدنه خالی → موفق
+ * - 400/422   → شکست واقعی (Authority نامعتبر/ورودی بد)
+ * - سایر کدها → throw (شبکه/داخلی)
+ */
+export async function createUserSubscriptionSSR(
+  authority: string
+): Promise<{ id?: number } | null> {
+  if (!authority) throw new Error("authority is required");
+
+  const session = await getServerSession(authOptions);
+  const token =
+    (session as any)?.user?.accessToken || (session as any)?.accessToken;
+
+  const base = resolveRootBase(API_BASE_URL || "/api/go", INTERNAL_GO_API_URL || "");
+  const url = `${base}/user-subscription/create`;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    cache: "no-store",
+    body: JSON.stringify({ authority }),
+  });
+
+  if (res.ok) {
+    const txt = await res.text().catch(() => "");
+    if (!txt) return null; // 204 یا بدنه‌ی خالی
+    try {
+      return JSON.parse(txt);
+    } catch {
+      return null;
+    }
+  }
+
+  // ✅ موفقیت ایدمپوتنت
+  if (res.status === 409 || res.status === 208) {
+    return null;
+  }
+
+  // ❌ ورودی بد/Authority نامعتبر → شکست واقعی
+  if (res.status === 400 || res.status === 422) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`verify_invalid:${text || res.status}`);
+  }
+
+  // سایر خطاها
+  const text = await res.text().catch(() => "");
+  throw new Error(`verify_failed:${res.status}:${text}`);
 }
 
 export async function fetchPaymentHistorySSR(): Promise<any[]> {
