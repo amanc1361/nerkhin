@@ -17,30 +17,41 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
 
     let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const updateUserAndRedirect = async () => {
+    const refreshOnceAndGo = async () => {
       try {
-        // نکته: update() در authOptions → jwt(trigger="update") را اجرا می‌کند
+        // ⏱ کمی صبر تا Verify سمت بک‌اند نهایی شود (race را حذف می‌کند)
+        await new Promise((r) => setTimeout(r, 1800));
+
+        // ✅ فقط یک بار رفرش سشن (توکن) — همین!
         const updated = await updateSession();
 
-        // نقش را از سشن تازه بگیر؛ اگر نبود از prop استفاده کن
+        const fresh = updated as any;
         const freshRole =
-          (updated as any)?.user?.role ??
-          (updated as any)?.role ?? // اگر ساختار سفارشی باشد
+          fresh?.user?.role ??
+          fresh?.role ??
           role;
 
-        const destination = `/${freshRole}/shop`;
+        // اگر اشتراک فعال شد برو فروشگاه؛ وگرنه برگرد صفحهٔ اشتراک
+        const subOK =
+          (fresh?.subscriptionStatus === "active" || fresh?.subscriptionStatus === "trial") &&
+          !!fresh?.subscriptionExpiresAt &&
+          new Date(fresh.subscriptionExpiresAt).getTime() > Date.now();
 
-        // کمی مکث برای تجربه‌ی کاربری بهتر + اطمینان از ست شدن کوکی‌ها
+        const destination = subOK
+          ? `/${freshRole}/shop`
+          : `/${freshRole}/account/subscriptions?justPaid=1`;
+
+        // یه مکث کوچک تا کوکی ست بشه، بعد هدایت
         timer = setTimeout(() => {
           router.replace(destination);
-        }, 1200); // کمی کمتر از 1.5s
-      } catch (error) {
-        console.error("خطا در به‌روزرسانی نشست یا هدایت کاربر:", error);
+        }, 300);
+      } catch (err) {
+        console.error("خطا در رفرش یک‌بارهٔ توکن:", err);
         router.replace("/");
       }
     };
 
-    updateUserAndRedirect();
+    refreshOnceAndGo();
 
     return () => {
       if (timer) clearTimeout(timer);
@@ -53,7 +64,7 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-10 w-10"
+            className="h-10 w-10 text-green-500 dark:text-green-400"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -67,15 +78,10 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
             پرداخت موفقیت‌آمیز بود
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            اشتراک شما با موفقیت فعال شد. از اعتماد شما سپاسگزاریم!
+            اشتراک شما با موفقیت فعال شد. در حال آماده‌سازی حساب شما هستیم…
           </p>
         </div>
-        <div className="flex items-center space-x-3 space-x-reverse pt-4">
-          <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-t-2 border-blue-500"></div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            در حال به‌روزرسانی حساب شما و هدایت به فروشگاه...
-          </p>
-        </div>
+      
       </div>
     </main>
   );
