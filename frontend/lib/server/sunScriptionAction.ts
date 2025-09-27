@@ -20,10 +20,7 @@ function resolveRootBase(publicBase: string, internalBase: string) {
   return ib.endsWith(tail) ? ib : ib + tail;
 }
 
-/**
- * sFetch با هندل درست بدنه‌ی خالی/204
- * - اگر بدنه خالی باشد، null برمی‌گرداند (بدون throw)
- */
+/** sFetch با هندل بدنه‌ی خالی/204 */
 async function sFetch<T>(
   path: string,
   method: HttpMethod = "GET",
@@ -66,11 +63,11 @@ async function sFetch<T>(
   }
 }
 
-/* ---------- Types بر اساس بک‌اند ---------- */
+/* ---------- Types ---------- */
 export type Subscription = {
   id: number;
-  price: string;            // decimal به‌صورت string
-  numberOfDays: number;     // enum
+  price: string;
+  numberOfDays: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -92,7 +89,7 @@ export type UserSubscriptionVM = {
   numberOfDays?: number;
 };
 
-/* ---------- اکشن‌های SSR ---------- */
+/* ---------- SSR actions ---------- */
 export async function fetchAllSubscriptionsSSR(): Promise<Subscription[]> {
   return sFetch<Subscription[]>("/subscription/all", "GET");
 }
@@ -114,9 +111,9 @@ export async function fetchPaymentGatewayInfoSSR(input: {
 }
 
 /**
- * ✅ ثبت/تأیید اشتراک بعد از پرداخت:
+ * تأیید/ثبت اشتراک بعد از پرداخت (Best-effort):
  * - 2xx (حتی 204/بدنه‌ی خالی) → موفق
- * - 409/208 → قبلاً تأیید شده (idempotent success) → موفق
+ * - 409/208 → قبلاً تأیید شده (idempotent success)
  * - 400/422 → شکست واقعی (Authority/ورودی بد)
  * - سایر کدها → throw (شبکه/خطای داخلی)
  */
@@ -146,16 +143,14 @@ export async function createUserSubscriptionSSR(
 
   if (res.ok) {
     const txt = await res.text().catch(() => "");
-    if (!txt) return null; // 204 یا بدنه‌ی خالی
+    if (!txt) return null;
     try { return JSON.parse(txt); } catch { return null; }
   }
 
-  // ایدمپوتنت → موفق حساب کن
   if (res.status === 409 || res.status === 208) {
-    return null;
+    return null; // idempotent success
   }
 
-  // ورودی بد/Authority نامعتبر → شکست واقعی
   if (res.status === 400 || res.status === 422) {
     const text = await res.text().catch(() => "");
     throw new Error(`verify_invalid:${text || res.status}`);

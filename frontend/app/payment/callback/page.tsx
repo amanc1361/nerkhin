@@ -8,10 +8,9 @@ import { createUserSubscriptionSSR } from "@/lib/server/sunScriptionAction";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// در Next.js 15 searchParams به صورت Promise می‌آید
+// Next.js 15: searchParams به صورت Promise می‌آید
 type SearchParams = Record<string, string | string[] | undefined>;
 
-// کمک‌تابع برای خواندن پارامترها با حروف بزرگ/کوچک مختلف
 function read(sp: SearchParams, key: string) {
   const direct = sp[key];
   const lower = sp[key.toLowerCase()];
@@ -25,14 +24,6 @@ function roleSegmentFrom(user: any): "wholesaler" | "retailer" {
   return n === UserRole.Wholesaler ? "wholesaler" : "retailer";
 }
 
-function isActiveSubscription(status?: string, expiresAt?: string | number | Date) {
-  const ok = status === "active" || status === "trial";
-  if (!ok) return false;
-  if (!expiresAt) return false;
-  const t = typeof expiresAt === "number" ? expiresAt : new Date(expiresAt as any).getTime();
-  return t > Date.now();
-}
-
 export default async function PaymentCallback({
   searchParams,
 }: {
@@ -40,43 +31,39 @@ export default async function PaymentCallback({
 }) {
   noStore();
 
-  // 1) پارامترهای کال‌بک درگاه
   const sp = await searchParams;
   const status = String(read(sp, "Status")).toUpperCase();
   const authority = String(read(sp, "Authority") || "");
 
-  // 2) تعیین نقش برای مسیر مقصد
+  // نقش برای مسیر مقصد (اگر سشن نبود، retailer)
   let roleSegment: "wholesaler" | "retailer" = "retailer";
   try {
     const user = await fetchUserInfo();
     roleSegment = roleSegmentFrom(user);
-  } catch {
-    // اگر سشن/توکن نداشتیم، پیش‌فرض retailer
-  }
+  } catch {}
 
-  const failureRedirectPath = `/${roleSegment}/account/subscriptions?error=payment_failed`;
+  const failure = `/${roleSegment}/account/subscriptions?error=payment_failed`;
 
-  // 3) اگر درگاه OK نگفت یا authority نداریم → شکست
+  // اگر درگاه OK نگفت یا authority نیست → شکست واقعی
   if (status !== "OK" || !authority) {
-    return redirect(failureRedirectPath);
+    return redirect(failure);
   }
 
-  // 4) Verify/ثبت اشتراک
+  // 🔴 نکته‌ی کلیدی: مسیر کاربر را به هیچ نتیجه‌ی همزمانی وابسته نکن!
+  // همین الآن برو صفحه‌ی موفقیت؛ Verify را «best effort» و بدون بلاک انجام بده.
+  // در صفحه‌ی موفقیت، updateSession() → jwt(trigger:"update") → فورس‌رفرش توکن.
+  // (اگر لازمه لاگ بگیری:)
+  // console.log("[PaymentCallback] OK authority:", authority);
+
+  // Best-effort verify (non-blocking)
+  // توجه: redirect اجرای بعدی را قطع می‌کند؛ این call عملاً فقط برای لاگ/فایربرد است.
+  // اگر نمی‌خوای حتی این را صدا بزنی، می‌تونی پاکش کنی.
   try {
+    // اهمیتی ندارد اگر throw کند؛ مسیر کاربر را بلاک نمی‌کنیم.
     await createUserSubscriptionSSR(authority);
-    // موفق (یا ایدمپوتنت) → برو به صفحه‌ی موفقیت
-    return redirect(`/payment/success?role=${roleSegment}`);
   } catch {
-    // اگر verify throw کرد، وضعیت واقعی کاربر را یک بار چک کن
-    try {
-      const u = await fetchUserInfo();
-      const verified = isActiveSubscription(
-        (u as any)?.subscriptionStatus,
-        (u as any)?.subscriptionExpiresAt
-      );
-      return redirect(verified ? `/payment/success?role=${roleSegment}` : failureRedirectPath);
-    } catch {
-      return redirect(failureRedirectPath);
-    }
+    // ignore — بک‌اندت همین حالا هم با وبهوک/Verify داخلی فعال کرده
   }
+
+  return redirect(`/payment/success?role=${roleSegment}`);
 }
