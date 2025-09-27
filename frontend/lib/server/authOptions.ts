@@ -122,6 +122,8 @@
 // };
 // مسیر: lib/server/authOptions.ts
 // مسیر: lib/server/authOptions.ts
+
+// مسیر: lib/server/authOptions.ts
 import type { NextAuthOptions, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCodeAPI, refreshAccessTokenAPI } from "@/app/services/authapi";
@@ -157,7 +159,6 @@ async function fetchFreshProfile(opts: {
       const res = await fetch(url, { method: "GET", headers, cache: "no-store" });
       if (!res.ok) continue;
       const data = await res.json();
-      // به دنبال نقش/وضعیت اشتراک می‌گردیم
       if (data && (data.role !== undefined || data.subscriptionStatus !== undefined)) {
         return {
           role: data.role,
@@ -172,8 +173,35 @@ async function fetchFreshProfile(opts: {
   return null;
 }
 
+// ───────────────────────────────────────────────────────────────────────────────
+// نکته مهم: در .env حتماً ست کنید:
+// NEXTAUTH_URL=https://<دامنه‌ی نهایی شما>
+// (اختیاری برای ساب‌دامین مشترک) NEXTAUTH_COOKIE_DOMAIN=.nerrkhin.com
+// ───────────────────────────────────────────────────────────────────────────────
+
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === "development",
+
+  // برای پشت پروکسی/ریدایرکت‌های درگاه و ست شدن درست کوکی‌ها
+  // پیکربندی کوکی سشن: SameSite=Lax تا در برگشت GET از درگاه، سشن همراه شود
+  cookies: {
+    sessionToken: {
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        // اگر چند ساب‌دامین دارید و می‌خواهید سشن مشترک باشد:
+        ...(process.env.NEXTAUTH_COOKIE_DOMAIN
+          ? { domain: process.env.NEXTAUTH_COOKIE_DOMAIN }
+          : {}),
+      },
+    },
+  },
 
   providers: [
     CredentialsProvider({
@@ -245,9 +273,9 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 
   callbacks: {
-    // پشتیبانی از فورس‌رفرش با trigger="update" اضافه شد؛ سایر رفتارها حفظ شده‌اند
+    // فورس‌رفرش با trigger="update" → برای صفحه‌ی موفقیت که update() می‌زند
     async jwt({ token, user, trigger }) {
-      // 1) لاگین اولیه: اطلاعات را در توکن بنشان
+      // 1) لاگین
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
@@ -261,13 +289,12 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // 2) فورس‌رفرش وقتی از کلاینت useSession().update() صدا زده شود
+      // 2) فورس‌رفرش وقتی از کلاینت update() صدا زده شود
       if (trigger === "update" && token?.refreshToken) {
         try {
           const r = await refreshAccessTokenAPI(token.refreshToken as string);
           const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
 
-          // نقش/اشتراک جدید اگر بک‌اند در پاسخ رفرش بدهد
           let nextRole =
             (r as any).role ??
             (r as any).user?.role ??
@@ -281,7 +308,7 @@ export const authOptions: NextAuthOptions = {
             (token as any).subscriptionExpiresAt ??
             null;
 
-          // در صورت عدم بازگشت ادعاهای جدید، بلافاصله پروفایل را بگیر
+          // اگر بک‌اند در پاسخ رفرش claims نداد، بلافاصله پروفایل را بگیر
           if (!nextRole || nextSubStatus === "none") {
             try {
               const prof = await fetchFreshProfile({
@@ -295,7 +322,7 @@ export const authOptions: NextAuthOptions = {
                   prof.subscriptionExpiresAt ?? nextSubExpiresAt;
               }
             } catch {
-              // نادیده بگیر؛ از مقادیر قبلی استفاده می‌کنیم
+              // نادیده بگیر
             }
           }
 
@@ -309,7 +336,7 @@ export const authOptions: NextAuthOptions = {
             subscriptionExpiresAt: nextSubExpiresAt,
             error: undefined,
           };
-        } catch (err) {
+        } catch {
           return { ...token, error: "RefreshAccessTokenError" };
         }
       }
@@ -322,7 +349,7 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // 4) رفرش خودکار نزدیک انقضا (رفتار قبلی)
+      // 4) رفرش خودکار نزدیک انقضا
       try {
         const r = await refreshAccessTokenAPI(token.refreshToken as string);
         const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
@@ -344,7 +371,7 @@ export const authOptions: NextAuthOptions = {
             (r as any).role ?? (r as any).user?.role ?? (token as any).role,
           error: undefined,
         };
-      } catch (err) {
+      } catch {
         return { ...token, error: "RefreshAccessTokenError" };
       }
     },
