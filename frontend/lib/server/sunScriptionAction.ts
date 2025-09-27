@@ -1,4 +1,4 @@
-// lib/server/subscriptionActions.ts
+// lib/server/sunScriptionAction.ts
 "use server";
 
 import { getServerSession } from "next-auth";
@@ -20,6 +20,10 @@ function resolveRootBase(publicBase: string, internalBase: string) {
   return ib.endsWith(tail) ? ib : ib + tail;
 }
 
+/**
+ * sFetch با هندل درست بدنه‌ی خالی/204
+ * - اگر بدنه خالی باشد، null برمی‌گرداند (بدون throw)
+ */
 async function sFetch<T>(
   path: string,
   method: HttpMethod = "GET",
@@ -48,19 +52,16 @@ async function sFetch<T>(
   });
 
   if (!res.ok) {
-    // متن خطا را برای تشخیص دقیق‌تر بخوانیم
     const text = await res.text().catch(() => "");
     throw new Error(`HTTP ${res.status} on ${path}: ${text}`);
   }
 
-  // ✅ بدنهٔ خالی/204 را بدون خطا برگردان
   const raw = await res.text().catch(() => "");
   if (!raw) return null as unknown as T;
 
   try {
     return JSON.parse(raw) as T;
   } catch {
-    // اگر JSON نبود، همان متن را برگردان (در اکثر GETها JSON است)
     return raw as unknown as T;
   }
 }
@@ -113,12 +114,11 @@ export async function fetchPaymentGatewayInfoSSR(input: {
 }
 
 /**
- * ✅ ثبت/تأیید اشتراک بعد از پرداخت
- * - 200–299 → موفق
- * - 409/208   → قبلاً تأیید شده (idempotent success)
- * - 204/بدنه خالی → موفق
- * - 400/422   → شکست واقعی (Authority نامعتبر/ورودی بد)
- * - سایر کدها → throw (شبکه/داخلی)
+ * ✅ ثبت/تأیید اشتراک بعد از پرداخت:
+ * - 2xx (حتی 204/بدنه‌ی خالی) → موفق
+ * - 409/208 → قبلاً تأیید شده (idempotent success) → موفق
+ * - 400/422 → شکست واقعی (Authority/ورودی بد)
+ * - سایر کدها → throw (شبکه/خطای داخلی)
  */
 export async function createUserSubscriptionSSR(
   authority: string
@@ -147,25 +147,20 @@ export async function createUserSubscriptionSSR(
   if (res.ok) {
     const txt = await res.text().catch(() => "");
     if (!txt) return null; // 204 یا بدنه‌ی خالی
-    try {
-      return JSON.parse(txt);
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(txt); } catch { return null; }
   }
 
-  // ✅ موفقیت ایدمپوتنت
+  // ایدمپوتنت → موفق حساب کن
   if (res.status === 409 || res.status === 208) {
     return null;
   }
 
-  // ❌ ورودی بد/Authority نامعتبر → شکست واقعی
+  // ورودی بد/Authority نامعتبر → شکست واقعی
   if (res.status === 400 || res.status === 422) {
     const text = await res.text().catch(() => "");
     throw new Error(`verify_invalid:${text || res.status}`);
   }
 
-  // سایر خطاها
   const text = await res.text().catch(() => "");
   throw new Error(`verify_failed:${res.status}:${text}`);
 }

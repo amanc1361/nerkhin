@@ -1,13 +1,14 @@
-
+// app/payment/callback/page.tsx
 import { redirect } from "next/navigation";
-import {  fetchUserInfo } from "@/lib/server/server-api";
+import { unstable_noStore as noStore } from "next/cache";
+import { fetchUserInfo } from "@/lib/server/server-api";
 import { normalizeRole, UserRole } from "@/app/types/role";
 import { createUserSubscriptionSSR } from "@/lib/server/sunScriptionAction";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// در پروژه‌ی شما (Next.js 15) searchParams به‌صورت Promise می‌آید
+// در Next.js 15 searchParams به صورت Promise می‌آید
 type SearchParams = Record<string, string | string[] | undefined>;
 
 // کمک‌تابع برای خواندن پارامترها با حروف بزرگ/کوچک مختلف
@@ -24,19 +25,27 @@ function roleSegmentFrom(user: any): "wholesaler" | "retailer" {
   return n === UserRole.Wholesaler ? "wholesaler" : "retailer";
 }
 
+function isActiveSubscription(status?: string, expiresAt?: string | number | Date) {
+  const ok = status === "active" || status === "trial";
+  if (!ok) return false;
+  if (!expiresAt) return false;
+  const t = typeof expiresAt === "number" ? expiresAt : new Date(expiresAt as any).getTime();
+  return t > Date.now();
+}
+
 export default async function PaymentCallback({
   searchParams,
 }: {
-  // ✅ امضای درست طبق تایپ پروژه‌ی شما
   searchParams: Promise<SearchParams>;
 }) {
-  // ابتدا await کنیم چون Promise است
-  const sp = await searchParams;
+  noStore();
 
+  // 1) پارامترهای کال‌بک درگاه
+  const sp = await searchParams;
   const status = String(read(sp, "Status")).toUpperCase();
   const authority = String(read(sp, "Authority") || "");
 
-  // نقش کاربر برای مسیر مقصد
+  // 2) تعیین نقش برای مسیر مقصد
   let roleSegment: "wholesaler" | "retailer" = "retailer";
   try {
     const user = await fetchUserInfo();
@@ -47,21 +56,27 @@ export default async function PaymentCallback({
 
   const failureRedirectPath = `/${roleSegment}/account/subscriptions?error=payment_failed`;
 
-  // اگر درگاه OK نگفت یا authority نداریم → برگرد به صفحه‌ی تمدید نقش خودش
+  // 3) اگر درگاه OK نگفت یا authority نداریم → شکست
   if (status !== "OK" || !authority) {
     return redirect(failureRedirectPath);
   }
 
-  // ثبت اشتراک در بک‌اند (Verify سمت سرور شما انجام می‌شود)
+  // 4) Verify/ثبت اشتراک
   try {
     await createUserSubscriptionSSR(authority);
-    
-    // ✅ تغییر اصلی: موفقیت → هدایت به صفحه میانی برای رفرش توکن
-    // نقش کاربر را با Query Param به صفحه بعد می‌فرستیم تا بدانیم در نهایت به کدام فروشگاه برود
+    // موفق (یا ایدمپوتنت) → برو به صفحه‌ی موفقیت
     return redirect(`/payment/success?role=${roleSegment}`);
-    
   } catch {
-    // ناموفق: برگرد به صفحه‌ی تمدید
-    return redirect(failureRedirectPath);
+    // اگر verify throw کرد، وضعیت واقعی کاربر را یک بار چک کن
+    try {
+      const u = await fetchUserInfo();
+      const verified = isActiveSubscription(
+        (u as any)?.subscriptionStatus,
+        (u as any)?.subscriptionExpiresAt
+      );
+      return redirect(verified ? `/payment/success?role=${roleSegment}` : failureRedirectPath);
+    } catch {
+      return redirect(failureRedirectPath);
+    }
   }
 }
