@@ -124,92 +124,69 @@
 // مسیر: lib/server/authOptions.ts
 
 // مسیر: lib/server/authOptions.ts
+// مسیر: lib/server/authOptions.ts
 import type { NextAuthOptions, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { verifyCodeAPI, refreshAccessTokenAPI } from "@/app/services/authapi";
+import { API_BASE_URL, INTERNAL_GO_API_URL } from "@/app/config/apiConfig";
 
-// --- Helper: در صورت نیاز، بعد از رفرش، پروفایل تازه را از بک‌اند بگیر ---
-async function fetchFreshProfile(opts: {
-  accessToken: string;
-  uid?: string | number | null;
-}) {
-  const base =
-    process.env.INTERNAL_GO_API_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "";
+/* -------------------- helpers: base resolver -------------------- */
+const clean = (s: string) => (s || "").replace(/\/+$/, "");
+const isAbs = (s: string) => /^https?:\/\//i.test(s);
+const withLeadingSlash = (s: string) => (s.startsWith("/") ? s : `/${s}`);
 
-  if (!base) return null;
-
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${opts.accessToken}`,
-  };
-
-  const uid = opts.uid ? String(opts.uid) : undefined;
-
-  const candidates = [
-    `${base}/api/auth/me`,
-    `${base}/api/users/me`,
-    uid ? `${base}/api/users/${uid}/profile` : null,
-    uid ? `${base}/api/users/${uid}` : null,
-  ].filter(Boolean) as string[];
-
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, { method: "GET", headers, cache: "no-store" });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data && (data.role !== undefined || data.subscriptionStatus !== undefined)) {
-        return {
-          role: data.role,
-          subscriptionStatus: data.subscriptionStatus,
-          subscriptionExpiresAt: data.subscriptionExpiresAt ?? null,
-        };
-      }
-    } catch {
-      // مسیر بعدی را امتحان کن
-    }
-  }
-  return null;
+function resolveRootBase(publicBase?: string, internalBase?: string) {
+  const pb = clean(publicBase || "/api/go");          // همون چیزی که تو پروژه‌ت استفاده می‌کنی
+  const ib = clean(internalBase || "");
+  if (isAbs(pb)) return pb;
+  if (!ib) return withLeadingSlash(pb);
+  const tail = withLeadingSlash(pb);
+  if (ib.endsWith(tail)) return ib;
+  return ib + tail;
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// نکته مهم: در .env حتماً ست کنید:
-// NEXTAUTH_URL=https://<دامنه‌ی نهایی شما>
-// (اختیاری برای ساب‌دامین مشترک) NEXTAUTH_COOKIE_DOMAIN=.nerrkhin.com
-// ───────────────────────────────────────────────────────────────────────────────
+/* -------------------- مهم: گرفتن پروفایل با توکن تازه -------------------- */
+/** دقیقا همان اندپوینت پروژهٔ خودت: GET /user/fetch-user */
+async function fetchProfileByAccessToken(accessToken: string) {
+  const base = resolveRootBase(API_BASE_URL, INTERNAL_GO_API_URL);
+  const url = `${base}/user/fetch-user`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    // اگر پروفایل برنگشت، ادعاها را از پاسخ رفرش تغییر نمی‌دهیم
+    return null;
+  }
+
+  // پاسخ بک‌اند خودت را بدون حدس می‌خوانیم
+  const data = await res.json().catch(() => null);
+  if (!data) return null;
+
+  // فیلدها طبق API خودت (همونی که در server-api استفاده می‌کنی)
+  return {
+    role: (data as any)?.role,
+    subscriptionStatus: (data as any)?.subscriptionStatus,
+    subscriptionExpiresAt: (data as any)?.subscriptionExpiresAt ?? null,
+  };
+}
 
 export const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === "development",
-
-  // برای پشت پروکسی/ریدایرکت‌های درگاه و ست شدن درست کوکی‌ها
-  // پیکربندی کوکی سشن: SameSite=Lax تا در برگشت GET از درگاه، سشن همراه شود
-  cookies: {
-    sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-next-auth.session-token"
-          : "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        // اگر چند ساب‌دامین دارید و می‌خواهید سشن مشترک باشد:
-        ...(process.env.NEXTAUTH_COOKIE_DOMAIN
-          ? { domain: process.env.NEXTAUTH_COOKIE_DOMAIN }
-          : {}),
-      },
-    },
-  },
 
   providers: [
     CredentialsProvider({
       id: "credentials",
       name: "Credentials",
       credentials: {
-        phone: { label: "Phone", type: "text" },
-        code: { label: "Code", type: "text" },
+        phone:    { label: "Phone",    type: "text" },
+        code:     { label: "Code",     type: "text" },
         deviceId: { label: "Device ID", type: "text" },
       },
 
@@ -218,130 +195,95 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Phone, code, and deviceId are required");
         }
 
-        try {
-          const resp = await verifyCodeAPI(
-            credentials.phone,
-            credentials.code,
-            credentials.deviceId
-          );
+        const resp = await verifyCodeAPI(
+          credentials.phone,
+          credentials.code,
+          credentials.deviceId
+        );
 
-          if (resp?.user && resp.accessToken && resp.user.role !== undefined) {
-            const ttlSec = resp.accessTokenExpiresAt;
-            const absExp = Date.now() + ttlSec * 1000;
+        if (resp?.user && resp.accessToken && resp.user.role !== undefined) {
+          const ttlSec = resp.accessTokenExpiresAt;
+          const absExp = Date.now() + ttlSec * 1000;
 
-            const subStatus =
-              resp?.subscriptionStatus ??
-              resp?.user?.subscriptionStatus ??
-              "none";
-            const subExp =
-              resp?.subscriptionExpiresAt ??
-              resp?.user?.subscriptionExpiresAt ??
-              null;
+          const subStatus =
+            resp?.subscriptionStatus ??
+            resp?.user?.subscriptionStatus ??
+            "none";
+          const subExp =
+            resp?.subscriptionExpiresAt ??
+            resp?.user?.subscriptionExpiresAt ??
+            null;
 
-            const userForToken: User & {
-              accessToken: string;
-              refreshToken: string;
-              accessTokenExpires: number;
-              role: string | number;
-              subscriptionStatus?: string;
-              subscriptionExpiresAt?: string | null;
-            } = {
-              id: String(resp.user.id),
-              name: resp.user.fullName,
-              role: resp.user.role,
-              accessToken: resp.accessToken,
-              refreshToken: resp.refreshToken,
-              accessTokenExpires: absExp,
-              subscriptionStatus: subStatus,
-              subscriptionExpiresAt: subExp,
-            };
+          const userForToken: User & {
+            accessToken: string;
+            refreshToken: string;
+            accessTokenExpires: number;
+            role: string | number;
+            subscriptionStatus?: string;
+            subscriptionExpiresAt?: string | null;
+          } = {
+            id:   String(resp.user.id),
+            name: resp.user.fullName,
+            role: resp.user.role,
+            accessToken:        resp.accessToken,
+            refreshToken:       resp.refreshToken,
+            accessTokenExpires: absExp,
+            subscriptionStatus: subStatus,
+            subscriptionExpiresAt: subExp,
+          };
 
-            return userForToken;
-          }
-          return null;
-        } catch (error: any) {
-          throw new Error(
-            error?.message || "An unknown error occurred during authentication."
-          );
+          return userForToken;
         }
+
+        return null;
       },
     }),
   ],
 
   session: { strategy: "jwt" },
-  pages: { signIn: "/auth/login" },
-  secret: process.env.NEXTAUTH_SECRET,
+  pages:   { signIn: "/auth/login" },
+  secret:  process.env.NEXTAUTH_SECRET,
 
   callbacks: {
-    // فورس‌رفرش با trigger="update" → برای صفحه‌ی موفقیت که update() می‌زند
     async jwt({ token, user, trigger }) {
-      // 1) لاگین
+      // 1) ورود اولیه
       if (user) {
-        token.id = user.id;
-        token.role = (user as any).role;
-        token.accessToken = (user as any).accessToken;
-        token.refreshToken = (user as any).refreshToken;
-        token.accessTokenExpires = (user as any).accessTokenExpires;
-        token.subscriptionStatus =
-          (user as any).subscriptionStatus ?? "none";
-        token.subscriptionExpiresAt =
-          (user as any).subscriptionExpiresAt ?? null;
+        token.id                    = user.id;
+        token.role                  = (user as any).role;
+        token.accessToken           = (user as any).accessToken;
+        token.refreshToken          = (user as any).refreshToken;
+        token.accessTokenExpires    = (user as any).accessTokenExpires;
+        token.subscriptionStatus    = (user as any).subscriptionStatus ?? "none";
+        token.subscriptionExpiresAt = (user as any).subscriptionExpiresAt ?? null;
         return token;
       }
 
-      // 2) فورس‌رفرش وقتی از کلاینت update() صدا زده شود
+      // 2) فورس‌رفرش به‌محض update() از صفحهٔ موفقیت
       if (trigger === "update" && token?.refreshToken) {
         try {
           const r = await refreshAccessTokenAPI(token.refreshToken as string);
           const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
 
-          let nextRole =
-            (r as any).role ??
-            (r as any).user?.role ??
-            (token as any).role;
-          let nextSubStatus =
-            (r as any).subscriptionStatus ??
-            (token as any).subscriptionStatus ??
-            "none";
-          let nextSubExpiresAt =
-            (r as any).subscriptionExpiresAt ??
-            (token as any).subscriptionExpiresAt ??
-            null;
-
-          // اگر بک‌اند در پاسخ رفرش claims نداد، بلافاصله پروفایل را بگیر
-          if (!nextRole || nextSubStatus === "none") {
-            try {
-              const prof = await fetchFreshProfile({
-                accessToken: r.accessToken,
-                uid: token.id as string,
-              });
-              if (prof) {
-                nextRole = prof.role ?? nextRole;
-                nextSubStatus = prof.subscriptionStatus ?? nextSubStatus;
-                nextSubExpiresAt =
-                  prof.subscriptionExpiresAt ?? nextSubExpiresAt;
-              }
-            } catch {
-              // نادیده بگیر
-            }
-          }
+          // ✅ بعد از گرفتن توکن تازه، پروفایل واقعیِ همین لحظه را از بک‌اند خودت می‌گیریم
+          let claims = await fetchProfileByAccessToken(r.accessToken);
 
           return {
             ...token,
-            accessToken: r.accessToken,
+            accessToken:        r.accessToken,
             accessTokenExpires: absExp,
-            refreshToken: token.refreshToken,
-            role: nextRole,
-            subscriptionStatus: nextSubStatus,
-            subscriptionExpiresAt: nextSubExpiresAt,
+            refreshToken:       token.refreshToken,
+            role:               (claims?.role ?? (token as any).role) as any,
+            subscriptionStatus: claims?.subscriptionStatus ?? (token as any).subscriptionStatus ?? "none",
+            subscriptionExpiresAt: claims?.subscriptionExpiresAt ?? (token as any).subscriptionExpiresAt ?? null,
             error: undefined,
           };
         } catch {
+          // اگر رفرش شکست خورد، ارور را روی توکن می‌گذاریم (UI می‌تواند نشان دهد)
           return { ...token, error: "RefreshAccessTokenError" };
         }
       }
 
-      // 3) اگر هنوز زود است، همان توکن فعلی را برگردان
+      // 3) اگر هنوز وقت رفرش نیست، توکن فعلی را برگردان
       if (
         typeof token.accessTokenExpires === "number" &&
         Date.now() < (token.accessTokenExpires as number) - 5 * 60_000
@@ -349,26 +291,21 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // 4) رفرش خودکار نزدیک انقضا
+      // 4) رفرش خودکار نزدیک انقضا + همگام‌سازی ادعاها از بک‌اند خودت
       try {
         const r = await refreshAccessTokenAPI(token.refreshToken as string);
         const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
 
+        let claims = await fetchProfileByAccessToken(r.accessToken);
+
         return {
           ...token,
-          accessToken: r.accessToken,
+          accessToken:        r.accessToken,
           accessTokenExpires: absExp,
-          refreshToken: token.refreshToken,
-          subscriptionStatus:
-            (r as any).subscriptionStatus ??
-            (token as any).subscriptionStatus ??
-            "none",
-          subscriptionExpiresAt:
-            (r as any).subscriptionExpiresAt ??
-            (token as any).subscriptionExpiresAt ??
-            null,
-          role:
-            (r as any).role ?? (r as any).user?.role ?? (token as any).role,
+          refreshToken:       token.refreshToken,
+          role:               (claims?.role ?? (token as any).role) as any,
+          subscriptionStatus: claims?.subscriptionStatus ?? (token as any).subscriptionStatus ?? "none",
+          subscriptionExpiresAt: claims?.subscriptionExpiresAt ?? (token as any).subscriptionExpiresAt ?? null,
           error: undefined,
         };
       } catch {
@@ -380,11 +317,9 @@ export const authOptions: NextAuthOptions = {
       session.user.id = token.id as string;
       (session.user as any).role = token.role;
       (session as any).accessToken = token.accessToken as string;
-      (session as any).error = (token as any).error ?? undefined;
-      (session as any).subscriptionStatus =
-        (token as any).subscriptionStatus ?? "none";
-      (session as any).subscriptionExpiresAt =
-        (token as any).subscriptionExpiresAt ?? null;
+      (session as any).error       = (token as any).error ?? undefined;
+      (session as any).subscriptionStatus    = (token as any).subscriptionStatus ?? "none";
+      (session as any).subscriptionExpiresAt = (token as any).subscriptionExpiresAt ?? null;
       return session;
     },
   },
