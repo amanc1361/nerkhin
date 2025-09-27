@@ -13,13 +13,14 @@ export default async function SubscriptionSuccessPage() {
 
   const session = await getServerSession(authOptions);
 
-  // اگر کلاً لاگین نیست، بفرست لاگین
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+
+
+  // if (!session?.user?.id) {
+  //   redirect("/login");
+  // }
 
   // نقش می‌تواند number یا string باشد؛ از null/undefined چک کن نه Falsy
-  const rawRole = (session.user as any)?.role;
+  const rawRole = (session?.user as any)?.role;
   const safeRole =
     rawRole !== null && rawRole !== undefined ? String(rawRole) : "retailer";
 
