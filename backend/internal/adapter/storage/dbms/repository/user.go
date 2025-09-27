@@ -143,6 +143,9 @@ func (ur *UserRepository) DeleteUser(ctx context.Context, dbSession interface{},
 	}
 
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", id).Delete(&domain.TempAuthority{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("user_id = ?", id).Delete(&domain.FavoriteAccount{}).Error; err != nil {
 			return err
 		}
