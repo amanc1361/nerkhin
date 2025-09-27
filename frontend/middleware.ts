@@ -1,6 +1,3 @@
-
-
-
 // middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
@@ -21,18 +18,37 @@ const PROTECTED = [PANEL, WHOLESALER, RETAILER, "/profile"];
 
 /**
  * مسیرهایی که «اشتراک فعال» لازم دارند.
- * فقط این آرایه را گسترش بدهید.
- *
- * هر آیتم می‌تواند:
- *  - string (prefix)  مثل "/panel/analytics"
- *  - یا RegExp        مثل /^\/(wholesaler|retailer)\/products(\/|$)/
  */
 const SUBSCRIPTION_REQUIRED: Array<string | RegExp> = [
-  // نمونه‌های فعلی شما:
-  /^\/(wholesaler|retailer)\/products(\/|$)/, // عمده‌فروش/خرده‌فروش: لیست محصولات
-  // بعداً هرچی خواستید اضافه کنید: "/panel/analytics", /^\/market\/offers/
+  /^\/(wholesaler|retailer)\/products(\/|$)/,
   /^\/(wholesaler|retailer)\/search(\/|$)/,
 ];
+
+// --- Helper های تاریخ: همه‌ی فرمت‌ها را به میلی‌ثانیه تبدیل کن ---
+function toMs(v: unknown): number {
+  if (v == null) return 0;
+
+  // اگر عدد است
+  if (typeof v === "number") {
+    // اعداد کمتر از 1e12 یعنی «ثانیه»
+    return v < 1e12 ? v * 1000 : v;
+  }
+
+  // اگر رشته است و عددی به نظر می‌رسد
+  if (typeof v === "string") {
+    const asNum = Number(v);
+    if (Number.isFinite(asNum)) {
+      return asNum < 1e12 ? asNum * 1000 : asNum;
+    }
+    // در غیر اینصورت تلاش برای parse ISO/Date
+    const parsed = Date.parse(v);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  // هر چیز دیگری: تلاش آخر
+  const parsed = Date.parse(String(v));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
 
 function pathMatches(pathname: string, rule: string | RegExp) {
   if (typeof rule === "string") return pathname.startsWith(rule);
@@ -43,11 +59,11 @@ function isSubscriptionGate(pathname: string) {
   return SUBSCRIPTION_REQUIRED.some((r) => pathMatches(pathname, r));
 }
 
-function isActiveSubscription(status?: string, expiresAt?: string | number | Date) {
-  // می‌توانید وضعیت‌ها را بسته به بک‌اند خودتان کم/زیاد کنید
+function isActiveSubscription(status?: string, expiresAt?: unknown) {
+  // وضعیت قابل قبول
   if (status !== "active" && status !== "trial") return false;
-  if (!expiresAt) return false;
-  const t = typeof expiresAt === "number" ? expiresAt : new Date(expiresAt).getTime();
+  // تاریخ معتبر؟
+  const t = toMs(expiresAt);
   return t > Date.now();
 }
 
@@ -73,7 +89,6 @@ export async function middleware(req: NextRequest) {
   // احراز
   const session = await getToken({ req, secret: SECRET });
 
-
   const role =
     (session as any)?.role ??
     (session as any)?.user?.role ??
@@ -85,10 +100,9 @@ export async function middleware(req: NextRequest) {
   const hasKnownRole = !!role && (isAdmin(role) || isWholesaler(role) || isRetailer(role));
 
   // انقضا با بافر 30 ثانیه
-  const exp = typeof (session as any)?.accessTokenExpires === "number"
-    ? ((session as any).accessTokenExpires as number)
-    : 0;
-  const isExpired = exp > 0 && Date.now() >= exp - 30_000;
+  const expRaw = (session as any)?.accessTokenExpires as unknown;
+  const expMs = toMs(expRaw); // ← این هم اگر اشتباهی ثانیه باشد، نرمال می‌شود
+  const isExpired = expMs > 0 && Date.now() >= expMs - 30_000;
 
   const isAuth = !!session && !isExpired;
 
@@ -111,19 +125,19 @@ export async function middleware(req: NextRequest) {
   // 2.5) اگر لاگین است ولی «اشتراک لازم» برای مسیر وجود دارد و فعال نیست → بفرست صفحه‌ی اشتراک
   if (isAuth && isSubscriptionGate(pathname)) {
     const subStatus = (session as any)?.subscriptionStatus as string | undefined;
-    const subExp    = (session as any)?.subscriptionExpiresAt as string | number | Date | undefined;
-  
-    if (!isActiveSubscription(subStatus, subExp)) {
+    const subExpRaw = (session as any)?.subscriptionExpiresAt as unknown;
+
+    if (!isActiveSubscription(subStatus, subExpRaw)) {
       const roleSlug = roleSlugFrom(role); // ← نقش فعلی از همون قبل استخراج شده
       const to = new URL(`/${roleSlug}/subscribe`, req.url);
-  
+
       // پیام و لینک و next
       to.searchParams.set("msg", "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
       to.searchParams.set("buy", "https://nerrkhin.com/subscribe/buy");
       to.searchParams.set("next", pathname + url.search);
       // مهم: خود role را هم بفرست
       if (roleSlug) to.searchParams.set("role", roleSlug);
-  
+
       return NextResponse.redirect(to);
     }
   }
@@ -146,12 +160,14 @@ export async function middleware(req: NextRequest) {
 
   return NextResponse.next();
 }
+
 function roleSlugFrom(role: any) {
   if (isWholesaler(role)) return "wholesaler";
   if (isRetailer(role))   return "retailer";
-  if (isAdmin(role))      return "panel"; // اگر لازم شد
-  return ""; // fallback
+  if (isAdmin(role))      return "panel";
+  return "";
 }
+
 export const config = {
   matcher: [
     "/",
