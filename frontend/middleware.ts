@@ -123,25 +123,41 @@ export async function middleware(req: NextRequest) {
   }
 
   // 2.5) اگر لاگین است ولی «اشتراک لازم» برای مسیر وجود دارد و فعال نیست → بفرست صفحه‌ی اشتراک
+  // if (isAuth && isSubscriptionGate(pathname)) {
+  //   const subStatus = (session as any)?.subscriptionStatus as string | undefined;
+  //   const subExpRaw = (session as any)?.subscriptionExpiresAt as unknown;
+
+  //   if (!isActiveSubscription(subStatus, subExpRaw)) {
+  //     const roleSlug = roleSlugFrom(role); // ← نقش فعلی از همون قبل استخراج شده
+  //     const to = new URL(`/${roleSlug}/subscribe`, req.url);
+
+  //     // پیام و لینک و next
+  //     to.searchParams.set("msg", "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
+  //     to.searchParams.set("buy", "https://nerrkhin.com/subscribe/buy");
+  //     to.searchParams.set("next", pathname + url.search);
+  //     // مهم: خود role را هم بفرست
+  //     if (roleSlug) to.searchParams.set("role", roleSlug);
+
+  //     return NextResponse.redirect(to);
+  //   }
+  // }
+
   if (isAuth && isSubscriptionGate(pathname)) {
     const subStatus = (session as any)?.subscriptionStatus as string | undefined;
-    const subExpRaw = (session as any)?.subscriptionExpiresAt as unknown;
+    const subExp    = (session as any)?.subscriptionExpiresAt as string | number | Date | undefined;
 
-    if (!isActiveSubscription(subStatus, subExpRaw)) {
-      const roleSlug = roleSlugFrom(role); // ← نقش فعلی از همون قبل استخراج شده
-      const to = new URL(`/${roleSlug}/subscribe`, req.url);
+    const roleSlug = roleSlugFrom(role);
 
-      // پیام و لینک و next
-      to.searchParams.set("msg", "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
-      to.searchParams.set("buy", "https://nerrkhin.com/subscribe/buy");
+    // اگر ادعاها هنوز فعال نیست، یک‌بار پل رفرش را امتحان کن
+    if (!isActiveSubscription(subStatus, subExp)) {
+      const to = new URL(`/auth/refresh-bridge`, req.url);
+      // برگرد به همین مسیری که کاربر می‌خواست
       to.searchParams.set("next", pathname + url.search);
-      // مهم: خود role را هم بفرست
-      if (roleSlug) to.searchParams.set("role", roleSlug);
-
+      // اگر بعد از رفرش هم فعال نشد، برو برای خرید
+      to.searchParams.set("fallback", `/${roleSlug}/subscribe?from=${encodeURIComponent(pathname)}`);
       return NextResponse.redirect(to);
     }
   }
-
   if (isAuth && pathname.startsWith(PANEL) && hasKnownRole && !isAdmin(role)) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }
