@@ -4,7 +4,16 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-export default function SubscriptionSuccessClient({ role }: { role: string }) {
+type RoleLike = string | number | null | undefined;
+
+function roleToSlug(role: RoleLike): "wholesaler" | "retailer" {
+  if (role === 3 || role === "3" || String(role).toLowerCase() === "wholesaler") return "wholesaler";
+  if (role === 4 || role === "4" || String(role).toLowerCase() === "retailer")   return "retailer";
+  // در صورت نقش‌های مدیریتی یا نامشخص، پیش‌فرض retailer
+  return "retailer";
+}
+
+export default function SubscriptionSuccessClient({ role }: { role: RoleLike }) {
   const router = useRouter();
   const ran = useRef(false);
 
@@ -12,30 +21,42 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
     if (ran.current) return;
     ran.current = true;
 
-    const next = `/${role}/shop`;
-    const fallback = `/${role}/account/subscriptions?justPaid=1`;
-
     (async () => {
       try {
         // کمی صبر تا Verify بک‌اند قطعی شود
         await new Promise((r) => setTimeout(r, 900));
 
-        const r = await fetch("/api/session/force-refresh", {
+        // 1) رفرش توکن (سرور: کوکی سشن NextAuth را آپدیت می‌کند)
+        const rf = await fetch("/api/session/force-refresh", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
 
-        // یک مکث کوتاه تا Set-Cookie روی مرورگر ثبت شود
+        // اندکی تا ثبت Set-Cookie در مرورگر
         await new Promise((r) => setTimeout(r, 120));
 
-        if (r.ok) {
-          window.location.assign(next); // فول ریکوئست → middleware ادعاهای جدید را می‌بیند
+        // 2) اگر رفرش موفق بود، سشن جدید را بخوان تا نقش تازه را از همان‌جا بگیریم
+        let slug = roleToSlug(role);
+        if (rf.ok) {
+          try {
+            const sessRes = await fetch("/api/auth/session", { credentials: "include" });
+            const sess = await sessRes.json().catch(() => null);
+            const freshRole = (sess as any)?.user?.role ?? (sess as any)?.role;
+            slug = roleToSlug(freshRole ?? role);
+          } catch {
+            // اگر نشد، از prop استفاده می‌کنیم
+            slug = roleToSlug(role);
+          }
+          // مقصد نهایی پس از موفقیت
+          window.location.assign(`/${slug}/shop`);
         } else {
-          window.location.replace(fallback);
+          // در صورت خطا: برگرد صفحهٔ اشتراک کاربر خودش
+          window.location.replace(`/${slug}/account/subscriptions?justPaid=1`);
         }
       } catch {
-        window.location.replace(fallback);
+        const slug = roleToSlug(role);
+        window.location.replace(`/${slug}/account/subscriptions?justPaid=1`);
       }
     })();
   }, [role, router]);
