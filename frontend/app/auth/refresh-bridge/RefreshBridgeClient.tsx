@@ -26,7 +26,7 @@ export default function RefreshBridgeClient() {
         await new Promise((r) => setTimeout(r, 150)); // ثبت Set-Cookie
 
         if (res.ok) {
-          setMsg("توکن تازه شد، ادامه…");
+          setMsg("اطلاعات کاربر به روز رسانی شد");
           window.location.assign(next); // درخواست کامل → middleware کوکی جدید را می‌خواند
         } else {
           setMsg("تازه‌سازی ناموفق؛ رفتن به اشتراک…");
