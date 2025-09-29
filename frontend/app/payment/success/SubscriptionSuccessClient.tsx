@@ -11,17 +11,33 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
     if (ran.current) return;
     ran.current = true;
 
-    // مقصد نهایی بعد از تازه‌سازی کوکی سشن
     const next = `/${role}/shop`;
-    // اگر به هر دلیل رفرش شکست خورد
     const fallback = `/${role}/account/subscriptions?justPaid=1`;
 
-    // کمی مکث تا Verify بک‌اند نهایی شود، سپس GET رفرش را بزن
-    const t = setTimeout(() => {
-      window.location.assign(`/api/auth/force-refresh?next=${encodeURIComponent(next)}&fallback=${encodeURIComponent(fallback)}`);
-    }, 900);
+    (async () => {
+      try {
+        // کمی مکث تا Verify بک‌اند نهایی شود
+        await new Promise((r) => setTimeout(r, 900));
 
-    return () => clearTimeout(t);
+        // ✅ فقط POST - هیچ GET به NextAuth زده نمی‌شود
+        const r = await fetch("/api/auth/force-refresh", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        // اندکی تا ست‌شدن Set-Cookie
+        await new Promise((r) => setTimeout(r, 150));
+
+        if (r.ok) {
+          window.location.assign(next); // فول ریکوئست تا middleware کوکی جدید را بخواند
+        } else {
+          window.location.replace(fallback);
+        }
+      } catch {
+        window.location.replace(fallback);
+      }
+    })();
   }, [role, router]);
 
   return (
@@ -34,7 +50,7 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white">پرداخت موفقیت‌آمیز بود</h1>
-          <p className="text-gray-600 dark:text-gray-300">در حال نهایی‌سازی حساب …</p>
+          <p className="text-gray-600 dark:text-gray-300">در حال نهایی‌سازی حساب و گرفتن توکن جدید…</p>
         </div>
       </div>
     </main>

@@ -49,6 +49,7 @@ function pickSessionCookieName(req: NextRequest) {
     : "next-auth.session-token";
 }
 
+// با تایپ‌های خودت سازگار: (role/accessToken/refreshToken/accessTokenExpires اجباری)
 type AppJWT = JWT & {
   id?: string;
   role: string | number;
@@ -60,7 +61,7 @@ type AppJWT = JWT & {
   error?: "RefreshAccessTokenError";
 };
 
-async function buildRefreshedResponse(req: NextRequest) {
+export async function POST(req: NextRequest) {
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) {
     return NextResponse.json({ ok: false, error: "Missing NEXTAUTH_SECRET" }, { status: 500 });
@@ -71,69 +72,42 @@ async function buildRefreshedResponse(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "NoToken" }, { status: 401 });
   }
 
-  // 1) از بک‌اند توکن تازه بگیر
-  const r = await refreshAccessTokenAPI((curr as any).refreshToken as string);
-  const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
-
-  // 2) ادعاهای جدید را از پروفایل خودت بخوان (role/subscription …)
-  const claims = await fetchProfileByAccessToken(r.accessToken);
-
-  // 3) JWT جدید مطابق تایپ‌های پروژه
-  const base = curr as AppJWT;
-  const nextToken: AppJWT = {
-    ...base,
-    accessToken: r.accessToken,
-    accessTokenExpires: absExp,
-    refreshToken: base.refreshToken,
-    role: (claims?.role ?? base.role) as any,
-    subscriptionStatus: claims?.subscriptionStatus ?? base.subscriptionStatus ?? "none",
-    subscriptionExpiresAt: claims?.subscriptionExpiresAt ?? base.subscriptionExpiresAt ?? null,
-    error: undefined,
-  };
-
-  const jwt = await encode({ token: nextToken, secret });
-
-  // 4) کوکی سشن NextAuth را ست کن
-  const cookieName = pickSessionCookieName(req);
-  const secure = cookieName.startsWith("__Secure-") || process.env.NODE_ENV === "production";
-
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(cookieName, jwt, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure,
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  return res;
-}
-
-/* ---------- POST ---------- */
-export async function POST(req: NextRequest) {
   try {
-    return await buildRefreshedResponse(req);
+    // 1) توکن جدید از بک‌اند
+    const r = await refreshAccessTokenAPI((curr as any).refreshToken as string);
+    const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
+
+    // 2) ادعاهای به‌روز پروفایل (نقش/اشتراک)
+    const claims = await fetchProfileByAccessToken(r.accessToken);
+
+    // 3) ساخت JWT جدید (منطبق با augmentation خودت)
+    const base = curr as AppJWT;
+    const nextToken: AppJWT = {
+      ...base,
+      accessToken: r.accessToken,
+      accessTokenExpires: absExp,
+      refreshToken: base.refreshToken,
+      role: (claims?.role ?? base.role) as any,
+      subscriptionStatus: claims?.subscriptionStatus ?? base.subscriptionStatus ?? "none",
+      subscriptionExpiresAt: claims?.subscriptionExpiresAt ?? base.subscriptionExpiresAt ?? null,
+      error: undefined,
+    };
+
+    // 4) امضا و ست‌کردن کوکی سشن NextAuth
+    const jwt = await encode({ token: nextToken, secret });
+    const cookieName = pickSessionCookieName(req);
+    const secure = cookieName.startsWith("__Secure-") || process.env.NODE_ENV === "production";
+
+    const res = NextResponse.json({ ok: true });
+    res.cookies.set(cookieName, jwt, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      secure,
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    return res;
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "RefreshFailed" }, { status: 500 });
-  }
-}
-
-/* ---------- GET: برای تست و استفادهٔ ساده ---------- */
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const next = url.searchParams.get("next") || "/";
-  const fallback = url.searchParams.get("fallback") || "/auth/login?reauth=1";
-
-  try {
-    const baseRes = await buildRefreshedResponse(req);
-    const ok = baseRes.status >= 200 && baseRes.status < 300;
-
-    // redirect 303 به مقصد، و کپی‌کردن Set-Cookie
-    const out = NextResponse.redirect(new URL(ok ? next : fallback, url), { status: 303 });
-    const setCookie = baseRes.headers.get("set-cookie");
-    if (setCookie) out.headers.set("set-cookie", setCookie);
-    return out;
-  } catch {
-    return NextResponse.redirect(new URL(fallback, req.url), { status: 303 });
   }
 }
