@@ -1,13 +1,13 @@
 // app/api/session/force-refresh/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { encode } from "next-auth/jwt";
+import { getToken, encode } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
 import { refreshAccessTokenAPI } from "@/app/services/authapi";
 import { API_BASE_URL, INTERNAL_GO_API_URL } from "@/app/config/apiConfig";
 
 export const runtime = "nodejs";
 
+// helpers
 const clean = (s: string) => (s || "").replace(/\/+$/, "");
 const isAbs = (s: string) => /^https?:\/\//i.test(s);
 const withSlash = (s: string) => (s.startsWith("/") ? s : `/${s}`);
@@ -48,7 +48,7 @@ function pickSessionCookieName(req: NextRequest) {
     : "next-auth.session-token";
 }
 
-// مطابق types/next-auth.d.ts شما:
+// مطابق types/next-auth.d.ts خودت
 type AppJWT = JWT & {
   id?: string;
   role: string | number;
@@ -72,14 +72,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1) توکن تازه از بک‌اند
+    // 1) رفرش از بک‌اند خودت
     const r = await refreshAccessTokenAPI((curr as any).refreshToken as string);
     const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
 
-    // 2) ادعاهای به‌روز (نقش/اشتراک)
+    // 2) پروفایل واقعی بعد از خرید
     const claims = await fetchProfileByAccessToken(r.accessToken);
 
-    // 3) ساخت JWT جدید
+    // 3) ساخت JWT جدید مطابق تایپ خودت
     const base = curr as AppJWT;
     const nextToken: AppJWT = {
       ...base,
