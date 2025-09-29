@@ -142,22 +142,20 @@ export async function middleware(req: NextRequest) {
   //   }
   // }
 
-  if (isAuth && isSubscriptionGate(pathname)) {
-    const subStatus = (session as any)?.subscriptionStatus as string | undefined;
-    const subExp    = (session as any)?.subscriptionExpiresAt as string | number | Date | undefined;
+// 2.5) اگر لاگین است ولی «اشتراک لازم» دارد و فعال نیست → اول پل رفرش
+if (isAuth && isSubscriptionGate(pathname)) {
+  const subStatus = (session as any)?.subscriptionStatus as string | undefined;
+  const subExp    = (session as any)?.subscriptionExpiresAt as string | number | Date | undefined;
 
+  if (!isActiveSubscription(subStatus, subExp)) {
     const roleSlug = roleSlugFrom(role);
-
-    // اگر ادعاها هنوز فعال نیست، یک‌بار پل رفرش را امتحان کن
-    if (!isActiveSubscription(subStatus, subExp)) {
-      const to = new URL(`/auth/refresh-bridge`, req.url);
-      // برگرد به همین مسیری که کاربر می‌خواست
-      to.searchParams.set("next", pathname + url.search);
-      // اگر بعد از رفرش هم فعال نشد، برو برای خرید
-      to.searchParams.set("fallback", `/${roleSlug}/subscribe?from=${encodeURIComponent(pathname)}`);
-      return NextResponse.redirect(to);
-    }
+    const to = new URL(`/auth/refresh-bridge`, req.url);
+    to.searchParams.set("next", pathname + url.search);
+    to.searchParams.set("fallback", `/${roleSlug}/subscribe?from=${encodeURIComponent(pathname)}`);
+    return NextResponse.redirect(to);
   }
+}
+
   if (isAuth && pathname.startsWith(PANEL) && hasKnownRole && !isAdmin(role)) {
     return NextResponse.redirect(new URL(defaultRouteForRole(role), req.url));
   }

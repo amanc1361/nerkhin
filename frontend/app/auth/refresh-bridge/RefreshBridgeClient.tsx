@@ -1,13 +1,10 @@
-// app/auth/refresh-bridge/RefreshBridgeClient.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 
 export default function RefreshBridgeClient() {
   const sp = useSearchParams();
-  const { update } = useSession();
   const ran = useRef(false);
   const [msg, setMsg] = useState("در حال تازه‌سازی توکن…");
 
@@ -20,32 +17,26 @@ export default function RefreshBridgeClient() {
 
     (async () => {
       try {
-        // کمی مکث کوتاه تا Verify بک‌اند قطعیت پیدا کند
-        await new Promise((r) => setTimeout(r, 800));
+        await new Promise((r) => setTimeout(r, 600)); // فرصت به Verify
+        const res = await fetch("/api/auth/force-refresh", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        await new Promise((r) => setTimeout(r, 150)); // ثبت Set-Cookie
 
-        // ✅ فقط یک بار رفرش سشن/توکن
-        const s = (await update()) as any;
-
-        const ok =
-          (s?.subscriptionStatus === "active" || s?.subscriptionStatus === "trial") &&
-          !!s?.subscriptionExpiresAt &&
-          new Date(s.subscriptionExpiresAt).getTime() > Date.now();
-
-        // ۲۰۰ms مکث تا Set-Cookie ثبت شود، بعد «درخواست کامل» بزن که middleware کوکی تازه را بخواند
-        await new Promise((r) => setTimeout(r, 200));
-
-        if (ok) {
-          setMsg("توکن تازه شد، در حال ادامه…");
-          window.location.assign(next);       // فول‌ریدایرکت → middleware ادعاهای جدید را می‌بیند
+        if (res.ok) {
+          setMsg("توکن تازه شد، ادامه…");
+          window.location.assign(next); // درخواست کامل → middleware کوکی جدید را می‌خواند
         } else {
-          setMsg("اشتراک هنوز فعال نیست؛ هدایت به صفحهٔ خرید…");
+          setMsg("تازه‌سازی ناموفق؛ رفتن به اشتراک…");
           window.location.replace(fallback);
         }
       } catch {
         window.location.replace(fallback);
       }
     })();
-  }, [sp, update]);
+  }, [sp]);
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
