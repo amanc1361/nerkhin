@@ -1,13 +1,14 @@
 // app/api/session/force-refresh/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getToken, encode } from "next-auth/jwt";
+import { getToken } from "next-auth/jwt";
+import { encode } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
 import { refreshAccessTokenAPI } from "@/app/services/authapi";
 import { API_BASE_URL, INTERNAL_GO_API_URL } from "@/app/config/apiConfig";
 
 export const runtime = "nodejs";
 
-// helpers
+/* ---------------- helpers ---------------- */
 const clean = (s: string) => (s || "").replace(/\/+$/, "");
 const isAbs = (s: string) => /^https?:\/\//i.test(s);
 const withSlash = (s: string) => (s.startsWith("/") ? s : `/${s}`);
@@ -20,26 +21,73 @@ function resolveBase(publicBase?: string, internalBase?: string) {
   return ib.endsWith(tail) ? ib : ib + tail;
 }
 
-async function fetchProfileByAccessToken(accessToken: string) {
+function toMs(v: unknown): number {
+  if (v == null) return 0;
+  if (typeof v === "number") return v < 1e12 ? v * 1000 : v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n < 1e12 ? n * 1000 : n;
+    const d = Date.parse(v);
+    return Number.isNaN(d) ? 0 : d;
+  }
+  const d = Date.parse(String(v));
+  return Number.isNaN(d) ? 0 : d;
+}
+
+async function getJSON<T>(url: string, accessToken?: string): Promise<T | null> {
   try {
-    const base = resolveBase(API_BASE_URL, INTERNAL_GO_API_URL);
-    const url = `${base}/user/fetch-user`;
     const res = await fetch(url, {
       method: "GET",
       cache: "no-store",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
     });
     if (!res.ok) return null;
-    const data = await res.json().catch(() => null);
-    if (!data) return null;
-    return {
-      role: (data as any)?.role,
-      subscriptionStatus: (data as any)?.subscriptionStatus,
-      subscriptionExpiresAt: (data as any)?.subscriptionExpiresAt ?? null,
-    };
+    return (await res.json()) as T;
   } catch {
     return null;
   }
+}
+
+async function resolveActiveSubscription(accessToken: string): Promise<{
+  status: "active" | "trial" | "none";
+  expiresAt: string | number | null;
+}> {
+  const base = resolveBase(API_BASE_URL, INTERNAL_GO_API_URL);
+
+  type UserSub = { expiresAt?: string | number | null } | Record<string, any>;
+  const list1 = await getJSON<UserSub[]>(
+    `${base}/user-subscription/fetch-user-subscriptions`,
+    accessToken
+  );
+  const list = list1 ?? (await getJSON<UserSub[]>(`${base}/user-subscription/list`, accessToken));
+
+  if (Array.isArray(list) && list.length) {
+    const maxMs = list.reduce((mx, it) => {
+      const t = toMs((it as any)?.expiresAt);
+      return t > mx ? t : mx;
+    }, 0);
+    if (maxMs > Date.now()) {
+      return { status: "active", expiresAt: maxMs };
+    }
+  }
+
+  const prof = await getJSON<{ subscriptionStatus?: string; subscriptionExpiresAt?: any }>(
+    `${base}/user/fetch-user`,
+    accessToken
+  );
+  if (prof) {
+    const st = (prof.subscriptionStatus as any) ?? "none";
+    const ex = prof.subscriptionExpiresAt ?? null;
+    const exMs = toMs(ex);
+    if ((st === "active" || st === "trial") && exMs > Date.now()) {
+      return { status: st === "trial" ? "trial" : "active", expiresAt: ex };
+    }
+  }
+
+  return { status: "none", expiresAt: null };
 }
 
 function pickSessionCookieName(req: NextRequest) {
@@ -48,7 +96,7 @@ function pickSessionCookieName(req: NextRequest) {
     : "next-auth.session-token";
 }
 
-// مطابق types/next-auth.d.ts خودت
+/* ---------------- types ---------------- */
 type AppJWT = JWT & {
   id?: string;
   role: string | number;
@@ -60,6 +108,7 @@ type AppJWT = JWT & {
   error?: "RefreshAccessTokenError";
 };
 
+/* ---------------- handler ---------------- */
 export async function POST(req: NextRequest) {
   const secret = process.env.NEXTAUTH_SECRET;
   if (!secret) {
@@ -72,32 +121,45 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1) رفرش از بک‌اند خودت
-    const r = await refreshAccessTokenAPI((curr as any).refreshToken as string);
-    const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
+    // 1) **مستقیم رفرش توکن بک‌اند** (همین‌جا اگر refreshToken جدید داد، استفاده می‌کنیم)
+    const r: any = await refreshAccessTokenAPI((curr as any).refreshToken as string);
+    const absExp = Date.now() + (r.accessTokenExpiresAt ?? r.expiresIn ?? 0) * 1000;
 
-    // 2) پروفایل واقعی بعد از خرید
-    const claims = await fetchProfileByAccessToken(r.accessToken);
+    // 2) ادعاهای اشتراک را همین الان از API خودت محاسبه کن
+    const sub = await resolveActiveSubscription(r.accessToken);
 
-    // 3) ساخت JWT جدید مطابق تایپ خودت
+    // 3) نقش را اگر لازم داری جداگانه هم می‌توانی از پروفایل بخوانی؛ فعلاً نقش قبلی حفظ می‌شود
     const base = curr as AppJWT;
+
+    // 🔴 مهم: اگر بک‌اند Refresh Token را rotate می‌کند، اینجا به‌روزرسانی‌اش کن
+    const nextRefreshToken =
+      (r.refreshToken as string | undefined) && typeof r.refreshToken === "string"
+        ? r.refreshToken
+        : base.refreshToken;
+
+    // 4) JWT جدید با ادعاهای تازه
     const nextToken: AppJWT = {
       ...base,
       accessToken: r.accessToken,
       accessTokenExpires: absExp,
-      refreshToken: base.refreshToken,
-      role: (claims?.role ?? base.role) as any,
-      subscriptionStatus: claims?.subscriptionStatus ?? base.subscriptionStatus ?? "none",
-      subscriptionExpiresAt: claims?.subscriptionExpiresAt ?? base.subscriptionExpiresAt ?? null,
+      refreshToken: nextRefreshToken,                  // ← اگر rotate شده باشد، همین‌جا عوض می‌شود
+      role: base.role,
+      subscriptionStatus: sub.status,                  // ← «active/trial/none»
+      subscriptionExpiresAt: sub.expiresAt,            // ← تاریخ دقیق
       error: undefined,
     };
 
-    // 4) امضا و نوشتن کوکی سشن NextAuth
+    // 5) امضا و ست‌کردن کوکی سشن NextAuth
     const jwt = await encode({ token: nextToken, secret });
     const cookieName = pickSessionCookieName(req);
     const secure = cookieName.startsWith("__Secure-") || process.env.NODE_ENV === "production";
 
-    const res = NextResponse.json({ ok: true });
+    const res = NextResponse.json({
+      ok: true,
+      subscriptionStatus: sub.status,
+      subscriptionExpiresAt: sub.expiresAt,
+      rotated: nextRefreshToken !== base.refreshToken, // برای دیباگ: آیا رفرش‌توکن عوض شد؟
+    });
     res.cookies.set(cookieName, jwt, {
       httpOnly: true,
       sameSite: "lax",
