@@ -49,7 +49,7 @@ export default function SubscriptionSuccessClient({ role }: { role: RoleLike }) 
             slug = roleToSlug(role);
           }
           // مقصد نهایی پس از موفقیت
-          window.location.assign(`/${slug}/shop`);
+          window.location.assign(`/${slug}/account`);
         } else {
           // در صورت خطا: برگرد صفحهٔ اشتراک کاربر خودش
           window.location.replace(`/${slug}/account/subscriptions?justPaid=1`);
