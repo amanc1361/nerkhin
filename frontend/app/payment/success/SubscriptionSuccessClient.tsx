@@ -1,3 +1,4 @@
+// app/payment/success/SubscriptionSuccessClient.tsx
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -16,21 +17,20 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
 
     (async () => {
       try {
-        // کمی مکث تا Verify بک‌اند نهایی شود
+        // کمی صبر تا Verify بک‌اند قطعی شود
         await new Promise((r) => setTimeout(r, 900));
 
-        // ✅ فقط POST - هیچ GET به NextAuth زده نمی‌شود
-        const r = await fetch("/api/auth/force-refresh", {
+        const r = await fetch("/api/session/force-refresh", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
 
-        // اندکی تا ست‌شدن Set-Cookie
-        await new Promise((r) => setTimeout(r, 150));
+        // یک مکث کوتاه تا Set-Cookie روی مرورگر ثبت شود
+        await new Promise((r) => setTimeout(r, 120));
 
         if (r.ok) {
-          window.location.assign(next); // فول ریکوئست تا middleware کوکی جدید را بخواند
+          window.location.assign(next); // فول ریکوئست → middleware ادعاهای جدید را می‌بیند
         } else {
           window.location.replace(fallback);
         }
@@ -50,7 +50,7 @@ export default function SubscriptionSuccessClient({ role }: { role: string }) {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white">پرداخت موفقیت‌آمیز بود</h1>
-          <p className="text-gray-600 dark:text-gray-300">در حال نهایی‌سازی حساب و گرفتن توکن جدید…</p>
+          <p className="text-gray-600 dark:text-gray-300">در حال نهایی‌سازی حساب…</p>
         </div>
       </div>
     </main>

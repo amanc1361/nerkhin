@@ -1,4 +1,4 @@
-// app/api/auth/force-refresh/route.ts
+// app/api/session/force-refresh/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { encode } from "next-auth/jwt";
@@ -49,7 +49,7 @@ function pickSessionCookieName(req: NextRequest) {
     : "next-auth.session-token";
 }
 
-// با تایپ‌های خودت سازگار: (role/accessToken/refreshToken/accessTokenExpires اجباری)
+// مطابق types/next-auth.d.ts شما:
 type AppJWT = JWT & {
   id?: string;
   role: string | number;
@@ -73,14 +73,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 1) توکن جدید از بک‌اند
+    // 1) رفرش از بک‌اند خودت
     const r = await refreshAccessTokenAPI((curr as any).refreshToken as string);
     const absExp = Date.now() + r.accessTokenExpiresAt * 1000;
 
-    // 2) ادعاهای به‌روز پروفایل (نقش/اشتراک)
+    // 2) پروفایل واقعی بعد از خرید
     const claims = await fetchProfileByAccessToken(r.accessToken);
 
-    // 3) ساخت JWT جدید (منطبق با augmentation خودت)
+    // 3) ساخت JWT جدید مطابق تایپ خودت
     const base = curr as AppJWT;
     const nextToken: AppJWT = {
       ...base,
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       error: undefined,
     };
 
-    // 4) امضا و ست‌کردن کوکی سشن NextAuth
+    // 4) امضا و نوشتن کوکی سشن NextAuth
     const jwt = await encode({ token: nextToken, secret });
     const cookieName = pickSessionCookieName(req);
     const secure = cookieName.startsWith("__Secure-") || process.env.NODE_ENV === "production";
