@@ -38,10 +38,6 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	}
 
 	// فقط محصولات قابل نمایش؟
-	onlyVisible := true
-	if q.OnlyVisible != nil {
-		onlyVisible = *q.OnlyVisible
-	}
 
 	// برای is_favorite
 	isFavExpr := "FALSE AS is_favorite"
@@ -59,9 +55,9 @@ func (upr *UserProductRepository) FetchMarketProductsFiltered(
 	}
 
 	// فیلترها
-	if onlyVisible {
-		base = base.Where("up.is_hidden = FALSE")
-	}
+
+	base = base.Where("up.is_hidden = false")
+
 	if q.CategoryID > 0 {
 		base = base.Where("pb.category_id = ?", q.CategoryID)
 	}
