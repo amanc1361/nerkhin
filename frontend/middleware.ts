@@ -122,25 +122,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(to);
   }
 
-  // 2.5) اگر لاگین است ولی «اشتراک لازم» برای مسیر وجود دارد و فعال نیست → بفرست صفحه‌ی اشتراک
-  // if (isAuth && isSubscriptionGate(pathname)) {
-  //   const subStatus = (session as any)?.subscriptionStatus as string | undefined;
-  //   const subExpRaw = (session as any)?.subscriptionExpiresAt as unknown;
 
-  //   if (!isActiveSubscription(subStatus, subExpRaw)) {
-  //     const roleSlug = roleSlugFrom(role); // ← نقش فعلی از همون قبل استخراج شده
-  //     const to = new URL(`/${roleSlug}/subscribe`, req.url);
-
-  //     // پیام و لینک و next
-  //     to.searchParams.set("msg", "برای دسترسی به این بخش نیاز به اشتراک فعال دارید.");
-  //     to.searchParams.set("buy", "https://nerrkhin.com/subscribe/buy");
-  //     to.searchParams.set("next", pathname + url.search);
-  //     // مهم: خود role را هم بفرست
-  //     if (roleSlug) to.searchParams.set("role", roleSlug);
-
-  //     return NextResponse.redirect(to);
-  //   }
-  // }
 
 // 2.5) اگر لاگین است ولی «اشتراک لازم» دارد و فعال نیست → اول پل رفرش
 if (isAuth && isSubscriptionGate(pathname)) {
