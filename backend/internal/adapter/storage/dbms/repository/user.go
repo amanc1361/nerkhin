@@ -161,9 +161,10 @@ func (ur *UserRepository) DeleteUser(ctx context.Context, dbSession interface{},
 		if err := tx.Where("user_id = ?", id).Delete(&domain.PaymentTransactionHistory{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("user_id = ?", id).Delete(&domain.Report{}).Error; err != nil {
-			return err
-		}
+
+		// if err := tx.Where("user_id = ?", id).Delete(&domain.Report{}).Error; err != nil {
+		// 	return err
+		// }
 		if err := tx.Where("user_id = ?", id).Delete(&domain.UserSubscription{}).Error; err != nil {
 			return err
 		}
