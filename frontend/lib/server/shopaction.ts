@@ -1,17 +1,6 @@
-// lib/server/shopaction.ts
+
 "use server";
 
-/**
- * ✅ اکشن‌های سروری حساب/فروشگاه + لاگ کامل:
- * - fetchUserInfoForEdit(): Promise<AccountUser>  ← اینجا imageUrl را مطلق می‌کنیم و placeholder امن می‌گذاریم
- * - updateShop(form: FormData): Promise<void>
- * - updateShopAction(prevState, formData): Promise<UpdateShopResult>  ← شامل revalidatePath
- *
- * نکات:
- * - همه توابع export شده async هستند (قانون Server Actions).
- * - روی موفقیتِ درخواست، JSON parse نمی‌کنیم (ممکن است 204 برگردد).
- * - اگر DEBUG_SHOP=1 باشد، تمام ورودی/خروجی‌ها لاگ می‌شوند.
- */
 
 import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
@@ -61,14 +50,7 @@ async function getAuthHeader() {
   return { Authorization: `Bearer ${token}` };
 }
 
-/* ---------------- image resolver ---------------- */
 
-/**
- * سرور معمولاً فقط filename یا مسیر نسبی می‌دهد؛ این متد آن را مطلق می‌کند.
- * می‌تونی این دو env را در .env.frontend تنظیم کنی، وگرنه پیش‌فرض امن داریم:
- *   NEXT_PUBLIC_FILE_HOST=https://nerrkhin.com
- *   NEXT_PUBLIC_FILE_PREFIX=/uploads
- */
 const FILE_HOST =
   (process.env.NEXT_PUBLIC_FILE_HOST || "https://nerrkhin.com").replace(/\/+$/, "");
 const FILE_PREFIX = "/" + (process.env.NEXT_PUBLIC_FILE_PREFIX || "uploads").replace(/^\/+/, "").replace(/\/+$/, "");
