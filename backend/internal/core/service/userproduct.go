@@ -826,40 +826,6 @@ func (ups *UserProductService) ChangeVisibilityStatus(ctx context.Context, userP
 	return nil
 }
 
-// func validateNewUserProduct(_ context.Context, product *domain.UserProduct) (err error) {
-// 	if product == nil {
-// 		return errors.New(msg.ErrDataIsNotValid)
-// 	}
-
-// 	if product.UserID < 1 {
-// 		return errors.New(msg.ErrDataIsNotValid)
-// 	}
-
-// 	if product.CategoryID < 1 {
-// 		return errors.New(msg.ErrProductCategoryIsNotSpecified)
-// 	}
-
-// 	if product.BrandID < 1 {
-// 		return errors.New(msg.ErrProductBrandIsNotSpecified)
-// 	}
-
-// 	if product.ModelID < 1 {
-// 		return errors.New(msg.ErrProductModelIsNotSpecified)
-// 	}
-
-// 	if product.IsDollar {
-// 		if !product.DollarPrice.Valid {
-// 			return errors.New(msg.ErrDollarPriceIsNotSet)
-// 		}
-// 	}
-
-// 	if product.FinalPrice.IsZero() {
-// 		return errors.New(msg.ErrFinalPriceIsNotSet)
-// 	}
-
-// 	return
-// }
-
 func validateUserProductPrices(_ context.Context, userProduct *domain.UserProduct,
 	dollarPrice decimal.Decimal) (err error) {
 	if !userProduct.IsDollar {
@@ -876,24 +842,24 @@ func validateUserProductPrices(_ context.Context, userProduct *domain.UserProduc
 
 	return nil
 }
-// internal/core/service/user_product_service.go
 
 func (ups *UserProductService) AdjustUserFinalPricesByPercent(
-    ctx context.Context, userID int64, percent decimal.Decimal,
+	ctx context.Context, userID int64, percent decimal.Decimal,
 ) error {
-    db, err := ups.dbms.NewDB(ctx)
-    if err != nil { return err }
+	db, err := ups.dbms.NewDB(ctx)
+	if err != nil {
+		return err
+	}
 
-    // 10 → 0.10 ،  -5 → -0.05
-    rate := percent.Div(decimal.NewFromInt(100))
+	// 10 → 0.10 ،  -5 → -0.05
+	rate := percent.Div(decimal.NewFromInt(100))
 
-    // جلوگیری از فاکتور ≤ 0 (یعنی درصد ≤ -100)
-    if rate.LessThanOrEqual(decimal.NewFromInt(-1)) {
-        return errors.New("invalid percent: must be greater than -100")
-    }
+	// جلوگیری از فاکتور ≤ 0 (یعنی درصد ≤ -100)
+	if rate.LessThanOrEqual(decimal.NewFromInt(-1)) {
+		return errors.New("invalid percent: must be greater than -100")
+	}
 
-    return ups.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-        return ups.repo.AdjustUserFinalPricesByRate(ctx, txSession, userID, rate)
-    })
+	return ups.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		return ups.repo.AdjustUserFinalPricesByRate(ctx, txSession, userID, rate)
+	})
 }
-
