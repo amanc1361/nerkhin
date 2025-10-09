@@ -239,14 +239,7 @@ export async function updateShop(form: FormData): Promise<void> {
   return;
 }
 
-/**
- * اکشن سازگار با useFormState(prevState, formData)
- * name فیلدهای فرم باید این‌ها باشد:
- * image, shopName, shopPhone1, shopPhone2, shopPhone3, shopAddress,
- * telegramUrl, instagramUrl, whatsappUrl, websiteUrl, latitude, longitude
- *
- * نکته مهم: برای invalidation باید <input type="hidden" name="role" value="wholesaler|retailer" /> را هم از فرم بفرستی.
- */
+
 export async function updateShopAction(
   _prevState: UpdateShopResult | null,
   formData: FormData

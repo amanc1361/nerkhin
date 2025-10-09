@@ -967,9 +967,6 @@ func (ur *UserProductRepository) GetAggregatedFilterDataForSearch(ctx context.Co
 	return aggregatedData, nil
 }
 
-// internal/adapter/repository/user_product_repository.go
-
-// repository - نسخه‌ای که ورودی‌اش rate است (نه درصد)
 // func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 // 	ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal,
 // ) error {
@@ -978,15 +975,47 @@ func (ur *UserProductRepository) GetAggregatedFilterDataForSearch(ctx context.Co
 // 		return err
 // 	}
 
-// 	r := rate.String() // "0.10" یا "-0.05"
+// 	// خواندن تنظیم گرد کردن کاربر
+// 	var u struct {
+// 		Rounded *bool `gorm:"column:rounded"`
+// 	}
+// 	if err := db.Model(&domain.User{}).
+// 		Select("rounded").
+// 		Where("id = ?", userID).
+// 		Take(&u).Error; err != nil {
+// 		return err
+// 	}
+// 	rounded := u.Rounded != nil && *u.Rounded
 
-//		return db.Model(&domain.UserProduct{}).
-//			Where("user_id = ? AND is_dollar = FALSE", userID).
-//			// new = final_price * (1 + rate)  سپس گرد کردن و کف صفر
-//			Update("final_price",
-//				gorm.Expr("GREATEST(ROUND(final_price * (1 + (?::numeric)), 0), 0)", r),
-//			).Error
-//	}
+// 	// factor = 1 + rate   (rate در سرویس = percent/100)
+// 	factor := decimal.NewFromInt(1).Add(rate)
+// 	f := factor.String()
+
+// 	var expr string
+// 	var args []any
+
+// 	if rounded {
+// 		// رند طبق آستانه ۶۵هزار روی مضارب ۱۰۰هزار:
+// 		// remainder < 65000  → پایین
+// 		// remainder ≥ 65000  → بالا
+// 		expr = `
+// 			GREATEST(
+// 				FLOOR( (final_price * CAST(? AS NUMERIC) + 35000) / 100000 ) * 100000,
+// 				0
+// 			)`
+// 		args = []any{f}
+// 	} else {
+// 		// بدون رند کردن
+// 		expr = `GREATEST(final_price * CAST(? AS NUMERIC), 0)`
+// 		args = []any{f}
+// 	}
+
+// 	return db.Model(&domain.UserProduct{}).
+// 		Where("user_id = ? AND is_dollar = FALSE", userID).
+// 		Update("final_price", gorm.Expr(expr, args...)).
+// 		Error
+// }
+
 func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	ctx context.Context, dbSession interface{}, userID int64, rate decimal.Decimal,
 ) error {
@@ -1015,18 +1044,20 @@ func (upr *UserProductRepository) AdjustUserFinalPricesByRate(
 	var args []any
 
 	if rounded {
+		// این بخش که منطق اصلی شماست، دست‌نخورده باقی می‌ماند
 		// رند طبق آستانه ۶۵هزار روی مضارب ۱۰۰هزار:
 		// remainder < 65000  → پایین
 		// remainder ≥ 65000  → بالا
 		expr = `
-			GREATEST(
-				FLOOR( (final_price * CAST(? AS NUMERIC) + 35000) / 100000 ) * 100000,
-				0
-			)`
+            GREATEST(
+                FLOOR( (final_price * CAST(? AS NUMERIC) + 35000) / 100000 ) * 100000,
+                0
+            )`
 		args = []any{f}
 	} else {
-		// بدون رند کردن
-		expr = `GREATEST(final_price * CAST(? AS NUMERIC), 0)`
+		// ✅ تغییر در اینجا اعمال شده است
+		// قیمت جدید به نزدیک‌ترین عدد صحیح رند می‌شود
+		expr = `GREATEST(ROUND(final_price * CAST(? AS NUMERIC)), 0)`
 		args = []any{f}
 	}
 
