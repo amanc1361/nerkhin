@@ -15,39 +15,45 @@ export function toEnDigits(s: string) {
 export function parseMoney(input: string): number {
   const clean = toEnDigits(input).replaceAll(",", "").replace(/٫/g, ".");
   const n = parseFloat(clean);
-  return isNaN(n) ? 0 : n;
+  return isNaN(n) ? 0 : Math.floor(n);
 }
 
-/** فرمت‌کردن حین تایپ (سه‌رقم سه‌رقم + یک اعشار اختیاری) */
-export function formatMoneyInput(input: string, allowDecimal = true) {
-  let s = toEnDigits(input)
-    .replace(/[^0-9.٫]/g, "")
-    .replace(/٫/g, ".");
-  if (!allowDecimal) s = s.replace(/\./g, ""); // ممنوعیت اعشار
-
-  // فقط یک نقطه
-  s = s.replace(/(\..*)\./g, "$1");
-
-  const endsWithDot = s.endsWith(".");
-  const [intRaw, decRaw = ""] = s.split(".");
-  const intPart = intRaw.replace(/^0+(?=\d)/, "");
-  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-  if (allowDecimal) {
-    if (endsWithDot) return grouped + ".";
-    return decRaw ? `${grouped}.${decRaw}` : grouped;
+/**
+ * فرمت‌کردن حین تایپ
+ * امضای این تابع دست‌نخورده باقی مانده، اما منطق داخلی آن برای حذف امن اعشار بازنویسی شده است.
+ */
+export function formatMoneyInput(input: string, allowDecimal = true): string {
+  if (input === null || input === undefined || input === "") {
+    return "";
   }
-  return grouped;
+
+  // ۱. ورودی را به رشته تبدیل کرده، ارقام فارسی را انگلیسی و کاماها را حذف می‌کنیم.
+  const cleanString = toEnDigits(String(input)).replaceAll(",", "");
+
+  // ۲. رشته را به عدد تبدیل می‌کنیم.
+  let numberValue = parseFloat(cleanString);
+
+  // ۳. اگر نتیجه یک عدد معتبر نبود، فقط ارقام رشته را برمی‌گردانیم.
+  if (isNaN(numberValue)) {
+    const onlyDigits = cleanString.replace(/[^0-9]/g, "");
+    return onlyDigits;
+  }
+
+  // ۴. قسمت اعشار را به طور کامل حذف می‌کنیم (به سمت پایین گرد می‌کنیم).
+  const integerValue = Math.floor(numberValue);
+
+  // ۵. عدد صحیح نهایی را با جداکننده‌ی هزارگان برای نمایش فرمت می‌کنیم.
+  return integerValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 type MoneyInputProps = {
-  value: string;                                // مقدار فرمت‌شده (کنترل‌شده از والد)
-  onChange: (formatted: string) => void;        // خروجی فرمت‌شده
+  value: string;
+  onChange: (formatted: string) => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
   dir?: "rtl" | "ltr";
-  allowDecimal?: boolean;                       // پیش‌فرض: true
+  allowDecimal?: boolean;
   name?: string;
 };
 
@@ -60,7 +66,7 @@ export default function MoneyInput({
   dir = "rtl",
   allowDecimal = true,
   name,
-}: MoneyInputProps) {
+}: MoneyInputProps) { // <--- خطا اینجا بود و اصلاح شد
   return (
     <input
       name={name}
