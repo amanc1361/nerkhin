@@ -23,3 +23,22 @@ export interface PaginatedAdminsResponse {
   users: Admin[];
   totalCount: number;
 }
+
+
+// این ساختار دقیقاً معادل ViewModelی است که در بک‌اند ساختیم
+export interface AdminUserViewModel {
+  id: number;
+  fullName: string;
+  phone: string;
+  isWholesaler: boolean;
+  cityName: string | null;
+  hasSubscription: boolean;
+  daysRemaining: number | null;
+  totalPaid: Decimal | number | string; // Type can vary based on library (Prisma/Decimal.js)
+}
+
+// برای ارسال فیلترها به سرور
+export interface AdminUserFilters {
+  is_wholesaler?: boolean;
+  has_subscription?: boolean;
+}

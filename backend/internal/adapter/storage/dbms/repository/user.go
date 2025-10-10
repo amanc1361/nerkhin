@@ -458,13 +458,13 @@ func (ur *UserRepository) UpdateAllUsersDeviceLimit(ctx context.Context, dbSessi
 
 // in a new file repository/user.go or an existing one
 
-
+// in repository/user.go
 
 // FetchAdminUserList retrieves a filtered list of users for the admin panel.
 func (ur *UserRepository) FetchAdminUserList(ctx context.Context, dbSession interface{},
-    filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error) {
-	
-    db, err := gormutil.CastToGORM(ctx, dbSession)
+	filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error) {
+
+	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
 		return nil, err
 	}
@@ -476,7 +476,7 @@ func (ur *UserRepository) FetchAdminUserList(ctx context.Context, dbSession inte
             u.id,
             u.full_name,
             u.phone,
-            u.is_wholesaler,
+            CASE WHEN u.role = ? THEN TRUE ELSE FALSE END AS is_wholesaler, -- <-- اصلاح ۱: تبدیل role به boolean
             c.name AS city_name,
             COALESCE(sub.total_paid, 0) AS total_paid,
             CASE
@@ -487,7 +487,7 @@ func (ur *UserRepository) FetchAdminUserList(ctx context.Context, dbSession inte
                 WHEN us.expires_at > NOW() THEN EXTRACT(DAY FROM us.expires_at - NOW())
                 ELSE NULL
             END AS days_remaining
-        `).
+        `, domain.Wholesaler). // <-- ارسال مقدار Wholesaler به کوئری
 		Joins("LEFT JOIN user_subscription us ON us.user_id = u.id").
 		Joins("LEFT JOIN city c ON c.id = us.city_id").
 		Joins(`LEFT JOIN (
@@ -499,8 +499,16 @@ func (ur *UserRepository) FetchAdminUserList(ctx context.Context, dbSession inte
 
 	// Apply filters dynamically
 	if filter.IsWholesaler != nil {
-		query = query.Where("u.is_wholesaler = ?", *filter.IsWholesaler)
+		// <-- اصلاح ۲: منطق فیلتر بر اساس role
+		if *filter.IsWholesaler {
+			// اگر فیلتر عمده‌فروش بود
+			query = query.Where("u.role = ?", domain.Wholesaler)
+		} else {
+			// اگر فیلتر خرده‌فروش بود
+			query = query.Where("u.role = ?", domain.Retailer)
+		}
 	}
+
 	if filter.HasSubscription != nil {
 		if *filter.HasSubscription {
 			query = query.Where("us.expires_at > NOW()")

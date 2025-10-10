@@ -14,6 +14,8 @@ import type {
 import { API_BASE_URL, INTERNAL_GO_API_URL } from '@/app/config/apiConfig';
 import { ApiError } from '@/app/services/apiService';
 import {
+  AdminUserFilters,
+  AdminUserViewModel,
   PaginatedAdminsResponse,
 } from '@/app/types/admin/adminManagement';
 import { Subscription } from '@/app/types/subscription/subscriptionManagement';
@@ -68,7 +70,7 @@ async function publicFetch<T = any>(
 }
 
 /* ---------- authenticated fetch ---------- */
-async function authenticatedFetch<T = any>(
+export async function authenticatedFetch<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
@@ -205,4 +207,19 @@ export async function updateShop(form: FormData): Promise<void> {
     method: 'PUT',
     body: form, // FormData → هدر Content-Type به‌صورت خودکار ست می‌شود
   });
+}
+export async function getAdminUsersList(filters: AdminUserFilters): Promise<AdminUserViewModel[]> {
+  // ساخت کوئری استرینگ از روی فیلترها
+  const query = new URLSearchParams();
+  if (filters.is_wholesaler !== undefined) {
+    query.append('is_wholesaler', String(filters.is_wholesaler));
+  }
+  if (filters.has_subscription !== undefined) {
+    query.append('has_subscription', String(filters.has_subscription));
+  }
+
+  const queryString = query.toString();
+  const path = `/user/users-subscriptions${queryString ? `?${queryString}` : ''}`;
+  
+  return authenticatedFetch(path, { method: 'GET' });
 }
