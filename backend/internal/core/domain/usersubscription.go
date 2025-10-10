@@ -83,3 +83,11 @@ func (PaymentTransactionHistory) TableName() string {
 func (TempAuthority) TableName() string {
 	return "temp_authority"
 }
+
+// in domain/usersubscription.go
+
+// GrantSubscriptionRequest holds the data for granting subscription days by an admin.
+type GrantSubscriptionRequest struct {
+	UserID *int64 `json:"userId"` // Optional: If nil, applies to all users.
+	Days   int    `json:"days"`   // Required: Number of days to add.
+}

@@ -35,5 +35,6 @@ func AddRoutes(parent *gin.RouterGroup, handler *handler.UserHandler) {
 	adminUserGroup.DELETE("/users/:userId/devices/:deviceId", handler.DeleteUserDevice)
 	adminUserGroup.DELETE("/users/:userId/devices", handler.DeleteAllUserDevices)
 	adminUserGroup.PUT("/users/all/device-limit", handler.UpdateAllUsersDeviceLimit)
+	adminUserGroup.GET("/users-subscriptions", handler.FetchAdminUserList)
 
 }

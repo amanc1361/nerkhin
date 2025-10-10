@@ -455,3 +455,64 @@ func (ur *UserRepository) UpdateAllUsersDeviceLimit(ctx context.Context, dbSessi
 		Where("role NOT IN (?)", []domain.UserRole{domain.SuperAdmin, domain.Admin}).
 		Update("device_limit", limit).Error
 }
+
+// in a new file repository/user.go or an existing one
+
+
+
+// FetchAdminUserList retrieves a filtered list of users for the admin panel.
+func (ur *UserRepository) FetchAdminUserList(ctx context.Context, dbSession interface{},
+    filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error) {
+	
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+	if err != nil {
+		return nil, err
+	}
+
+	var users []*domain.AdminUserViewModel
+
+	query := db.Table("user_t AS u").
+		Select(`
+            u.id,
+            u.full_name,
+            u.phone,
+            u.is_wholesaler,
+            c.name AS city_name,
+            COALESCE(sub.total_paid, 0) AS total_paid,
+            CASE
+                WHEN us.expires_at > NOW() THEN TRUE
+                ELSE FALSE
+            END AS has_subscription,
+            CASE
+                WHEN us.expires_at > NOW() THEN EXTRACT(DAY FROM us.expires_at - NOW())
+                ELSE NULL
+            END AS days_remaining
+        `).
+		Joins("LEFT JOIN user_subscription us ON us.user_id = u.id").
+		Joins("LEFT JOIN city c ON c.id = us.city_id").
+		Joins(`LEFT JOIN (
+            SELECT user_id, SUM(cost_c) AS total_paid
+            FROM user_payment_transaction_history
+            GROUP BY user_id
+        ) AS sub ON sub.user_id = u.id`).
+		Group("u.id, c.name, us.expires_at, sub.total_paid")
+
+	// Apply filters dynamically
+	if filter.IsWholesaler != nil {
+		query = query.Where("u.is_wholesaler = ?", *filter.IsWholesaler)
+	}
+	if filter.HasSubscription != nil {
+		if *filter.HasSubscription {
+			query = query.Where("us.expires_at > NOW()")
+		} else {
+			query = query.Where("us.expires_at IS NULL OR us.expires_at <= NOW()")
+		}
+	}
+
+	err = query.Scan(&users).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}

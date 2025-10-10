@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/nerkhin/internal/adapter/storage/util/gormutil"
 	"github.com/nerkhin/internal/core/domain"
+	"gorm.io/gorm"
 )
 
 type UserSubscriptionRepository struct{}
@@ -238,4 +240,48 @@ func (*UserSubscriptionRepository) GetPaymentTransaction(ctx context.Context, db
 	}
 
 	return transaction, nil
+}
+
+func (usr *UserSubscriptionRepository) ExtendSubscription(ctx context.Context, dbSession interface{},
+    userID int64, duration time.Duration) (affectedRows int64, err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return 0, err
+    }
+
+    // اگر اشتراک فعال باشد، به تاریخ انقضای فعلی اضافه می‌کند.
+    // اگر منقضی شده باشد، از تاریخ امروز به بعد اضافه می‌کند.
+    result := db.Model(&domain.UserSubscription{}).
+        Where("user_id = ?", userID).
+        Update("expires_at", gorm.Expr(`
+            CASE
+                WHEN expires_at > NOW() THEN expires_at + ?::interval
+                ELSE NOW() + ?::interval
+            END`, duration, duration))
+
+    if result.Error != nil {
+        return 0, result.Error
+    }
+
+    return result.RowsAffected, nil
+}
+
+// ExtendAllSubscriptions extends subscription days for all users.
+func (usr *UserSubscriptionRepository) ExtendAllSubscriptions(ctx context.Context, dbSession interface{},
+    duration time.Duration) (err error) {
+    db, err := gormutil.CastToGORM(ctx, dbSession)
+    if err != nil {
+        return err
+    }
+
+    // منطق مشابه بالا، اما بدون شرط WHERE برای اعمال روی همه کاربران
+    err = db.Model(&domain.UserSubscription{}).
+        Where("1 = 1"). // Update all records
+        Update("expires_at", gorm.Expr(`
+            CASE
+                WHEN expires_at > NOW() THEN expires_at + ?::interval
+                ELSE NOW() + ?::interval
+            END`, duration, duration)).Error
+
+    return err
 }

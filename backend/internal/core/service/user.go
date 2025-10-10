@@ -427,48 +427,47 @@ func (us *UserService) FetchUserInfo(ctx context.Context, id int64) (
 }
 
 func (us *UserService) UpdateDollarPrice(
-    ctx context.Context,
-    currentUserID int64,
-    dollarPrice decimal.NullDecimal,
-    dollarUpdate *bool, // nil => تغییر نده
-    rounded *bool,      // nil => تغییر نده
+	ctx context.Context,
+	currentUserID int64,
+	dollarPrice decimal.NullDecimal,
+	dollarUpdate *bool, // nil => تغییر نده
+	rounded *bool, // nil => تغییر نده
 ) (err error) {
-    db, err := us.dbms.NewDB(ctx)
-    if err != nil {
-        return
-    }
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return
+	}
 
-    err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
-        if currentUserID < 1 {
-            return errors.New(msg.ErrDataIsNotValid)
-        }
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		if currentUserID < 1 {
+			return errors.New(msg.ErrDataIsNotValid)
+		}
 
-        originalShop, err := us.GetUserByID(ctx, currentUserID)
-        if err != nil {
-            return err
-        }
+		originalShop, err := us.GetUserByID(ctx, currentUserID)
+		if err != nil {
+			return err
+		}
 
-        // دلار همیشه مثل قبل ست می‌شود
-        originalShop.DollarPrice = dollarPrice
+		// دلار همیشه مثل قبل ست می‌شود
+		originalShop.DollarPrice = dollarPrice
 
-        // فلگ‌ها فقط اگر ارسال شده باشند تغییر می‌کنند
-        if dollarUpdate != nil {
-            originalShop.DollarUpdate = *dollarUpdate
-        }
-        if rounded != nil {
-            originalShop.Rounded = *rounded
-        }
+		// فلگ‌ها فقط اگر ارسال شده باشند تغییر می‌کنند
+		if dollarUpdate != nil {
+			originalShop.DollarUpdate = *dollarUpdate
+		}
+		if rounded != nil {
+			originalShop.Rounded = *rounded
+		}
 
-        // امضای Repository همان قبلی است
-        if err := us.repo.UpdateDollarPrice(ctx, txSession, originalShop); err != nil {
-            return err
-        }
-        return nil
-    })
+		// امضای Repository همان قبلی است
+		if err := us.repo.UpdateDollarPrice(ctx, txSession, originalShop); err != nil {
+			return err
+		}
+		return nil
+	})
 
-    return
+	return
 }
-
 
 func (us *UserService) GetAdminAccess(ctx context.Context, adminID int64) (
 	adminAccess *domain.AdminAccess, err error) {
@@ -682,4 +681,24 @@ func (us *UserService) UpdateAllUsersDeviceLimit(ctx context.Context, limit int)
 		return us.repo.UpdateAllUsersDeviceLimit(ctx, txSession, limit)
 	})
 	return
+}
+func (us *UserService) FetchAdminUserList(ctx context.Context,
+	filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error) {
+
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var users []*domain.AdminUserViewModel
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		users, err = us.repo.FetchAdminUserList(ctx, txSession, filter)
+		return err
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }

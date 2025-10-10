@@ -47,6 +47,7 @@ type UserRepository interface {
 	DeleteAllUserDevices(ctx context.Context, dbSession interface{}, userID int64) error // <-- ADDED
 
 	UpdateAllUsersDeviceLimit(ctx context.Context, dbSession interface{}, limit int) error
+	FetchAdminUserList(ctx context.Context, dbSession interface{}, filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error)
 }
 
 type UserService interface {
@@ -83,4 +84,5 @@ type UserService interface {
 	GetUserActiveDevices(ctx context.Context, userID int64) ([]*domain.ActiveDevice, error) // <-- ADDED
 	DeleteAllUserDevices(ctx context.Context, userID int64) error                           // <-- ADDED
 	UpdateAllUsersDeviceLimit(ctx context.Context, limit int) error
+	FetchAdminUserList(ctx context.Context, filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error)
 }

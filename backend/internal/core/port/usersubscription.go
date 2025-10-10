@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"time"
 
 	"github.com/nerkhin/internal/core/domain"
 )
@@ -27,6 +28,11 @@ type UserSubscriptionRepository interface {
 		cityIDs []int64, err error)
 	CheckUserAccessToCity(ctx context.Context, dbSession interface{}, userID, cityID int64) (
 		hasAccess bool, err error)
+	ExtendSubscription(ctx context.Context, dbSession interface{}, userID int64, duration time.Duration) (
+		affectedRows int64, err error)
+
+	// ExtendAllSubscriptions extends all active users' subscriptions.
+	ExtendAllSubscriptions(ctx context.Context, dbSession interface{}, duration time.Duration) (err error)
 }
 
 type UserSubscriptionService interface {
@@ -40,4 +46,5 @@ type UserSubscriptionService interface {
 		paymentTransactions []*domain.PaymentTransactionHistoryViewModel, err error)
 	FetchUserSubscriptionList(ctx context.Context, userId int64) (
 		userSubscriptions []*domain.UserSubscriptionViewModel, err error)
+	GrantSubscriptionDays(ctx context.Context, req *domain.GrantSubscriptionRequest) (err error)
 }

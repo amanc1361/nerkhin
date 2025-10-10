@@ -523,11 +523,10 @@ func (uh *UserHandler) FetchUserInfo(c *gin.Context) {
 	handleSuccess(c, response)
 }
 
-
 type updateDollarPriceRequest struct {
-    DollarPrice  string `json:"dollarPrice"  binding:"required"`
-    DollarUpdate *bool  `json:"dollarUpdate,omitempty"` // اختیاری
-    Rounded      *bool  `json:"rounded,omitempty"`      // اختیاری
+	DollarPrice  string `json:"dollarPrice"  binding:"required"`
+	DollarUpdate *bool  `json:"dollarUpdate,omitempty"` // اختیاری
+	Rounded      *bool  `json:"rounded,omitempty"`      // اختیاری
 }
 
 func (uh *UserHandler) GetDollarPrice(c *gin.Context) {
@@ -547,38 +546,36 @@ func (uh *UserHandler) GetDollarPrice(c *gin.Context) {
 	handleSuccess(c, dollarPrice)
 }
 func (uh *UserHandler) UpdateDollarPrice(c *gin.Context) {
-    authPayload := httputil.GetAuthPayload(c)
-    currentUserId := authPayload.UserID
+	authPayload := httputil.GetAuthPayload(c)
+	currentUserId := authPayload.UserID
 
-    var req updateDollarPriceRequest
-    if err := c.ShouldBindJSON(&req); err != nil {
-        validationError(c, err, uh.AppConfig.Lang)
-        return
-    }
+	var req updateDollarPriceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		validationError(c, err, uh.AppConfig.Lang)
+		return
+	}
 
-    dollarPriceDecimal, err := decimal.NewFromString(req.DollarPrice)
-    if err != nil {
-        validationError(c, err, uh.AppConfig.Lang)
-        return
-    }
+	dollarPriceDecimal, err := decimal.NewFromString(req.DollarPrice)
+	if err != nil {
+		validationError(c, err, uh.AppConfig.Lang)
+		return
+	}
 
-    // فقط پاس دادن همون‌ها؛ Service خودش تشخیص می‌ده اگر nil بود، دست نزنه
-    err = uh.service.UpdateDollarPrice(
-        c,
-        currentUserId,
-        decimal.NullDecimal{ Decimal: dollarPriceDecimal, Valid: !dollarPriceDecimal.IsZero() },
-        req.DollarUpdate,
-        req.Rounded,
-    )
-    if err != nil {
-        HandleError(c, err, uh.AppConfig.Lang)
-        return
-    }
+	// فقط پاس دادن همون‌ها؛ Service خودش تشخیص می‌ده اگر nil بود، دست نزنه
+	err = uh.service.UpdateDollarPrice(
+		c,
+		currentUserId,
+		decimal.NullDecimal{Decimal: dollarPriceDecimal, Valid: !dollarPriceDecimal.IsZero()},
+		req.DollarUpdate,
+		req.Rounded,
+	)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
 
-    handleSuccess(c, nil)
+	handleSuccess(c, nil)
 }
-
-
 
 type getAdminRequest struct {
 	AdminID int64 `uri:"adminId"`
@@ -665,37 +662,39 @@ func (uh *UserHandler) UpdateAdminAccess(c *gin.Context) {
 
 	handleSuccess(c, nil)
 }
+
 // ... به انتهای فایل اضافه شود
 func (uh *UserHandler) ListUserDevices(c *gin.Context) {
-    userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
-    if err != nil {
-        validationError(c, errors.New("invalid user ID"), uh.AppConfig.Lang)
-        return
-    }
+	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		validationError(c, errors.New("invalid user ID"), uh.AppConfig.Lang)
+		return
+	}
 
-    devices, err := uh.service.GetUserActiveDevices(c.Request.Context(), userID)
-    if err != nil {
-        HandleError(c, err, uh.AppConfig.Lang)
-        return
-    }
-    handleSuccess(c, devices)
+	devices, err := uh.service.GetUserActiveDevices(c.Request.Context(), userID)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+	handleSuccess(c, devices)
 }
 
 func (uh *UserHandler) DeleteUserDevice(c *gin.Context) {
-    userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
-    if err != nil {
-        validationError(c, errors.New("invalid user ID"), uh.AppConfig.Lang)
-        return
-    }
-    deviceID := c.Param("deviceId")
+	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		validationError(c, errors.New("invalid user ID"), uh.AppConfig.Lang)
+		return
+	}
+	deviceID := c.Param("deviceId")
 
-    err = uh.service.DeleteUserDevice(c.Request.Context(), userID, deviceID)
-    if err != nil {
-        HandleError(c, err, uh.AppConfig.Lang)
-        return
-    }
-    handleSuccess(c, gin.H{"message": "Device deleted successfully"})
+	err = uh.service.DeleteUserDevice(c.Request.Context(), userID, deviceID)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+	handleSuccess(c, gin.H{"message": "Device deleted successfully"})
 }
+
 // DeleteAllUserDevices handles the HTTP request to delete all devices for a user.
 func (uh *UserHandler) DeleteAllUserDevices(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
@@ -712,6 +711,7 @@ func (uh *UserHandler) DeleteAllUserDevices(c *gin.Context) {
 
 	handleSuccess(c, gin.H{"message": "All devices for the user deleted successfully"})
 }
+
 // struct برای درخواست
 type updateAllUsersDeviceLimitRequest struct {
 	Limit int `json:"limit" binding:"required,min=1"`
@@ -732,4 +732,34 @@ func (uh *UserHandler) UpdateAllUsersDeviceLimit(c *gin.Context) {
 	}
 
 	handleSuccess(c, gin.H{"message": "All users device limit updated successfully"})
+}
+
+func (uh *UserHandler) FetchAdminUserList(c *gin.Context) {
+	// **مهم**: این Endpoint باید توسط Middleware ادمین محافظت شود.
+
+	// Parse query parameters for filtering
+	filter := &domain.UserFilterSubScribe{}
+
+	if isWholesalerStr, ok := c.GetQuery("is_wholesaler"); ok {
+		isWholesaler, err := strconv.ParseBool(isWholesalerStr)
+		if err == nil {
+			filter.IsWholesaler = &isWholesaler
+		}
+	}
+
+	if hasSubStr, ok := c.GetQuery("has_subscription"); ok {
+		hasSub, err := strconv.ParseBool(hasSubStr)
+		if err == nil {
+			filter.HasSubscription = &hasSub
+		}
+	}
+
+	ctx := c.Request.Context()
+	users, err := uh.service.FetchAdminUserList(ctx, filter)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, users)
 }

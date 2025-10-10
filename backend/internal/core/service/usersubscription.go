@@ -411,3 +411,59 @@ func calculateExpiresAt(subscriptionPeriod domain.SubscriptionPeriod) time.Time 
 
 	return time.Now().Add(durationToBeAdded)
 }
+
+
+
+func (uss *UserSubscriptionService) GrantSubscriptionDays(ctx context.Context,
+    req *domain.GrantSubscriptionRequest) (err error) {
+    db, err := uss.dbms.NewDB(ctx)
+    if err != nil {
+        return
+    }
+
+    // محاسبه مدت زمان به روز
+    duration := time.Duration(req.Days) * 24 * time.Hour
+
+    return uss.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+        // اگر UserID مشخص شده باشد، فقط برای همان کاربر اعمال می‌شود
+        if req.UserID != nil {
+            userID := *req.UserID
+            affectedRows, err := uss.repo.ExtendSubscription(ctx, txSession, userID, duration)
+            if err != nil {
+                return err
+            }
+
+            // اگر کاربری اشتراک نداشت، یک اشتراک جدید برای او ایجاد می‌کنیم
+            if affectedRows == 0 {
+                // ابتدا کاربر را پیدا می‌کنیم تا شهر اصلی او را به دست آوریم
+                user, err := uss.userRepo.GetUserByID(ctx, txSession, userID)
+                if err != nil {
+                    return err
+                }
+                if user == nil {
+                    return errors.New("User Not Found")
+                }
+
+                // یک اشتراک جدید با تاریخ انقضای محاسبه شده ایجاد می‌کنیم
+                // توجه: SubscriptionID اینجا nil در نظر گرفته شده چون یک هدیه از طرف ادمین است.
+                newUserSub := &domain.UserSubscription{
+                    UserID:    userID,
+                    CityID:    user.CityID, // اشتراک برای شهر اصلی کاربر
+                    ExpiresAt: time.Now().Add(duration),
+                }
+                _, err = uss.repo.CreateUserSubscription(ctx, txSession, newUserSub)
+                if err != nil {
+                    return err
+                }
+            }
+        } else {
+            // اگر UserID مشخص نشده باشد، برای همه کاربران اعمال می‌شود
+            err := uss.repo.ExtendAllSubscriptions(ctx, txSession, duration)
+            if err != nil {
+                return err
+            }
+        }
+        return nil
+    })
+}
+

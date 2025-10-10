@@ -100,6 +100,31 @@ const (
 	stateEnd
 )
 
+type UserType bool
+
+const (
+	IsRetailer   UserType = false // خرده فروش
+	ISWholesaler UserType = true  // عمده فروش
+)
+
+// AdminUserViewModel defines the structure for the admin user list.
+type AdminUserViewModel struct {
+	ID              int64           `json:"id"`
+	FullName        string          `json:"fullName"`
+	Phone           string          `json:"phone"`
+	IsWholesaler    UserType        `json:"isWholesaler"`
+	CityName        *string         `json:"cityName"` // Pointer to handle null values
+	HasSubscription bool            `json:"hasSubscription"`
+	DaysRemaining   *int64          `json:"daysRemaining"` // Pointer to handle null values
+	TotalPaid       decimal.Decimal `json:"totalPaid"`
+}
+
+// UserFilter defines the available filters for the admin user list.
+type UserFilterSubScribe struct {
+	IsWholesaler    *bool // Pointer to handle three states: true, false, and not specified
+	HasSubscription *bool // Pointer to handle three states: true, false, and not specified
+}
+
 func IsUserRoleValid(userRole UserRole) bool {
 	return userRole > roleStart && userRole < roleEnd
 }

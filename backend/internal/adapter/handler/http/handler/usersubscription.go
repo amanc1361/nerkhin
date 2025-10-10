@@ -139,3 +139,33 @@ func (ush *UserSubscriptionHandler) FetchUserSubscription(c *gin.Context) {
 
 	handleSuccess(c, userSubscriptions)
 }
+
+// in handler/usersubscription.go
+
+// GrantSubscriptionDaysRequest defines the request body for granting subscription days.
+type GrantSubscriptionDaysRequest struct {
+	UserID *int64 `json:"userId"`
+	Days   int    `json:"days" binding:"required,min=1"`
+}
+
+// GrantSubscriptionDays is an admin-only endpoint to add subscription days to users.
+func (ush *UserSubscriptionHandler) GrantSubscriptionDays(c *gin.Context) {
+	var req GrantSubscriptionDaysRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		validationError(c, err, ush.AppConfig.Lang)
+		return
+	}
+
+	grantReq := &domain.GrantSubscriptionRequest{
+		UserID: req.UserID,
+		Days:   req.Days,
+	}
+
+	ctx := c.Request.Context()
+	if err := ush.service.GrantSubscriptionDays(ctx, grantReq); err != nil {
+		HandleError(c, err, ush.AppConfig.Lang)
+		return
+	}
+
+	handleSuccess(c, nil)
+}
