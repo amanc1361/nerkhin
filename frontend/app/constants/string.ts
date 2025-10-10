@@ -188,6 +188,7 @@ export const panelMessages = {
   users: "کاربران",
   reports: "تخلفات", // یا گزارش‌ها
   admins: "ادمین‌ها",
+  usersubscriptions:"مشترکین",
   subscriptions: "تعرفه‌ها", // یا اشتراک‌ها
   logout: "خروج از حساب کاربری", // برای Logoutbtn اگر متن دارد
 };

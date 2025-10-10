@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { panelMessages } from '@/app/constants/string'; // ایمپورت متن‌ها
 import { PanelNavItem } from '@/app/types/panel/panelmenu';
+import { userAgent } from 'next/server';
 export const panelNavItems: PanelNavItem[] = [
   {
     href: "/panel",
@@ -60,5 +61,11 @@ export const panelNavItems: PanelNavItem[] = [
     label: panelMessages.subscriptions,
     activePathSegment: "/panel/subscriptions",
     Icon: BadgeDollarSignIcon,
+  },
+  {
+    href: "/panel/usersubscriptions",
+    label: panelMessages.usersubscriptions,
+    activePathSegment: "/panel/usersubscriptions",
+    Icon: UsersIcon,
   },
 ];
