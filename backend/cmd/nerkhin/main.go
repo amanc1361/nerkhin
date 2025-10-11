@@ -96,7 +96,7 @@ func main() {
 	verificationCodeService := service.RegisterVerificationCodeService(postgresDMBS,
 		verificationCodeRepo, userRepo, appConfig)
 	userService := service.RegisterUserService(postgresDMBS, userRepo, verificationCodeService,
-		verificationCodeRepo, appConfig)
+		verificationCodeRepo, appConfig, tokenService)
 	authService := service.RegisterAuthService(postgresDMBS, userRepo, verificationCodeService,
 		verificationCodeRepo)
 	userProductService := service.RegisterUserProductService(postgresDMBS, userProductRepo, userRepo,

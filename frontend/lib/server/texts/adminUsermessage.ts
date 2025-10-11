@@ -24,4 +24,5 @@ export const userMessages = {
     cancel: 'انصراف',
     subscriptionGrantedSuccess: 'اشتراک با موفقیت اعطا شد.',
     errorOccurred: 'خطایی رخ داد. لطفا دوباره تلاش کنید.',
+    loginAsUser: 'ورود به صفحه کاربری',
   };

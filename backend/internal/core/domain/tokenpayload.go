@@ -16,6 +16,8 @@ type TokenPayload struct {
 	AdminAccess *AdminAccess
 	Type        string `json:"type"`
 	Expiration  time.Time
+	ImpersonatorAdminID  *int64              `json:"impersonator_admin_id,omitempty"` // <-- فیلد جدید
+
 }
 type RefreshTokenPayload struct {
 	JTI      uuid.UUID `json:"jti"`

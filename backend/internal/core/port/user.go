@@ -85,4 +85,5 @@ type UserService interface {
 	DeleteAllUserDevices(ctx context.Context, userID int64) error                           // <-- ADDED
 	UpdateAllUsersDeviceLimit(ctx context.Context, limit int) error
 	FetchAdminUserList(ctx context.Context, filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error)
+	ImpersonateUser(ctx context.Context, targetUserID, adminID int64) (string, *domain.User, error)
 }

@@ -26,17 +26,19 @@ type UserService struct {
 	appConfig               config.App
 	verificationCodeService port.VerificationCodeService
 	verificationCodeRepo    port.VerificationCodeRepository
+	tokenService            port.TokenService
 }
 
 func RegisterUserService(dbms port.DBMS, repo port.UserRepository,
 	vcService port.VerificationCodeService, verificationCodeRepo port.VerificationCodeRepository,
-	appConfig config.App) *UserService {
+	appConfig config.App, tokenService port.TokenService) *UserService {
 	return &UserService{
 		dbms,
 		repo,
 		appConfig,
 		vcService,
 		verificationCodeRepo,
+		tokenService,
 	}
 }
 
@@ -701,4 +703,37 @@ func (us *UserService) FetchAdminUserList(ctx context.Context,
 	}
 
 	return users, nil
+}
+
+// in service/user_service.go (or auth_service.go)
+
+func (us *UserService) ImpersonateUser(ctx context.Context, targetUserID, adminID int64) (string, *domain.User, error) {
+	db, err := us.dbms.NewDB(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+
+	var tokenString string
+	var targetUser *domain.User
+
+	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
+		localTargetUser, txErr := us.repo.GetUserByID(ctx, txSession, targetUserID)
+		if txErr != nil {
+			return txErr
+		}
+		if localTargetUser == nil {
+			return errors.New("UserNotFound")
+		}
+		targetUser = localTargetUser
+
+		// ساخت توکن تقلیدی
+		tokenStr, _, _, txErr := us.tokenService.CreateImpersonationToken(targetUser, adminID)
+		if txErr != nil {
+			return txErr
+		}
+		tokenString = tokenStr
+		return nil
+	})
+
+	return tokenString, targetUser, err
 }

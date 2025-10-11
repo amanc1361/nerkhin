@@ -87,7 +87,7 @@ export async function middleware(req: NextRequest) {
   if (req.method !== "GET") return NextResponse.next();
 
   // احراز
-  const session = await getToken({ req, secret: SECRET });
+  let session = await getToken({ req, secret: SECRET });
 
   const role =
     (session as any)?.role ??
@@ -98,6 +98,19 @@ export async function middleware(req: NextRequest) {
     null;
 
   const hasKnownRole = !!role && (isAdmin(role) || isWholesaler(role) || isRetailer(role));
+
+
+
+  const impersonatedSessionCookie = req.cookies.get('impersonated_session');
+ 
+
+  if (impersonatedSessionCookie) {
+      try {
+          session = JSON.parse(impersonatedSessionCookie.value);
+      } catch {}
+  }
+
+
 
   // انقضا با بافر 30 ثانیه
   const expRaw = (session as any)?.accessTokenExpires as unknown;

@@ -189,6 +189,41 @@ func (pt *PasetoToken) VerifyRefreshToken(tokenString string) (*domain.RefreshTo
 	return &tokenPayload, nil
 }
 
+
+func (pt *PasetoToken) CreateImpersonationToken(targetUser *domain.User, adminID int64) (string, *domain.TokenPayload, time.Time, error) {
+    jti, err := uuid.NewRandom()
+    if err != nil {
+        return "", nil, time.Time{}, fmt.Errorf("%s: %w", msg.ErrTokenCreation, err)
+    }
+
+    payload := &domain.TokenPayload{
+        JTI:                 jti,
+        UserID:              targetUser.ID,
+        UserRole:            targetUser.Role,
+        UserState:           targetUser.State,
+        CityID:              targetUser.CityID,
+        AdminAccess:         nil, // Admin access does not apply to the impersonated user
+        Type:                "access",
+        ImpersonatorAdminID: &adminID, // <-- شناسه ادمین را اینجا ذخیره می‌کنیم
+    }
+
+    token := paseto.NewToken()
+    if err := token.Set("payload", payload); err != nil {
+        return "", nil, time.Time{}, fmt.Errorf("%s: %w", msg.ErrTokenCreation, err)
+    }
+
+    issuedAt := time.Now().UTC()
+    // توکن تقلیدی بهتر است زمان انقضای کوتاه‌تری داشته باشد
+    expiredAt := issuedAt.Add(pt.accessTokenDuration / 2) // مثلا نصف زمان عادی
+
+    token.SetIssuedAt(issuedAt)
+    token.SetNotBefore(issuedAt)
+    token.SetExpiration(expiredAt)
+
+    encryptedToken := token.V4Encrypt(pt.key, nil)
+    return encryptedToken, payload, expiredAt, nil
+}
+
 func (pt *PasetoToken) GetAccessTokenDuration() time.Duration {
 	return pt.accessTokenDuration
 }

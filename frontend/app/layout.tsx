@@ -12,6 +12,7 @@ import { siteTexts } from './constants/string';
 import AuthProvider from './AuthProvider';
 import InitServiceWorker from './InitServiceWorker';
 import InstallPrompt from './components/pwa/InstallPrompt';
+import ImpersonationBanner from './components/ImpersonationBanner';
 
 export const metadata: Metadata = {
   title: siteTexts.siteName, 
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
       </head>
       <body className="font-Vazirmatn text-gray-dark bg-gray-light">
       <AuthProvider>
+        <ImpersonationBanner />
       <InitServiceWorker />
         {/* دکمه نصب (اندروید) + راهنما (iOS) */}
         <InstallPrompt />

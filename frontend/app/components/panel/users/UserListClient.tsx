@@ -59,6 +59,7 @@ export function UsersListClient({ users }: UsersListClientProps) {
               <th className="px-6 py-3 text-right font-medium text-gray-500 dark:text-gray-300">{messages.userType}</th>
               <th className="px-6 py-3 text-right font-medium text-gray-500 dark:text-gray-300">{messages.subscriptionStatus}</th>
               <th className="px-6 py-3 text-right font-medium text-gray-500 dark:text-gray-300">{messages.totalPaid}</th>
+              <th className="px-6 py-3 text-right font-medium text-gray-500 dark:text-gray-300">{messages.loginAsUser}</th>
               <th className="px-6 py-3 text-center font-medium text-gray-500 dark:text-gray-300">{messages.actions}</th>
             </tr>
           </thead>
@@ -94,6 +95,12 @@ export function UsersListClient({ users }: UsersListClientProps) {
                 <td className="whitespace-nowrap px-6 py-4 font-mono text-gray-700 dark:text-gray-300">
                   {Number(user.totalPaid).toLocaleString('fa-IR')} تومان
                 </td>
+                <td className="whitespace-nowrap px-6 py-4 text-center">
+    <a href={`/api/auth/impersonate?userId=${user.id}`} title="ورود به جای کاربر" className="text-gray-500 hover:text-blue-600">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1V21c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h7.8c.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1V3.6c0-.4-.2-.8-.5-1.1-.3-.3-.7-.5-1.1-.5z"/><path d="M7 2h2"/><path d="M15 2h2"/><path d="M7 22h2"/><path d="M15 22h2"/><circle cx="12" cy="12" r="3"/><path d="M12 9v1"/><path d="M12 14v1"/></svg>
+    </a>
+    {/* ... other actions */}
+</td>
                 <td className="whitespace-nowrap px-6 py-4 text-center">
                   <button onClick={() => handleOpenModal(user)} className="text-blue-600 transition hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                     <Award size={20} />

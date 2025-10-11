@@ -15,6 +15,7 @@ type TokenService interface {
 	VerifyRefreshToken(tokenString string) (payload *domain.RefreshTokenPayload, err error)
 	GetAccessTokenDuration() time.Duration
 	GetRefreshTokenDuration() time.Duration
+	CreateImpersonationToken(targetUser *domain.User, adminID int64) (string, *domain.TokenPayload, time.Time, error)
 }
 
 type VerificationCodeRepository interface {
