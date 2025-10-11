@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { cookies } from 'next/headers';
-import { authenticatedFetch } from '@/lib/server/server-api'; // مسیر فرضی
-import { defaultRouteForRole, isAdmin } from '@/app/types/role'; // مسیر فرضی
+import { authenticatedFetch } from '@/lib/server/server-api';
+import { defaultRouteForRole, isAdmin } from '@/app/types/role';
 
 const SECRET = process.env.NEXTAUTH_SECRET!;
 
 export async function GET(req: Request) {
-  const sessionToken = await getToken({ req: req as any, secret: SECRET });
+  const adminSession = await getToken({ req: req as any, secret: SECRET });
 
-  // ۱. بررسی اینکه کاربر فعلی ادمین است
-  if (!sessionToken || !isAdmin(sessionToken.role)) {
+  if (!adminSession || !isAdmin(adminSession.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -22,54 +21,47 @@ export async function GET(req: Request) {
   }
 
   try {
-    // ۲. دریافت توکن تقلیدی از بک‌اند Go
     const { impersonationToken, user } = await authenticatedFetch(
-      `/admin/users/${targetUserId}/impersonate`,
+      `/user/users/${targetUserId}/impersonate`,
       { method: 'POST' }
     );
 
-    // ۳. ذخیره توکن اصلی ادمین در یک کوکی جداگانه
-    const adminTokenString = JSON.stringify(sessionToken);
-    (await cookies()).set('impersonation_original_session', adminTokenString, {
+    const impersonatedSession = {
+      ...adminSession,
+      accessToken: impersonationToken,
+      name: user.fullName,
+      email: user.phone,
+      role: user.role,
+      user: user,
+      impersonating: true,
+    };
+    
+    // --- شروع تغییرات ---
+    // کوکی‌ها را قبل از ذخیره، کدگذاری می‌کنیم
+    const encodedAdminSession = encodeURIComponent(JSON.stringify(adminSession));
+    const encodedImpersonatedSession = encodeURIComponent(JSON.stringify(impersonatedSession));
+
+    (await cookies()).set('admin_original_session', encodedAdminSession, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
+      maxAge: 60 * 15, // ۱۵ دقیقه
     });
 
-    // ۴. ساخت یک آبجکت نشست جدید برای کاربر تقلید شده
-    const impersonatedSession = {
-      ...sessionToken, // کپی کردن برخی مقادیر پایه از نشست ادمین
-      accessToken: impersonationToken,
-      user: user, // اطلاعات کاربر جدید
-      role: user.role,
-      name: user.fullName,
-      email: user.phone, // یا هر فیلد دیگری
-      impersonating: true, // یک فلگ برای شناسایی در UI
-    };
-
-    // ۵. آپدیت کردن نشست next-auth با اطلاعات جدید
-    // این بخش کمی پیچیده است و به نحوه پیاده‌سازی next-auth شما بستگی دارد.
-    // راه ساده‌تر این است که اطلاعات جدید را در کوکی دیگری ذخیره کرده و middleware را آپدیت کنیم.
-    // در اینجا ما یک کوکی جدید برای نشست تقلیدی ایجاد می‌کنیم.
-    (await
-          // ۵. آپدیت کردن نشست next-auth با اطلاعات جدید
-          // این بخش کمی پیچیده است و به نحوه پیاده‌سازی next-auth شما بستگی دارد.
-          // راه ساده‌تر این است که اطلاعات جدید را در کوکی دیگری ذخیره کرده و middleware را آپدیت کنیم.
-          // در اینجا ما یک کوکی جدید برای نشست تقلیدی ایجاد می‌کنیم.
-          cookies()).set('impersonated_session', JSON.stringify(impersonatedSession), {
-         httpOnly: true,
-         secure: process.env.NODE_ENV === 'production',
-         path: '/',
+    (await cookies()).set('impersonated_session_payload', encodedImpersonatedSession, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 15,
     });
+    // --- پایان تغییرات ---
 
-
-    // ۶. ریدایرکت به داشبورد کاربر
     const redirectUrl = new URL(defaultRouteForRole(user.role), req.url);
     return NextResponse.redirect(redirectUrl);
 
   } catch (error) {
     console.error("Impersonation failed:", error);
-    const adminPanelUrl = new URL('/panel', req.url); // بازگشت به پنل در صورت خطا
+    const adminPanelUrl = new URL('/panel/users?error=impersonation_failed', req.url);
     return NextResponse.redirect(adminPanelUrl);
   }
 }
