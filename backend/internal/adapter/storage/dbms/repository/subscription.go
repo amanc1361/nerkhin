@@ -84,7 +84,7 @@ func (sr *SubscriptionRepository) GetAllSubscriptions(ctx context.Context,
 	}
 
 	subscriptions = []*domain.Subscription{}
-	err = db.Model(&domain.Subscription{}).
+	err = db.Model(&domain.Subscription{}).Where("is_gift = ?", false).
 		Order("number_of_days ASC").
 		Scan(&subscriptions).Error
 	if err != nil {

@@ -12,6 +12,7 @@ type Subscription struct {
 	NumberOfDays SubscriptionPeriod `json:"numberOfDays"`
 	CreatedAt    time.Time          `json:"createdAt"`
 	UpdatedAt    time.Time          `json:"updatedAt"`
+	IsGift       bool               `json:"isGift" gorm:"default:false"`
 }
 
 type SubscriptionPeriod int16

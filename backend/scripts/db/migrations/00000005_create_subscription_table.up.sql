@@ -4,4 +4,5 @@ CREATE TABLE IF NOT EXISTS subscription (
   price           DECIMAL(28, 6)  NOT NULL,
   created_at      TIMESTAMP       NOT NULL,
   updated_at      TIMESTAMP       NOT NULL
+  is_gift         BOOLEAN         NOT NULL DEFAULT FALSE
 );
