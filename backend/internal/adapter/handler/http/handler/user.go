@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 
 	"strconv"
@@ -763,29 +764,31 @@ func (uh *UserHandler) FetchAdminUserList(c *gin.Context) {
 
 	handleSuccess(c, users)
 }
+
 // in handler/user_handler.go
 
 func (uh *UserHandler) ImpersonateUser(c *gin.Context) {
-    // هویت ادمین از توکن فعلی او که در Middleware بررسی شده، استخراج می‌شود
-    authPayload := httputil.GetAuthPayload(c)
-    adminID := authPayload.UserID
+	// هویت ادمین از توکن فعلی او که در Middleware بررسی شده، استخراج می‌شود
+	fmt.Println("--- ImpersonateUser handler reached! ---")
+	authPayload := httputil.GetAuthPayload(c)
+	adminID := authPayload.UserID
 
-    targetUserID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
-    if err != nil {
-        HandleError(c, errors.New("Invalid user ID"), uh.AppConfig.Lang)
-        return
-    }
+	targetUserID, err := strconv.ParseInt(c.Param("userId"), 10, 64)
+	if err != nil {
+		HandleError(c, errors.New("Invalid user ID"), uh.AppConfig.Lang)
+		return
+	}
 
-    ctx := c.Request.Context()
-    impersonationToken, targetUser, err := uh.service.ImpersonateUser(ctx, targetUserID, adminID)
-    if err != nil {
-        HandleError(c, err, uh.AppConfig.Lang)
-        return
-    }
-    
-    // پاسخ شامل توکن جدید و اطلاعات کاربر است
-    handleSuccess(c, gin.H{
-        "impersonationToken": impersonationToken,
-        "user":               targetUser,
-    })
+	ctx := c.Request.Context()
+	impersonationToken, targetUser, err := uh.service.ImpersonateUser(ctx, targetUserID, adminID)
+	if err != nil {
+		HandleError(c, err, uh.AppConfig.Lang)
+		return
+	}
+
+	// پاسخ شامل توکن جدید و اطلاعات کاربر است
+	handleSuccess(c, gin.H{
+		"impersonationToken": impersonationToken,
+		"user":               targetUser,
+	})
 }
