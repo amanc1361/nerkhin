@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 
 	"github.com/nerkhin/internal/adapter/config"
@@ -715,13 +716,15 @@ func (us *UserService) ImpersonateUser(ctx context.Context, targetUserID, adminI
 
 	var tokenString string
 	var targetUser *domain.User
-
+	fmt.Println("in service ........................................")
 	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
 		localTargetUser, txErr := us.repo.GetUserByID(ctx, txSession, targetUserID)
 		if txErr != nil {
+			fmt.Println("err:", err)
 			return txErr
 		}
 		if localTargetUser == nil {
+			fmt.Println("not found user")
 			return errors.New("UserNotFound")
 		}
 		targetUser = localTargetUser
@@ -729,6 +732,7 @@ func (us *UserService) ImpersonateUser(ctx context.Context, targetUserID, adminI
 		// ساخت توکن تقلیدی
 		tokenStr, _, _, txErr := us.tokenService.CreateImpersonationToken(targetUser, adminID)
 		if txErr != nil {
+			fmt.Println("error in create token:", err)
 			return txErr
 		}
 		tokenString = tokenStr

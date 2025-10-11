@@ -778,6 +778,7 @@ func (uh *UserHandler) ImpersonateUser(c *gin.Context) {
 		HandleError(c, errors.New("Invalid user ID"), uh.AppConfig.Lang)
 		return
 	}
+	fmt.Println("2222222222222222222222222222222222222")
 
 	ctx := c.Request.Context()
 	impersonationToken, targetUser, err := uh.service.ImpersonateUser(ctx, targetUserID, adminID)
@@ -785,7 +786,7 @@ func (uh *UserHandler) ImpersonateUser(c *gin.Context) {
 		HandleError(c, err, uh.AppConfig.Lang)
 		return
 	}
-
+   fmt.Println("333333333333333333333333333333333333333333")
 	// پاسخ شامل توکن جدید و اطلاعات کاربر است
 	handleSuccess(c, gin.H{
 		"impersonationToken": impersonationToken,
