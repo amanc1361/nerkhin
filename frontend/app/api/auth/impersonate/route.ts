@@ -24,7 +24,9 @@ export async function GET(req: Request) {
     const { impersonationToken, user } = await authenticatedFetch(
       `/user/users/${targetUserId}/impersonate`,
       { method: 'POST' }
-    );
+    ); 
+    console.log("user:",user);
+    console.log("token:",impersonationToken);
 
     const impersonatedSession = {
       ...adminSession,
