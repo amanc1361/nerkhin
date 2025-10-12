@@ -1,34 +1,31 @@
 import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { getToken, encode } from 'next-auth/jwt';
 import { cookies } from 'next/headers';
 import { authenticatedFetch } from '@/lib/server/server-api';
 import { defaultRouteForRole, isAdmin } from '@/app/types/role';
 
 const SECRET = process.env.NEXTAUTH_SECRET!;
 
-export async function GET(req: Request) {
-  const adminSession = await getToken({ req: req as any, secret: SECRET });
-
-  if (!adminSession || !isAdmin(adminSession.role)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const targetUserId = searchParams.get('userId');
-
-  if (!targetUserId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
-  }
-
+export async function POST(req: Request) { // <-- تغییر به POST
   try {
+    const adminSession = await getToken({ req:req as any, secret: SECRET });
+
+    if (!adminSession || !isAdmin(adminSession.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const { userId: targetUserId } = await req.json(); // <-- خواندن از بدنه‌ی درخواست
+
+    if (!targetUserId) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
     const { impersonationToken, user } = await authenticatedFetch(
       `/user/users/${targetUserId}/impersonate`,
       { method: 'POST' }
-    ); 
-    console.log("user:",user);
-    console.log("token:",impersonationToken);
+    );
 
-    const impersonatedSession = {
+    const impersonatedPayload = {
       ...adminSession,
       accessToken: impersonationToken,
       name: user.fullName,
@@ -36,34 +33,29 @@ export async function GET(req: Request) {
       role: user.role,
       user: user,
       impersonating: true,
+      originalAdminSession: adminSession,
     };
     
-    // --- شروع تغییرات ---
-    // کوکی‌ها را قبل از ذخیره، کدگذاری می‌کنیم
-    const encodedAdminSession = encodeURIComponent(JSON.stringify(adminSession));
-    const encodedImpersonatedSession = encodeURIComponent(JSON.stringify(impersonatedSession));
-
-    (await cookies()).set('admin_original_session', encodedAdminSession, {
+    const encryptedImpersonationToken = await encode({
+      token: impersonatedPayload,
+      secret: SECRET,
+    });
+    
+    const cookieName = process.env.NODE_ENV === 'production' 
+      ? '__Secure-next-auth.session-token' 
+      : 'next-auth.session-token';
+      
+    (await cookies()).set(cookieName, encryptedImpersonationToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 15, // ۱۵ دقیقه
     });
 
-    (await cookies()).set('impersonated_session_payload', encodedImpersonatedSession, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 15,
-    });
-    // --- پایان تغییرات ---
-
-    const redirectUrl = new URL(defaultRouteForRole(user.role), req.url);
-    return NextResponse.redirect(redirectUrl);
+    const redirectUrl = defaultRouteForRole(user.role);
+    return NextResponse.json({ success: true, redirectUrl });
 
   } catch (error) {
     console.error("Impersonation failed:", error);
-    const adminPanelUrl = new URL('/panel/users?error=impersonation_failed', req.url);
-    return NextResponse.redirect(adminPanelUrl);
+    return NextResponse.json({ success: false, error: 'Impersonation failed' }, { status: 500 });
   }
 }

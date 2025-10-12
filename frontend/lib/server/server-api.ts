@@ -1,6 +1,233 @@
+// 'use server';
+
+// import { getServerSession } from 'next-auth';
+// import type {
+//   City,
+//   User,
+//   ProductRequest,
+//   PaginatedUsersResponse,
+//   Brand,
+//   Model,
+
+// } from '@/app/types/types';
+
+// import { API_BASE_URL, INTERNAL_GO_API_URL } from '@/app/config/apiConfig';
+// import { ApiError } from '@/app/services/apiService';
+// import {
+//   AdminUserFilters,
+//   AdminUserViewModel,
+//   PaginatedAdminsResponse,
+// } from '@/app/types/admin/adminManagement';
+// import { Subscription } from '@/app/types/subscription/subscriptionManagement';
+// import {
+//   PaginatedReportsResponse,
+// } from '@/app/types/report/reportManagement';
+// import { Category } from '@/app/types/category/categoryManagement';
+// import { brandApi, modelApi } from '@/app/services/brandapi';
+// import { ProductFilterData } from '@/app/types/model/model';
+// import { authOptions } from './authOptions';
+// import { AccountUser, UserSubscription } from '@/app/types/account/account';
+
+// /* ---------- helpers ---------- */
+// function joinUrl(base: string, path: string) {
+//   const cleanBase = (base || '').replace(/\/$/, '');
+//   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+//   return `${cleanBase}${cleanPath}`.replace(/([^:]\/)\/+/g, '$1');
+// }
+
+// const clean = (s: string) => (s || '').replace(/\/+$/, '');
+// const isAbs = (s: string) => /^https?:\/\//i.test(s);
+// const withLeadingSlash = (s: string) => (s.startsWith('/') ? s : `/${s}`);
+
+// /** ریشهٔ درست را می‌سازد؛ چه INTERNAL تهش /api/go داشته باشد چه نداشته باشد */
+// function resolveRootBase(publicBase: string, internalBase: string) {
+//   const pb = clean(publicBase || '/api/go');         // مثلا "/api/go"
+//   const ib = clean(internalBase || '');              // مثلا "http://nerrkhin-backend:8084" یا ".../api/go"
+
+//   if (isAbs(pb)) return pb;                          // اگر public مطلق بود، همان
+//   if (!ib) return withLeadingSlash(pb);              // internal نداریم → نسبی
+
+//   const tail = withLeadingSlash(pb);                 // "/api/go"
+//   if (ib.endsWith(tail)) return ib;                  // اگر internal خودش با tail تمام شود، دوباره نچسبان
+
+//   return ib + tail;                                  // در غیر اینصورت بچسبان
+// }
+
+// /* ---------- public fetch ---------- */
+// async function publicFetch<T = any>(
+//   path: string,
+//   options: RequestInit = {}
+// ): Promise<T> {
+//   const base = resolveRootBase(API_BASE_URL, process.env.INTERNAL_GO_API_URL || '');
+//   const fullUrl = joinUrl(base, path);
+
+//   const res = await fetch(fullUrl, { ...options, cache: 'no-store' });
+//   if (!res.ok) {
+//     const body = await res.json().catch(() => ({}));
+//     throw new ApiError(body.message || 'Public API request failed', res.status, body);
+//   }
+//   return res.status === 204 ? (null as any) : res.json();
+// }
+
+// /* ---------- authenticated fetch ---------- */
+// export async function authenticatedFetch<T = any>(
+//   path: string,
+//   options: RequestInit = {}
+// ): Promise<T> {
+//   const session = await getServerSession(authOptions);
+//   const token = (session as any)?.accessToken;
+//   if (!token) throw new Error('Not authenticated');
+
+//   const headers = new Headers(options.headers);
+//   if (!headers.has('Content-Type') && !(options.body instanceof FormData))
+//     headers.set('Content-Type', 'application/json');
+//   headers.set('Authorization', `Bearer ${token}`);
+
+//   const base = resolveRootBase(API_BASE_URL, process.env.INTERNAL_GO_API_URL || '');
+//   const fullUrl = path.startsWith('http') ? path : joinUrl(base, path);
+
+ 
+
+//   const res = await fetch(fullUrl, { ...options, headers, cache: 'no-store' });
+//   if (!res.ok) {
+//     const body = await res.json().catch(() => ({}));
+//     const apiErr: ApiError = {
+//       name: 'ApiError',
+//       message: body.message || 'API request failed',
+//       status: res.status,
+//       data: body,
+//     };
+//     throw apiErr;
+//   }
+
+//   return res.status === 204 ? (null as any) : res.json();
+// }
+
+// /* ---------- specific calls (unchanged) ---------- */
+
+// export async function getCitiesForFiltering(): Promise<City[]> {
+//   return publicFetch('/city/fetch-all', { method: 'GET' });
+// }
+
+// export async function getPaginatedUsers(
+//   filters: Record<string, any>
+// ): Promise<PaginatedUsersResponse> {
+//   return authenticatedFetch('/user/fetch-users', {
+//     method: 'POST',
+//     body: JSON.stringify(filters),
+//   });
+// }
+
+// export async function getNewUsersForDashboard(): Promise<User[]> {
+//   return authenticatedFetch('/user/fetch-users', {
+//     method: 'POST',
+//     body: JSON.stringify({ state: 1 }),
+//   });
+// }
+
+// export async function getProductRequestsForDashboard(): Promise<ProductRequest[]> {
+//   const list = await authenticatedFetch<ProductRequest[]>(
+//     '/product-request/fetch-all',
+//     { method: 'GET' }
+//   );
+//   return Array.isArray(list) ? list.filter(p => p.state === 0) : [];
+// }
+
+// export async function getPaginatedAdmins(
+//   filters: Record<string, any>
+// ): Promise<PaginatedAdminsResponse> {
+//   return authenticatedFetch('/user/fetch-users', {
+//     method: 'POST',
+//     body: JSON.stringify({ role: 2, ...filters }),
+//   });
+// }
+
+// export async function getAllSubscriptions(): Promise<Subscription[]> {
+//   return authenticatedFetch('/subscription/fetch-all', { method: 'GET' });
+// }
+
+// export async function getPaginatedReports(
+//   filters: Record<string, any>
+// ): Promise<PaginatedReportsResponse> {
+//   return authenticatedFetch('/report/fetch-reports', {
+//     method: 'POST',
+//     body: JSON.stringify(filters),
+//   });
+// }
+
+// export async function getAllCategories(): Promise<Category[]> {
+//   return authenticatedFetch('/product-category/fetch-main-categories', {
+//     method: 'GET',
+//   });
+// }
+
+
+// // GET /product-category/fetch-sub-categories/:id
+// export async function getSubCategories(parentId: number | string): Promise<Category[]> {
+//   if (parentId === null || parentId === undefined || parentId === "") return [];
+//   return authenticatedFetch(`/product-category/fetch-sub-categories/${encodeURIComponent(String(parentId))}`, {
+//     method: 'GET',
+//   });
+// }
+
+
+// export async function getBrandDetails(id: string | number): Promise<Brand> {
+//   return authenticatedFetch(brandApi.getById(id).url, { method: 'GET' });
+// }
+
+// export async function getModelsByBrand(
+//   brandId: string | number
+// ): Promise<Model[]> {
+//   return authenticatedFetch(modelApi.getByBrand(brandId).url, { method: 'GET' });
+// }
+
+// export async function getFiltersByCategory(
+//   categoryId: string | number
+// ): Promise<ProductFilterData[]> {
+//   const res = await authenticatedFetch<{ productFilters?: ProductFilterData[] }>(
+//     `/product-filter/fetch-all/${categoryId}`,
+//     { method: 'GET' }
+//   );
+//   return Array.isArray(res.productFilters) ? res.productFilters : [];
+// }
+
+// export async function fetchUserInfo(): Promise<AccountUser> {
+//   const data= await authenticatedFetch("/user/fetch-user", { method: "GET" });
+
+//   return data
+// }
+
+// // --- USER SUBSCRIPTION ---
+// export async function fetchUserSubscriptions(): Promise<UserSubscription[]> {
+//   return authenticatedFetch("/user-subscription/fetch-user-subscriptions", { method: "GET" });
+// }
+// export async function updateShop(form: FormData): Promise<void> {
+//   // Route طبق روتری که دادی: PUT /user/update-shop
+//   return authenticatedFetch('/user/update-shop', {
+//     method: 'PUT',
+//     body: form, // FormData → هدر Content-Type به‌صورت خودکار ست می‌شود
+//   });
+// }
+// export async function getAdminUsersList(filters: AdminUserFilters): Promise<AdminUserViewModel[]> {
+//   // ساخت کوئری استرینگ از روی فیلترها
+//   const query = new URLSearchParams();
+//   if (filters.is_wholesaler !== undefined) {
+//     query.append('is_wholesaler', String(filters.is_wholesaler));
+//   }
+//   if (filters.has_subscription !== undefined) {
+//     query.append('has_subscription', String(filters.has_subscription));
+//   }
+
+//   const queryString = query.toString();
+//   const path = `/user/users-subscriptions${queryString ? `?${queryString}` : ''}`;
+  
+//   return authenticatedFetch(path, { method: 'GET' });
+// }
+
 'use server';
 
 import { getServerSession } from 'next-auth';
+import { cookies } from 'next/headers';
 import type {
   City,
   User,
@@ -39,18 +266,18 @@ const clean = (s: string) => (s || '').replace(/\/+$/, '');
 const isAbs = (s: string) => /^https?:\/\//i.test(s);
 const withLeadingSlash = (s: string) => (s.startsWith('/') ? s : `/${s}`);
 
-/** ریشهٔ درست را می‌سازد؛ چه INTERNAL تهش /api/go داشته باشد چه نداشته باشد */
+/** Correctly resolves the root base */
 function resolveRootBase(publicBase: string, internalBase: string) {
-  const pb = clean(publicBase || '/api/go');         // مثلا "/api/go"
-  const ib = clean(internalBase || '');              // مثلا "http://nerrkhin-backend:8084" یا ".../api/go"
+  const pb = clean(publicBase || '/api/go');
+  const ib = clean(internalBase || '');
 
-  if (isAbs(pb)) return pb;                          // اگر public مطلق بود، همان
-  if (!ib) return withLeadingSlash(pb);              // internal نداریم → نسبی
+  if (isAbs(pb)) return pb;
+  if (!ib) return withLeadingSlash(pb);
 
-  const tail = withLeadingSlash(pb);                 // "/api/go"
-  if (ib.endsWith(tail)) return ib;                  // اگر internal خودش با tail تمام شود، دوباره نچسبان
+  const tail = withLeadingSlash(pb);
+  if (ib.endsWith(tail)) return ib;
 
-  return ib + tail;                                  // در غیر اینصورت بچسبان
+  return ib + tail;
 }
 
 /* ---------- public fetch ---------- */
@@ -69,13 +296,34 @@ async function publicFetch<T = any>(
   return res.status === 204 ? (null as any) : res.json();
 }
 
-/* ---------- authenticated fetch ---------- */
+/* ---------- authenticated fetch (Corrected Version) ---------- */
 export async function authenticatedFetch<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const session = await getServerSession(authOptions);
-  const token = (session as any)?.accessToken;
+  let token: string | undefined;
+
+  // 1. First, check for an impersonation session cookie
+  const impersonatedSessionCookie = (await cookies()).get('impersonated_session_payload');
+
+  if (impersonatedSessionCookie?.value) {
+    // If it exists, we are in impersonation mode
+    try {
+      const decodedCookie = decodeURIComponent(impersonatedSessionCookie.value);
+      const impersonatedSession = JSON.parse(decodedCookie);
+      token = impersonatedSession?.accessToken; // Extract the impersonated user's token
+    } catch (e) {
+      console.error("Failed to parse impersonation cookie:", e);
+      // Fallback to normal session if parsing fails
+    }
+  }
+  
+  // 2. If no impersonation token was found, get the normal session
+  if (!token) {
+    const session = await getServerSession(authOptions);
+    token = (session as any)?.accessToken;
+  }
+
   if (!token) throw new Error('Not authenticated');
 
   const headers = new Headers(options.headers);
@@ -86,9 +334,8 @@ export async function authenticatedFetch<T = any>(
   const base = resolveRootBase(API_BASE_URL, process.env.INTERNAL_GO_API_URL || '');
   const fullUrl = path.startsWith('http') ? path : joinUrl(base, path);
 
- 
-
   const res = await fetch(fullUrl, { ...options, headers, cache: 'no-store' });
+  
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const apiErr: ApiError = {
@@ -102,6 +349,7 @@ export async function authenticatedFetch<T = any>(
 
   return res.status === 204 ? (null as any) : res.json();
 }
+
 
 /* ---------- specific calls (unchanged) ---------- */
 
@@ -202,14 +450,12 @@ export async function fetchUserSubscriptions(): Promise<UserSubscription[]> {
   return authenticatedFetch("/user-subscription/fetch-user-subscriptions", { method: "GET" });
 }
 export async function updateShop(form: FormData): Promise<void> {
-  // Route طبق روتری که دادی: PUT /user/update-shop
   return authenticatedFetch('/user/update-shop', {
     method: 'PUT',
-    body: form, // FormData → هدر Content-Type به‌صورت خودکار ست می‌شود
+    body: form,
   });
 }
 export async function getAdminUsersList(filters: AdminUserFilters): Promise<AdminUserViewModel[]> {
-  // ساخت کوئری استرینگ از روی فیلترها
   const query = new URLSearchParams();
   if (filters.is_wholesaler !== undefined) {
     query.append('is_wholesaler', String(filters.is_wholesaler));

@@ -6,15 +6,18 @@ export default function ImpersonationBanner() {
   const { data: session } = useSession();
   
   // @ts-ignore
-  if (!session?.impersonating) {
+  const isImpersonating = session?.impersonating;
+  // @ts-ignore
+  const userName = session?.user?.name || 'کاربر';
+
+  if (!isImpersonating) {
     return null;
   }
 
   return (
-    <div className="bg-yellow-400 text-black text-center p-2 font-semibold">
-      {/* @ts-ignore */}
-      شما در حال مشاهده سایت به جای "{session.user.name}" هستید.
-      <Link href="/api/auth/stop_impersonating" className="ml-4 font-bold underline">
+    <div className="bg-yellow-400 text-black text-center p-2 font-semibold sticky top-0 z-50">
+      شما در حال مشاهده سایت به جای "{userName}" هستید.
+      <Link href="/api/auth/stop_impersonating" className="mr-4 font-bold underline hover:text-blue-700">
         بازگشت به پنل ادمین
       </Link>
     </div>
