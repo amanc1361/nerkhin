@@ -126,10 +126,10 @@ export const useProductForm = ({
     }
 
     const optionIds = Object.values(formData.selectedOptions).flat().map(Number);
-    if (optionIds.length === 0) {
-      toast.error(msg.noOptionSelected);
-      return;
-    }
+    // if (optionIds.length === 0) {
+    //   toast.error(msg.noOptionSelected);
+    //   return;
+    // }
 
     // الزام: در ویرایش باید کل تصاویر جدید آپلود شوند
     if (mode === "edit" && formData.newImages.length === 0) {
