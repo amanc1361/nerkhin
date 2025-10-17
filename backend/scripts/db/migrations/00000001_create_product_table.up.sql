@@ -33,3 +33,9 @@ CREATE TABLE IF NOT EXISTS product_image (
 	url 			VARCHAR(200) 	NOT NULL,
 	is_default    	BOOLEAN 		NOT NULL 
 );
+CREATE TABLE IF NOT EXISTS dollar_price_logs (
+    id BIGSERIAL PRIMARY KEY,
+    price DECIMAL(15, 2) NOT NULL,
+    source_api VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
