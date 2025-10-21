@@ -118,6 +118,16 @@ type AdminUserViewModel struct {
 	DaysRemaining   *int64          `json:"daysRemaining"` // Pointer to handle null values
 	TotalPaid       decimal.Decimal `json:"totalPaid"`
 }
+type DollarPriceLog struct {
+	ID        int64           `json:"id"`
+	Price     decimal.Decimal `json:"price"`
+	SourceAPI string          `json:"source_api"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+func (DollarPriceLog) TableName() string {
+	return "dollar_price_logs"
+}
 
 // UserFilter defines the available filters for the admin user list.
 type UserFilterSubScribe struct {
