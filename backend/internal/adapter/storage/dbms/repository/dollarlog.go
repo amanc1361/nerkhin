@@ -2,31 +2,32 @@ package repository
 
 import (
 	"context"
-
 	"github.com/nerkhin/internal/adapter/storage/util/gormutil"
 	"github.com/nerkhin/internal/core/domain"
-	"github.com/shopspring/decimal"
 )
 
 type DollarLogRepository struct{}
 
-// CreateLog creates a new dollar price log entry
-func (r *DollarLogRepository) CreateLog(ctx context.Context, dbSession interface{},
-	price decimal.Decimal, apiURL string) (id int64, err error) {
+func (r *DollarLogRepository) Insert(ctx context.Context, dbSession interface{}, price float64, source string) error {
 	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return 0, err
+		return err
 	}
-
-	logEntry := &domain.DollarPriceLog{
-		Price:     price,
-		SourceAPI: apiURL,
+	log := &domain.DollarLog{
+		Price:  price,
+		Source: source,
 	}
+	return db.Create(log).Error
+}
 
-	err = db.Create(logEntry).Error
+func (r *DollarLogRepository) GetLatest(ctx context.Context, dbSession interface{}) (*domain.DollarLog, error) {
+	db, err := gormutil.CastToGORM(ctx, dbSession)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-
-	return logEntry.ID, nil
+	var log domain.DollarLog
+	if err := db.Order("id DESC").First(&log).Error; err != nil {
+		return nil, err
+	}
+	return &log, nil
 }

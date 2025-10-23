@@ -118,15 +118,15 @@ type AdminUserViewModel struct {
 	DaysRemaining   *int64          `json:"daysRemaining"` // Pointer to handle null values
 	TotalPaid       decimal.Decimal `json:"totalPaid"`
 }
-type DollarPriceLog struct {
-	ID        int64           `json:"id"`
-	Price     decimal.Decimal `json:"price"`
-	SourceAPI string          `json:"source_api"`
-	CreatedAt time.Time       `json:"created_at"`
+type DollarLog struct {
+	ID        int64     `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	Price     float64   `gorm:"column:price;not null" json:"price"`
+	Source    string    `gorm:"column:source;size:100" json:"source"`
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 }
 
-func (DollarPriceLog) TableName() string {
-	return "dollar_price_logs"
+func (DollarLog) TableName() string {
+	return "dollar_log"
 }
 
 // UserFilter defines the available filters for the admin user list.
