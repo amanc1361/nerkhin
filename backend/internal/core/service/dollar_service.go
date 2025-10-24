@@ -10,7 +10,9 @@ import (
 
 	"github.com/nerkhin/internal/adapter/storage/dbms/repository"
 	"github.com/nerkhin/internal/adapter/storage/util/gormutil"
+	"github.com/nerkhin/internal/core/domain"
 	"github.com/nerkhin/internal/core/port"
+	"github.com/shopspring/decimal"
 )
 
 type DollarService struct {
@@ -77,30 +79,30 @@ func (s *DollarService) FetchAndUpdateDollar(ctx context.Context) error {
 			return err
 		}
 
-		// var users []*domain.User
-		// db, err := gormutil.CastToGORM(ctx, tx)
-		// if err != nil {
-		// 	return err
-		// }
-		// err = db.Table("user_t").
-		// 	Where("dollar_update = TRUE").
-		// 	Find(&users).Error
-		// if err != nil {
-		// 	return err
-		// }
-		// for _, user := range users {
-		// 	if !user.DollarPrice.Valid {
-		// 		continue
-		// 	}
+		var users []*domain.User
+		db, err := gormutil.CastToGORM(ctx, tx)
+		if err != nil {
+			return err
+		}
+		err = db.Table("user_t").
+			Where("dollar_update = TRUE").
+			Find(&users).Error
+		if err != nil {
+			return err
+		}
+		for _, user := range users {
+			if !user.DollarPrice.Valid {
+				continue
+			}
 
-		// 	// آپدیت نرخ دلار در حافظه
-		// 	user.DollarPrice.Decimal = decimal.NewFromFloat(priceFloat)
+			// آپدیت نرخ دلار در حافظه
+			user.DollarPrice.Decimal = decimal.NewFromFloat(priceFloat)
 
-		// 	// بروزرسانی قیمت محصولات دلاری کاربر
-		// 	if err := s.userRepo.UpdateDollarPrice(ctx, db, user); err != nil {
-		// 		continue
-		// 	}
-		// }
+			// بروزرسانی قیمت محصولات دلاری کاربر
+			if err := s.userRepo.UpdateDollarPrice(ctx, db, user); err != nil {
+				continue
+			}
+		}
 
 		return nil
 	})
