@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/nerkhin/internal/adapter/auth/paseto"
@@ -15,6 +16,7 @@ import (
 	"github.com/nerkhin/internal/adapter/storage/dbms"
 	"github.com/nerkhin/internal/adapter/storage/dbms/repository"
 	"github.com/nerkhin/internal/core/service"
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
@@ -145,7 +147,31 @@ func main() {
 		tokenService, appConfig)
 	landingHandler := handler.RegisterLandingHandler(landingService,
 		tokenService, appConfig)
-
+		dollarRepo := &repository.DollarLogRepository{}
+		dollarService := service.RegisterDollarService(postgresDMBS, dollarRepo, userRepo, productRepo)
+		
+		c:=cron.New(
+			cron.WithLocation(time.Local),
+			cron.WithSeconds(),
+		)
+		_, err = c.AddFunc("0 */10 * * * *", func() {
+			ctx := context.Background()
+		
+			slog.Info("Cron Job: fetching latest dollar price...")
+		
+			if err := dollarService.FetchAndUpdateDollar(ctx); err != nil {
+				slog.Error("Cron Job failed to update dollar", "error", err)
+			} else {
+				slog.Info("Cron Job: dollar updated successfully ✅")
+			}
+		})
+		if err != nil {
+			slog.Error("Failed to register cron job", "error", err)
+		}
+		
+		c.Start()
+		defer c.Stop()
+	
 	// init router
 	router, err := http.NewRouter(
 		httpConfig,

@@ -13,10 +13,10 @@ import (
 )
 
 type DollarService struct {
-	dbms         port.DBMS
-	repo         *repository.DollarLogRepository
-	userRepo     port.UserRepository
-	productRepo  *repository.ProductRepository
+	dbms        port.DBMS
+	repo        *repository.DollarLogRepository
+	userRepo    port.UserRepository
+	productRepo *repository.ProductRepository
 }
 
 func RegisterDollarService(
@@ -71,12 +71,12 @@ func (s *DollarService) FetchAndUpdateDollar(ctx context.Context) error {
 		if err := s.repo.Insert(ctx, tx, priceFloat, "tgnsrv.ir"); err != nil {
 			return err
 		}
-		if err := s.updateUsersDollar(ctx, tx, priceFloat); err != nil {
-			return err
-		}
-		if err := s.updateAutoProducts(ctx, tx, priceFloat); err != nil {
-			return err
-		}
+		// if err := s.updateUsersDollar(ctx, tx, priceFloat); err != nil {
+		// 	return err
+		// }
+		// if err := s.updateAutoProducts(ctx, tx, priceFloat); err != nil {
+		// 	return err
+		// }
 		return nil
 	})
 }
