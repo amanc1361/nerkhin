@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+
 	"io"
 	"net/http"
 
@@ -47,13 +47,12 @@ func (s *DollarService) FetchAndUpdateDollar(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(body)
-	fmt.Println("********************************************************")
+
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return err
 	}
-	fmt.Println(payload)
+
 	priceVal, ok := payload["Dollar"]
 	if !ok {
 		return errors.New("price not found in response")
@@ -74,12 +73,35 @@ func (s *DollarService) FetchAndUpdateDollar(ctx context.Context) error {
 		if err := s.repo.Insert(ctx, tx, priceFloat, "tgnsrv.ir"); err != nil {
 			return err
 		}
-		// if err := s.updateUsersDollar(ctx, tx, priceFloat); err != nil {
+		if err := s.updateUsersDollar(ctx, tx, priceFloat); err != nil {
+			return err
+		}
+
+		// var users []*domain.User
+		// db, err := gormutil.CastToGORM(ctx, tx)
+		// if err != nil {
 		// 	return err
 		// }
-		// if err := s.updateAutoProducts(ctx, tx, priceFloat); err != nil {
+		// err = db.Table("user_t").
+		// 	Where("dollar_update = TRUE").
+		// 	Find(&users).Error
+		// if err != nil {
 		// 	return err
 		// }
+		// for _, user := range users {
+		// 	if !user.DollarPrice.Valid {
+		// 		continue
+		// 	}
+
+		// 	// آپدیت نرخ دلار در حافظه
+		// 	user.DollarPrice.Decimal = decimal.NewFromFloat(priceFloat)
+
+		// 	// بروزرسانی قیمت محصولات دلاری کاربر
+		// 	if err := s.userRepo.UpdateDollarPrice(ctx, db, user); err != nil {
+		// 		continue
+		// 	}
+		// }
+
 		return nil
 	})
 }
@@ -91,18 +113,5 @@ func (s *DollarService) updateUsersDollar(ctx context.Context, tx interface{}, p
 		return err
 	}
 	// فقط کاربرانی که is_dollar=true هستند
-	return db.Exec(`UPDATE user_t SET dollar_price=?, updated_at=NOW() WHERE is_dollar=TRUE`, price).Error
-}
-
-func (s *DollarService) updateAutoProducts(ctx context.Context, tx interface{}, price float64) error {
-	db, err := gormutil.CastToGORM(ctx, tx)
-	if err != nil {
-		return err
-	}
-	return db.Exec(`
-		UPDATE user_product 
-		SET final_price = (dollar_price * ?) + COALESCE(other_costs,0),
-		    updated_at = NOW()
-		WHERE is_dollar=TRUE AND dollar_update=TRUE
-	`, price).Error
+	return db.Exec(`UPDATE user_t SET dollar_price=?, updated_at=NOW() WHERE dollar_update=TRUE`, price).Error
 }

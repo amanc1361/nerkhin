@@ -303,13 +303,7 @@ func (ur *UserRepository) UpdateDollarPrice(
 			return err
 		}
 
-		// آپدیت قیمت نهایی محصولات:
-		// raw_val = up.dollar_price * u.dollar_price + up.other_costs
-		// اگر u.rounded=true:
-		//   remainder = mod(raw_val, 100000)
-		//   final = raw_val - remainder + (remainder > 65000 ? 100000 : 0)
-		// اگر u.rounded=false:
-		//   final = raw_val (بدون رُند)
+	
 		raw := fmt.Sprintf(`
             WITH priced AS (
                 SELECT

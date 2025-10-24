@@ -155,23 +155,22 @@ func main() {
 		cron.WithSeconds(),
 	)
 	fmt.Println("cron job init...................")
-	_, err = c.AddFunc("0 */2 * * * *", func() {
+	_, err = c.AddFunc("0 */10 * * * *", func() {
 		ctx := context.Background()
-		fmt.Println("cron job started....................")
+
 		slog.Info("Cron Job: fetching latest dollar price...")
 
 		if err := dollarService.FetchAndUpdateDollar(ctx); err != nil {
-			fmt.Printf("cron job error1:%v", err)
+
 			slog.Error("Cron Job failed to update dollar", "error", err)
 		} else {
 			slog.Info("Cron Job: dollar updated successfully ✅")
 		}
 	})
 	if err != nil {
-		fmt.Println("cron job error2:", err)
+
 		slog.Error("Failed to register cron job", "error", err)
 	}
-	fmt.Println("cron job registered successfully ✅")
 
 	c.Start()
 	defer c.Stop()

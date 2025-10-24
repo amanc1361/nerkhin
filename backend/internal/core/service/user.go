@@ -716,7 +716,6 @@ func (us *UserService) ImpersonateUser(ctx context.Context, targetUserID, adminI
 
 	var tokenString string
 	var targetUser *domain.User
-	fmt.Println("in service ........................................")
 	err = us.dbms.BeginTransaction(ctx, db, func(txSession interface{}) error {
 		localTargetUser, txErr := us.repo.GetUserByID(ctx, txSession, targetUserID)
 		if txErr != nil {
