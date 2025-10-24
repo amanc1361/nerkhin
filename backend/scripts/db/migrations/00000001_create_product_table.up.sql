@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS product_image (
 	url 			VARCHAR(200) 	NOT NULL,
 	is_default    	BOOLEAN 		NOT NULL 
 );
-CREATE TABLE dollar_log (
+CREATE TABLE IF NOT EXISTS  dollar_log (
     id BIGSERIAL PRIMARY KEY,
     price NUMERIC(18,4) NOT NULL,
     source TEXT DEFAULT 'tgnsrv.ir',
