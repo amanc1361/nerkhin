@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -39,6 +40,7 @@ func (s *DollarService) FetchAndUpdateDollar(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println(resp)
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
