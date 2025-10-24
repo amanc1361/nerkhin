@@ -87,7 +87,7 @@ func main() {
 		productBrandRepo,
 		appConfig,
 	)
-    productFilterImportService := service.RegisterProductFilterImportService(postgresDMBS, productFilterRepo)
+	productFilterImportService := service.RegisterProductFilterImportService(postgresDMBS, productFilterRepo)
 
 	productBrandService := service.RegisterProductBrandService(postgresDMBS, productBrandRepo, productCategoryRepo, productModelRepo)
 	productFilterService := service.RegisterProductFilterService(postgresDMBS, productFilterRepo,
@@ -147,31 +147,31 @@ func main() {
 		tokenService, appConfig)
 	landingHandler := handler.RegisterLandingHandler(landingService,
 		tokenService, appConfig)
-		dollarRepo := &repository.DollarLogRepository{}
-		dollarService := service.RegisterDollarService(postgresDMBS, dollarRepo, userRepo, productRepo)
-		
-		c:=cron.New(
-			cron.WithLocation(time.Local),
-			cron.WithSeconds(),
-		)
-		_, err = c.AddFunc("0 */10 * * * *", func() {
-			ctx := context.Background()
-		
-			slog.Info("Cron Job: fetching latest dollar price...")
-		
-			if err := dollarService.FetchAndUpdateDollar(ctx); err != nil {
-				slog.Error("Cron Job failed to update dollar", "error", err)
-			} else {
-				slog.Info("Cron Job: dollar updated successfully ✅")
-			}
-		})
-		if err != nil {
-			slog.Error("Failed to register cron job", "error", err)
+	dollarRepo := &repository.DollarLogRepository{}
+	dollarService := service.RegisterDollarService(postgresDMBS, dollarRepo, userRepo, productRepo)
+
+	c := cron.New(
+		cron.WithLocation(time.Local),
+		cron.WithSeconds(),
+	)
+	_, err = c.AddFunc("0 */2 * * * *", func() {
+		ctx := context.Background()
+
+		slog.Info("Cron Job: fetching latest dollar price...")
+
+		if err := dollarService.FetchAndUpdateDollar(ctx); err != nil {
+			slog.Error("Cron Job failed to update dollar", "error", err)
+		} else {
+			slog.Info("Cron Job: dollar updated successfully ✅")
 		}
-		
-		c.Start()
-		defer c.Stop()
-	
+	})
+	if err != nil {
+		slog.Error("Failed to register cron job", "error", err)
+	}
+
+	c.Start()
+	defer c.Stop()
+
 	// init router
 	router, err := http.NewRouter(
 		httpConfig,
@@ -191,7 +191,7 @@ func main() {
 		favoriteProductHandler,
 		favoriteAccountHandler,
 		productFilterImportHandler,
-		
+
 		landingHandler,
 	)
 	if err != nil {
