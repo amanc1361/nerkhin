@@ -40,20 +40,21 @@ func (s *DollarService) FetchAndUpdateDollar(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(resp)
+
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
-
+	fmt.Println(body)
+	fmt.Println("********************************************************")
 	var payload map[string]interface{}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return err
 	}
-
-	priceVal, ok := payload["price"]
+	fmt.Println(payload)
+	priceVal, ok := payload["Dollar"]
 	if !ok {
 		return errors.New("price not found in response")
 	}
