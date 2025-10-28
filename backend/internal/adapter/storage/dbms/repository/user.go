@@ -450,11 +450,7 @@ func (ur *UserRepository) UpdateAllUsersDeviceLimit(ctx context.Context, dbSessi
 		Update("device_limit", limit).Error
 }
 
-// in a new file repository/user.go or an existing one
 
-// in repository/user.go
-
-// FetchAdminUserList retrieves a filtered list of users for the admin panel.
 func (ur *UserRepository) FetchAdminUserList(ctx context.Context, dbSession interface{},
 	filter *domain.UserFilterSubScribe) ([]*domain.AdminUserViewModel, error) {
 
